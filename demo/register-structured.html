@@ -1,0 +1,794 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Document Register: Structured Demo</title>
+<style>
+:root{
+  --bg:#f3f1ec;--panel:#fff;--ink:#1c2631;--soft:#5d6874;--line:#e2ded5;--tint:#f4f2ee;
+  --navy:#1d3a52;--accent:#1f5f8b;--accent-soft:#e1ecf5;
+  --ok:#23734a;--ok-soft:#dff2e7;--warn:#8f5a00;--warn-soft:#fbefd6;--bad:#a02f2f;--bad-soft:#f8e2e2;--mute:#7d8790;--mute-soft:#eceae5;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#121518;--panel:#1a1f25;--ink:#e6e9ec;--soft:#9aa5b0;--line:#2b333c;--tint:#1e242b;
+    --navy:#0f2232;--accent:#7fb3dd;--accent-soft:#1c2c3b;
+    --ok:#7fd1a0;--ok-soft:#1b3326;--warn:#f0c270;--warn-soft:#3a2d13;--bad:#f09a9a;--bad-soft:#3b1f1f;--mute:#7d878f;--mute-soft:#262c33;color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121518;--panel:#1a1f25;--ink:#e6e9ec;--soft:#9aa5b0;--line:#2b333c;--tint:#1e242b;
+  --navy:#0f2232;--accent:#7fb3dd;--accent-soft:#1c2c3b;
+  --ok:#7fd1a0;--ok-soft:#1b3326;--warn:#f0c270;--warn-soft:#3a2d13;--bad:#f09a9a;--bad-soft:#3b1f1f;--mute:#7d878f;--mute-soft:#262c33;color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif;min-height:100vh}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+/* Top bar */
+.top{background:var(--navy);color:#fff;display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;padding:12px 18px}
+.brand{font-weight:700;font-size:16px;margin-right:auto}
+.brand small{display:block;font-weight:500;opacity:.75;font-size:12px}
+.who{display:flex;gap:8px;align-items:center;font-size:13px}
+.who select{background:#2c4f6b;color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:8px;padding:6px 8px}
+.who select option{color:#111}
+.who .role{opacity:.8;font-size:12px}
+.topbtn{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:13px}
+
+/* Layout */
+.shell{display:grid;grid-template-columns:210px minmax(0,1fr);min-height:calc(100vh - 62px)}
+@media (max-width:760px){.shell{grid-template-columns:1fr}.nav{display:flex;flex-wrap:wrap;border-right:0;border-bottom:1px solid var(--line)}.nav h4{width:100%}}
+.nav{background:var(--panel);border-right:1px solid var(--line);padding:14px 10px}
+.nav button{display:flex;width:100%;text-align:left;background:none;border:0;padding:9px 12px;border-radius:8px;cursor:pointer;color:var(--ink);white-space:nowrap}
+.nav button:hover{background:var(--tint)}
+.nav button[aria-current="page"]{background:var(--accent-soft);color:var(--accent);font-weight:650}
+.nav h4{margin:14px 12px 6px;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--soft)}
+main{padding:22px clamp(14px,3vw,30px) 60px;min-width:0}
+h1{font-size:24px;margin:0 0 4px;font-weight:650}
+h2{font-size:17px;margin:24px 0 10px;font-weight:650}
+h3{font-size:15px;margin:0 0 6px;font-weight:650}
+.sub{color:var(--soft);margin:0 0 16px;max-width:75ch}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.grow{flex:1}
+.muted{color:var(--soft)}
+.small{font-size:13px}
+.no{font-family:ui-monospace,Consolas,monospace;font-size:13px;color:var(--soft)}
+.strong{font-weight:650}
+.crumb{font-size:13px;color:var(--soft)}
+.crumb b{color:var(--ink);font-weight:600}
+
+/* Controls */
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:8px 14px;cursor:pointer;font-weight:600;font-size:14px;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+.btn.danger{border-color:var(--bad);color:var(--bad)}
+.btn.link{border-color:transparent;background:none;color:var(--accent);padding:6px 4px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+input.t,select.t,textarea.t{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--panel);width:100%;font-size:14px}
+input.t[readonly]{background:var(--tint);color:var(--ink);font-family:ui-monospace,Consolas,monospace;font-weight:600}
+textarea.t{min-height:64px;resize:vertical}
+select.t{min-width:0}
+.field{display:grid;gap:4px;margin-bottom:12px;min-width:0}
+.field label{font-size:13px;font-weight:650}
+.field .help{font-size:12.5px;color:var(--soft)}
+.req{color:var(--bad)}
+.err{color:var(--bad);font-size:13px}
+.errbox{background:var(--bad-soft);color:var(--bad);border-radius:10px;padding:10px 12px;margin:0 0 12px;font-size:14px}
+.infobox{background:var(--accent-soft);border-radius:10px;padding:10px 12px;margin:0 0 12px;font-size:14px}
+.okbox{background:var(--ok-soft);color:var(--ok);border-radius:10px;padding:10px 12px;margin:0 0 12px;font-size:14px}
+.warnbox{background:var(--warn-soft);border-radius:10px;padding:10px 12px;margin:8px 0 0;font-size:14px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.three{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+@media (max-width:640px){.two,.three{grid-template-columns:1fr}}
+
+/* Pills and tags */
+.pill{display:inline-block;font-size:12px;font-weight:650;padding:2px 9px;border-radius:999px;white-space:nowrap}
+.p-wait{background:var(--warn-soft);color:var(--warn)}
+.p-check{background:var(--accent-soft);color:var(--accent)}
+.p-ok{background:var(--ok-soft);color:var(--ok)}
+.p-bad{background:var(--bad-soft);color:var(--bad)}
+.p-old{background:var(--mute-soft);color:var(--mute)}
+.p-none{background:var(--mute-soft);color:var(--soft)}
+.tag{display:inline-block;font-size:11.5px;border:1px solid var(--line);border-radius:6px;padding:0 6px;color:var(--soft);margin-left:4px}
+.tag.cur{border-color:var(--ok);color:var(--ok);font-weight:650}
+.tag.lat{border-color:var(--accent);color:var(--accent);font-weight:650}
+
+/* Tables */
+.tw{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px}
+table{width:100%;border-collapse:collapse;min-width:700px}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--soft);text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);font-weight:650}
+td{padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
+tr.click{cursor:pointer}
+tr.click:hover td{background:var(--tint)}
+tr:last-child td{border-bottom:0}
+
+/* Folder tree */
+.tree{list-style:none;margin:0;padding:0}
+.tree li{margin:0}
+.tree .node{display:flex;justify-content:space-between;gap:10px;align-items:center;width:100%;text-align:left;background:none;border:0;padding:7px 10px;border-radius:8px;cursor:pointer}
+.tree .node:hover{background:var(--tint)}
+.tree .node[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent);font-weight:650}
+.tree .group{font-weight:650;padding:10px 10px 4px;color:var(--ink)}
+.tree .n{color:var(--soft);font-size:13px;font-variant-numeric:tabular-nums}
+.tree .leaf{padding-left:28px}
+.tree .mid{padding-left:18px}
+
+/* Revisions */
+.rev{display:grid;grid-template-columns:22px minmax(0,1fr);gap:12px;position:relative;padding-bottom:16px}
+.rev:last-child{padding-bottom:0}
+.rev .dot{width:14px;height:14px;border-radius:50%;border:3px solid var(--mute);background:var(--panel);margin-top:5px}
+.rev.cur .dot{background:var(--ok);border-color:var(--ok)}
+.rev.lat .dot{border-color:var(--accent)}
+.rev:not(:last-child)::after{content:"";position:absolute;left:9px;top:22px;bottom:0;width:2px;background:var(--line)}
+.rev .rt{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.rev .rm{font-size:13px;color:var(--soft);margin-top:2px}
+.rev .rs{margin-top:6px;background:var(--tint);border:1px solid var(--line);border-radius:9px;padding:9px 11px}
+.rev .ra{margin-top:8px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+
+/* Tasks */
+.tasks{display:grid;gap:8px}
+.task{display:grid;grid-template-columns:24px minmax(0,1fr);gap:10px;align-items:start;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+.task .box{width:22px;height:22px;border-radius:6px;border:2px solid var(--line);display:grid;place-items:center;font-size:13px;color:#fff;font-weight:800}
+.task.done .box{background:var(--ok);border-color:var(--ok)}
+.task.done .tt{text-decoration:line-through;color:var(--soft)}
+.task .tt{font-weight:650}
+.task .th{font-size:13px;color:var(--soft)}
+.progress{height:8px;background:var(--mute-soft);border-radius:999px;overflow:hidden;margin:6px 0 12px}
+.progress i{display:block;height:100%;background:var(--ok)}
+
+/* Modal */
+.scrim{position:fixed;inset:0;background:rgba(15,22,30,.45);z-index:20;display:grid;place-items:center;padding:14px}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 22px;width:min(640px,100%);max-height:92vh;overflow:auto;box-shadow:0 24px 60px -24px rgba(0,0,0,.45)}
+.modal h3{font-size:19px;margin:0 0 6px}
+.stepline{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 14px;font-size:13px;color:var(--soft)}
+.stepline span{background:var(--tint);border-radius:999px;padding:3px 10px}
+.drop{border:2px dashed var(--accent);border-radius:12px;background:var(--accent-soft);padding:12px 14px;display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:11px 16px;border-radius:10px;z-index:30;max-width:calc(100% - 32px);font-size:14px;box-shadow:0 10px 24px -12px rgba(0,0,0,.5)}
+.log .l{display:grid;grid-template-columns:150px minmax(0,1fr);gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.log .l:last-child{border-bottom:0}
+.log .wt{color:var(--soft);font-size:13px}
+.progressbar{height:8px;background:var(--mute-soft);border-radius:999px;overflow:hidden}
+footer{color:var(--soft);font-size:12.5px;margin-top:30px}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">Document Register<small>Practice demo. Nothing leaves this page.</small></div>
+  <div class="who">
+    <label for="me">Playing as</label>
+    <select id="me" aria-describedby="meRole"></select>
+    <span class="role" id="meRole"></span>
+  </div>
+  <button class="topbtn" data-a="reset">Start over</button>
+</header>
+
+<div class="shell">
+  <nav class="nav" aria-label="Sections">
+    <h4>Sections</h4>
+    <button data-a="nav" data-v="list">Documents</button>
+    <button data-a="nav" data-v="folders">Folders</button>
+    <button data-a="nav" data-v="import">Bring in a list</button>
+    <button data-a="nav" data-v="log">Activity</button>
+  </nav>
+  <main id="main"></main>
+</div>
+
+<div id="modalWrap"></div>
+<div id="toastWrap"></div>
+
+<script>
+/* ================= Reference data ================= */
+const KEY='dmsDemo.structured.v1';
+const PEOPLE=['Sam','Priya','Tom','Mia'];
+const ROLE={Sam:'Adds files',Priya:'Checker',Tom:'Approver',Mia:'Records lead'};
+const REASONS=['Design change','Client comment','Vendor data','Error fix','Scope change','As-built'];
+const PROJECTS=[
+  {code:'U100',name:'Unit 100 Refinery',stream:true},
+  {code:'TF7',name:'Tank Farm TF-7',stream:true},
+  {code:'NEW1',name:'New Substation SS-9 (no numbering yet)',stream:false}];
+/* Full folder structure. Every leaf is a real folder. */
+const LEAVES=[
+ 'EPC/01 Project Management',
+ 'EPC/02 Engineering/02.1 Process','EPC/02 Engineering/02.2 Piping','EPC/02 Engineering/02.3 Electrical',
+ 'EPC/02 Engineering/02.4 Instrumentation & Control','EPC/02 Engineering/02.5 Civil & Structural',
+ 'EPC/03 Procurement/03.1 Requisitions','EPC/03 Procurement/03.2 Purchase Orders','EPC/03 Procurement/03.3 Vendor Documents',
+ 'EPC/04 Construction/04.1 Method Statements','EPC/04 Construction/04.2 Inspection & Test Plans','EPC/04 Construction/04.3 Daily Reports',
+ 'EPC/05 Commissioning',
+ 'EPC/06 Handover/06.1 As-Built','EPC/06 Handover/06.2 O&M Manuals',
+ 'Operations/01 Manuals','Operations/02 SOPs','Operations/03 Maintenance','Operations/04 Permits','Operations/05 Reports'];
+/* Document types. Each type has a code, a name, and the one folder it files into. */
+const TYPES=[
+ {c:'PID',l:'P&ID',f:'EPC/02 Engineering/02.1 Process'},
+ {c:'PFD',l:'Process flow diagram',f:'EPC/02 Engineering/02.1 Process'},
+ {c:'ISO',l:'Piping isometric',f:'EPC/02 Engineering/02.2 Piping'},
+ {c:'SLD',l:'Single line diagram',f:'EPC/02 Engineering/02.3 Electrical'},
+ {c:'CBL',l:'Cable schedule',f:'EPC/02 Engineering/02.3 Electrical'},
+ {c:'CNT',l:'Control narrative',f:'EPC/02 Engineering/02.4 Instrumentation & Control'},
+ {c:'FND',l:'Foundation layout',f:'EPC/02 Engineering/02.5 Civil & Structural'},
+ {c:'PLN',l:'Project execution plan',f:'EPC/01 Project Management'},
+ {c:'PO',l:'Purchase order',f:'EPC/03 Procurement/03.2 Purchase Orders'},
+ {c:'VDR',l:'Vendor document',f:'EPC/03 Procurement/03.3 Vendor Documents'},
+ {c:'MS',l:'Method statement',f:'EPC/04 Construction/04.1 Method Statements'},
+ {c:'ITP',l:'Inspection and test plan',f:'EPC/04 Construction/04.2 Inspection & Test Plans'},
+ {c:'ABD',l:'As-built drawing',f:'EPC/06 Handover/06.1 As-Built'},
+ {c:'OM',l:'O&M manual',f:'EPC/06 Handover/06.2 O&M Manuals'},
+ {c:'MAN',l:'Operations manual',f:'Operations/01 Manuals'},
+ {c:'SOP',l:'Standard operating procedure',f:'Operations/02 SOPs'},
+ {c:'MNT',l:'Maintenance plan',f:'Operations/03 Maintenance'},
+ {c:'PTW',l:'Permit template',f:'Operations/04 Permits'},
+ {c:'RPT',l:'Operations report',f:'Operations/05 Reports'}];
+const TYPE=c=>TYPES.find(t=>t.c===c);
+const GROUP=f=>f.split('/')[0];          /* EPC or Operations */
+const PATH=f=>f.split('/').join(' › ');
+const OWNERS=PEOPLE;
+
+/* ================= Helpers ================= */
+const DAY=()=>new Date().toISOString().slice(0,10);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $=s=>document.querySelector(s);
+const fmtT=t=>new Date(t).toLocaleString(undefined,{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+const rev=o=>Object.assign({status:'Approved',date:'2026-02-03',by:'Sam',reason:'Design change',summary:'',checker:'',approver:'',checkedBy:'',approvedBy:'',returnNote:'',file:'',imported:false},o);
+const gap=()=>({status:'Not on file',date:'',by:'',reason:'',summary:'',checker:'',approver:'',checkedBy:'',approvedBy:'',returnNote:'',file:'',imported:false});
+const NO_RE=/^([A-Z0-9]{2,6})-([A-Z]{2,4})-(\d{4})$/;
+
+function seed(){
+  const docs=[
+    {id:'d1',p:'U100',type:'PID',title:'Pump layout, Unit 100',deleted:false,revs:[
+      rev({date:'2026-02-03',summary:'First issue for internal review.',file:'U100-PID-1001_r0.pdf'}),
+      rev({date:'2026-04-10',reason:'Client comment',summary:'Moved pump 300 mm north after the site survey.',file:'U100-PID-1001_r1.pdf',checker:'Priya',approver:'Tom',checkedBy:'Priya',approvedBy:'Tom'}),
+      rev({status:'Submitted',date:DAY(),by:'Sam',reason:'Design change',summary:'Added a bypass valve on the cooling line.',file:'U100-PID-1001_r2.pdf',checker:'Priya',approver:'Tom'})]},
+    {id:'d2',p:'U100',type:'ISO',title:'Isometric, line 14',deleted:false,revs:[
+      rev({date:'2026-01-08',summary:'First issue.',file:'U100-ISO-0042_r0.pdf',checker:'Priya',approver:'Tom',checkedBy:'Priya',approvedBy:'Tom'}),
+      rev({date:'2026-06-18',reason:'As-built',summary:'Spool split changed after fit-up.',file:'U100-ISO-0042_r1.pdf',checker:'Priya',approver:'Tom',checkedBy:'Priya',approvedBy:'Tom'})]},
+    {id:'d3',p:'U100',type:'MAN',title:'Pump maintenance manual',deleted:false,revs:[
+      rev({date:'2026-03-02',reason:'Vendor data',summary:'Vendor manual adapted for site.',file:'U100-MAN-0007_r0.pdf'})]},
+    {id:'d4',p:'U100',type:'SOP',title:'Unit 100 startup procedure',deleted:false,revs:[
+      rev({date:'2026-04-22',summary:'First issue.',file:'U100-SOP-0014_r0.pdf'}),gap(),
+      rev({date:'2026-10-05',reason:'Error fix',summary:'Added nitrogen purge step.',file:'U100-SOP-0014_r2.pdf'})]},
+    {id:'d5',p:'U100',type:'SLD',title:'Single line diagram',deleted:false,revs:[
+      rev({status:'Returned',date:'2026-09-02',by:'Sam',reason:'Design change',summary:'First draft of the main supply.',file:'U100-SLD-0300_r0.pdf',checker:'Priya',approver:'Tom',returnNote:'Load list is missing. Please add it, then resubmit.'})]},
+    {id:'d6',p:'TF7',type:'PID',title:'Tank 7 P&ID',deleted:false,revs:[
+      rev({date:'2026-05-12',summary:'Tank 7 issued for review.',file:'TF7-PID-0001_r0.pdf',checker:'Priya',approver:'Tom',checkedBy:'Priya',approvedBy:'Tom'})]}
+  ];
+  docs.forEach(d=>{d.folder=TYPE(d.type).f;d.no=`${d.p}-${d.type}-${d.id==='d1'?'1001':d.id==='d2'?'0042':d.id==='d3'?'0007':d.id==='d4'?'0014':d.id==='d5'?'0300':'0001'}`;
+    d.orig=d.no+'.pdf';d.name=d.orig;});
+  const log=[
+    {t:Date.parse('2026-02-03T09:00'),who:'Sam',text:'Added U100-PID-1001 rev 0'},
+    {t:Date.parse('2026-04-10T14:20'),who:'Tom',text:'Approved U100-PID-1001 rev 1 (now current)'},
+    {t:Date.parse('2026-10-05T10:40'),who:'Sam',text:'Added U100-SOP-0014 rev 2'}];
+  return {me:'Sam',docs,log,progress:{},projects:PROJECTS.map(p=>({...p}))};
+}
+function load(){try{const v=JSON.parse(localStorage.getItem(KEY)||'null');if(v&&v.docs&&v.projects)return v;}catch(e){}return seed();}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(D));}catch(e){}}
+let D=load();
+const S={view:'list',open:null,q:'',status:'',folder:'',proj:'',showRemoved:false,modal:null,
+  draft:{},errs:{},tried:false,revOpen:false,rdraft:{},rerrs:{},tried2:false,retText:{},remOpen:false,remReason:'',remText:'',
+  imp:{text:''},impRows:null,hideTasks:false,toast:'',toastT:null};
+S.imp.text=SAMPLE_CSV();
+function SAMPLE_CSV(){return `doc_no,title,rev,date,folder,summary,file_name,by
+U100-PID-1002,Pump P-101 datasheet,0,2026-03-01,,First issue for review,U100-PID-1002_r0.pdf,Sam
+U100-PID-1002,Pump P-101 datasheet,2,2026-06-10,,Vendor data added,U100-PID-1002_r2.pdf,Sam
+U100-ISO-0042,Isometric line 14,0,2026-01-08,,Already in the register,U100-ISO-0042_r0.pdf,Sam
+tf7 pid 1009,Tank 7 P&ID draft,0,2026-07-01,,First issue for review,TF7-PID-1009_r0.pdf,Mia`;}
+
+/* ================= Rules ================= */
+const docById=id=>D.docs.find(d=>d.id===id);
+const projOf=code=>D.projects.find(p=>p.code===code);
+const curIdx=d=>{let c=-1;d.revs.forEach((r,i)=>{if(r.status==='Approved')c=i;});return c;};
+const lastIdx=d=>d.revs.length-1;
+const who=()=>D.me;
+function log(text){D.log.unshift({t:Date.now(),who:D.me,text});}
+function prog(k){D.progress[k]=true;}
+function toast(m){clearTimeout(S.toastT);S.toast=m;$('#toastWrap').innerHTML=`<div class="toast" role="status">${esc(m)}</div>`;S.toastT=setTimeout(()=>{$('#toastWrap').innerHTML='';},4200);}
+function statusPill(s){
+  const map={'Submitted':['p-wait','Waiting for check'],'Checked':['p-check','Waiting for approval'],'Approved':['p-ok','Approved'],'Returned':['p-bad','Sent back'],'Not on file':['p-none','Not on file']};
+  const [c,t]=map[s]||['p-none',s];return `<span class="pill ${c}">${t}</span>`;
+}
+function revTags(d,i){
+  const r=d.revs[i];if(r.status==='Not on file')return '';
+  const c=curIdx(d),l=lastIdx(d);let h='';
+  if(i===c)h+='<span class="tag cur">Current</span>';
+  if(i===l)h+='<span class="tag lat">Latest</span>';
+  if(i<l&&c>=0&&i<c)h+='<span class="tag">Replaced</span>';
+  return h;
+}
+function canCheck(d,i){
+  const r=d.revs[i];
+  if(r.status!=='Submitted')return 'This file is not waiting for a check.';
+  if(who()===r.by)return 'You added this file, so you cannot check it. Ask a different checker.';
+  if(who()!==r.checker)return `Only ${r.checker} can check this file.`;
+  return null;
+}
+function canApprove(d,i){
+  const r=d.revs[i];
+  if(r.status!=='Checked')return 'This file is not waiting for approval.';
+  if(who()===r.by||who()===r.checker)return 'The approver must be a different person from the uploader and the checker.';
+  if(who()!==r.approver)return `Only ${r.approver} can approve this file.`;
+  return null;
+}
+function canReturn(d,i){
+  const r=d.revs[i];
+  if(!['Submitted','Checked'].includes(r.status))return 'This file is not waiting.';
+  if(![r.checker,r.approver].includes(who()))return 'Only the checker or approver can send a file back.';
+  return null;
+}
+
+/* ================= Numbering stream ================= */
+/* Next number for a project and type. Continues the existing stream. */
+function streamInfo(pcode,tc){
+  const p=projOf(pcode);
+  const prefix=`${pcode}-${tc}-`;
+  let max=0,count=0;
+  D.docs.forEach(d=>{if(d.p===pcode&&d.type===tc){count++;const n=+d.no.slice(prefix.length);if(n>max)max=n;}});
+  return {p,prefix,count,last:max,next:prefix+String(max+1).padStart(4,'0')};
+}
+function numberNote(pcode,tc){
+  if(!pcode||!tc)return 'Choose a project and a document type. The number is then filled in for you.';
+  const si=streamInfo(pcode,tc);
+  if(!si.p.stream)return `${pcode} has no numbering stream yet. Type the first number. It starts the stream for this project.`;
+  if(si.count===0)return `Found the ${pcode} numbering stream. No ${TYPE(tc).l} numbers yet, so this starts at 0001.`;
+  return `Found the ${pcode} numbering stream. Last ${TYPE(tc).l} number is ${si.last}. The next one is filled in.`;
+}
+
+/* ================= Validation ================= */
+function fileErrors(f){
+  const e={};
+  if(!f.file)e.file='Choose a file.';
+  else if(!/\.(pdf|docx|xlsx|dwg|zip)$/i.test(f.file.name))e.file='This file type is not allowed. Use PDF, Word, Excel, DWG or ZIP.';
+  if(!f.reason)e.reason='Choose a reason.';
+  const s=(f.summary||'').trim();
+  if(s.length<20)e.summary=`Write at least 20 characters (${s.length} now).`;
+  if((f.note||'').trim().length<10)e.note='Write at least 10 characters for the checker.';
+  if(!f.checker)e.checker='Choose a checker.';
+  if(!f.approver)e.approver='Choose an approver.';
+  if(f.checker&&f.approver&&f.checker===f.approver)e.approver='Approver must be different from the checker.';
+  if(f.checker&&f.checker===who())e.checker='You cannot be the checker for your own file.';
+  if(f.approver&&f.approver===who())e.approver='You cannot approve your own file.';
+  return e;
+}
+
+/* ================= Actions ================= */
+function addRevision(d,f){
+  const idx=d.revs.length;
+  d.revs.push(rev({status:'Submitted',date:DAY(),by:who(),reason:f.reason,summary:f.summary.trim(),file:f.file.name,checker:f.checker,approver:f.approver}));
+  log(`Added ${d.no} rev ${idx} (waiting for check by ${f.checker})`);
+  return idx;
+}
+function saveNewDoc(){
+  const f=S.draft,e=fileErrors(f);
+  if(!f.project)e.project='Choose a project.';
+  if(!f.type)e.type='Choose a document type.';
+  let no='';
+  if(f.project&&f.type){
+    const p=projOf(f.project);
+    if(p.stream){no=streamInfo(f.project,f.type).next;}
+    else{
+      no=(f.no||'').trim().toUpperCase();
+      if(!new RegExp(`^${f.project}-${f.type}-\\d{4}$`).test(no))e.no=`Use the form ${f.project}-${f.type}-0001.`;
+    }
+    if(no&&D.docs.some(d=>d.no===no))e.no=`${no} already exists.`;
+  }
+  if(!(f.title||'').trim())e.title='Give the document a title.';
+  S.errs=e;S.tried=true;
+  if(Object.keys(e).length)return;
+  const p=projOf(f.project);
+  const wasStream=p.stream;
+  p.stream=true;
+  const d={id:'d'+Date.now().toString(36),p:f.project,type:f.type,no,title:f.title.trim(),folder:TYPE(f.type).f,deleted:false,orig:no+'.pdf',name:no+'.pdf',revs:[]};
+  D.docs.push(d);
+  addRevision(d,f);
+  log(`Created ${no} · ${d.title} · ${PATH(d.folder)}`);
+  if(!wasStream)log(`Started numbering stream ${f.project}-${f.type}`);
+  prog('added');save();
+  S.open=d.id;S.view='doc';S.modal=null;S.draft={};S.errs={};S.tried=false;
+  toast(`${no} added to ${PATH(d.folder).split(' › ').pop()}. Waiting for ${f.checker} to check it.`);
+}
+function saveRev(d){
+  const f=S.rdraft,e=fileErrors(f);
+  S.rerrs=e;S.tried2=true;
+  if(Object.keys(e).length)return;
+  const idx=addRevision(d,f);
+  S.rdraft={};S.rerrs={};S.tried2=false;S.revOpen=false;
+  save();toast(`Rev ${idx} added. Waiting for ${f.checker}.`);
+}
+function doCheck(d,i){
+  const m=canCheck(d,i);
+  if(m){if(who()===d.revs[i].by)prog('blocked');save();toast(m);return;}
+  d.revs[i].status='Checked';d.revs[i].checkedBy=who();
+  log(`Checked ${d.no} rev ${i}`);prog('checked');save();
+  toast(`Checked. Waiting for ${d.revs[i].approver} to approve.`);
+}
+function doApprove(d,i){
+  const m=canApprove(d,i);
+  if(m){toast(m);return;}
+  d.revs[i].status='Approved';d.revs[i].approvedBy=who();
+  log(`Approved ${d.no} rev ${i} (now current)`);prog('approved');save();
+  toast(`Approved. ${d.no} rev ${i} is now the current version.`);
+}
+function doReturn(d,i){
+  const m=canReturn(d,i),t=(S.retText[i]||'').trim();
+  if(m){toast(m);return;}
+  if(t.length<10){toast('Write at least 10 characters to explain what must change.');return;}
+  d.revs[i].status='Returned';d.revs[i].returnNote=t;
+  log(`Sent back ${d.no} rev ${i}: ${t}`);S.retText[i]='';save();
+  toast('Sent back to the uploader with your note.');
+}
+function doRemove(d){
+  if(!S.remReason){toast('Choose a reason.');return;}
+  if(S.remText.trim().length<20){toast('Write at least 20 characters to say why.');return;}
+  d.deleted=true;d.name='DELETED_'+DAY().replace(/-/g,'')+'_'+d.orig;
+  log(`Removed ${d.no} (${S.remReason}): ${S.remText.trim()}. Renamed to ${d.name}`);prog('removed');save();
+  S.remOpen=false;S.remReason='';S.remText='';toast(`${d.no} is removed. The file is renamed, not erased.`);
+}
+function doRestore(d){
+  d.deleted=false;d.name=d.orig;log(`Restored ${d.no}. Name set back to ${d.orig}`);prog('restored');save();
+  toast(`${d.no} is back in the register.`);
+}
+
+/* ================= Import ================= */
+function parseList(text){
+  const lines=text.trim().split(/\r?\n/).filter(Boolean);
+  const head=(lines[0]||'').split(',').map(s=>s.trim().toLowerCase());
+  const need=['doc_no','title','rev','date','summary','file_name','by'];
+  const miss=need.filter(c=>!head.includes(c));
+  if(miss.length)return {error:`The list needs these columns: ${miss.join(', ')}. The folder column is optional.`,rows:[]};
+  const rows=lines.slice(1).map((ln,i)=>{
+    const c=ln.split(',').map(s=>s.trim());const g=k=>c[head.indexOf(k)]??'';
+    const raw=g('doc_no');
+    const no=raw.trim().toUpperCase().replace(/\s+/g,'-');
+    const m=no.match(NO_RE),rv=g('rev');
+    const issues=[];
+    if(raw!==no)issues.push({k:'info',m:`Name fixed to ${no}`});
+    if(!m)issues.push({k:'block',m:'Number must look like U100-PID-0001'});
+    const pc=m?m[1]:'',tc=m?m[2]:'';
+    if(m&&!projOf(pc))issues.push({k:'block',m:`Project ${pc} is not in the register`});
+    if(m&&!TYPE(tc))issues.push({k:'block',m:`Document type ${tc} is not in the list`});
+    if(!/^\d+$/.test(rv))issues.push({k:'block',m:'Rev must be a number'});
+    const folder=g('folder')||(TYPE(tc)?TYPE(tc).f:'');
+    if(g('folder')&&!LEAVES.includes(g('folder')))issues.push({k:'block',m:'Folder is not in the structure'});
+    if(!g('file_name'))issues.push({k:'block',m:'File name missing'});
+    if(!OWNERS.includes(g('by')))issues.push({k:'block',m:'“By” must be a person in the demo'});
+    const d=m?D.docs.find(x=>x.no===no):null;
+    if(d&&d.revs[+rv]&&d.revs[+rv].status!=='Not on file')issues.push({k:'skip',m:`Rev ${rv} is already on file. Skipped.`});
+    if(d&&+rv>d.revs.length)issues.push({k:'info',m:`Rev ${d.revs.length} to ${+rv-1} will show as Not on file`});
+    if(!d&&+rv>0)issues.push({k:'info',m:`Rev 0 to ${+rv-1} will show as Not on file`});
+    return {L:i+2,no,p:pc,type:tc,title:g('title'),rev:+rv,date:g('date'),folder,summary:g('summary'),file:g('file_name'),by:g('by'),issues};
+  });
+  return {rows};
+}
+function runImport(rp){
+  let added=0,skipped=0;
+  rp.rows.forEach(r=>{
+    if(r.issues.some(i=>i.k==='block'||i.k==='skip')){skipped++;return;}
+    let d=D.docs.find(x=>x.no===r.no);
+    if(!d){d={id:'d'+Date.now().toString(36)+r.L,p:r.p,type:r.type,no:r.no,title:r.title,folder:r.folder,deleted:false,orig:r.no+'.pdf',name:r.no+'.pdf',revs:[]};D.docs.push(d);
+      const p=projOf(r.p);if(p)p.stream=true;}
+    while(d.revs.length<r.rev)d.revs.push(gap());
+    d.revs[r.rev]=rev({status:'Approved',date:r.date,by:r.by,reason:'Historical import',summary:r.summary,file:r.file,imported:true});
+    log(`Imported ${d.no} rev ${r.rev} from list`);added++;
+  });
+  prog('imported');save();
+  return {added,skipped};
+}
+
+/* ================= Views ================= */
+function renderNav(){
+  document.querySelectorAll('.nav button[data-v]').forEach(b=>{
+    const on=S.view===b.dataset.v||(S.view==='doc'&&b.dataset.v==='list');
+    b.setAttribute('aria-current',on?'page':'false');
+  });
+  $('#me').innerHTML=PEOPLE.map(p=>`<option ${p===D.me?'selected':''}>${p}</option>`).join('');
+  $('#meRole').textContent=ROLE[D.me];
+}
+function renderTasks(){
+  const TASKS=[
+    {k:'added',t:'Add a document and let the system pick its number',h:'“+ Add document”. Choose a project and a type. Watch the number and folder fill in.'},
+    {k:'blocked',t:'Try to check your own file',h:'Stay as Sam. Open a file Sam added and press Check. The system says no.'},
+    {k:'checked',t:'Check a file as Priya',h:'Switch to Priya. Open the same file. Press Check.'},
+    {k:'approved',t:'Approve the file as Tom',h:'Switch to Tom. Open the file. Press Approve.'},
+    {k:'browsed',t:'Find a document through the folders',h:'Open “Folders”. Click a folder. See what it holds.'},
+    {k:'restored',t:'Remove a document, then restore it',h:'Open any document. Use “Remove document”, then “Restore”.'},
+    {k:'imported',t:'Bring in a list from a spreadsheet',h:'Open “Bring in a list”. Press “Check the list”, then import.'}];
+  const done=TASKS.filter(t=>D.progress[t.k]).length;
+  if(S.hideTasks)return `<div class="row" style="margin:4px 0 14px"><button class="btn link" data-a="tasks-show">Show things to try (${done} of ${TASKS.length} done)</button></div>`;
+  return `<section class="card" style="margin-bottom:16px">
+    <div class="row"><h2 style="margin:0" class="grow">Things to try</h2><span class="small muted">${done} of ${TASKS.length} done</span><button class="btn link" data-a="tasks-hide">Hide</button></div>
+    <div class="progress" style="margin-top:8px"><i style="display:block;height:100%;background:var(--ok);width:${done/TASKS.length*100}%"></i></div>
+    <div class="tasks">${TASKS.map(t=>`<div class="task ${D.progress[t.k]?'done':''}"><div class="box">${D.progress[t.k]?'✓':''}</div><div><div class="tt">${esc(t.t)}</div><div class="th">${esc(t.h)}</div></div></div>`).join('')}</div>
+  </section>`;
+}
+function inFolder(d,f){return !f||d.folder===f||d.folder.startsWith(f+'/');}
+function renderList(){
+  const q=S.q.trim().toLowerCase();
+  const rows=D.docs.filter(d=>(S.showRemoved||!d.deleted)&&(!S.proj||d.p===S.proj)&&inFolder(d,S.folder)&&(!S.status||d.revs[lastIdx(d)].status===S.status)&&(!q||(d.no+' '+d.title+' '+d.folder+' '+TYPE(d.type).l).toLowerCase().includes(q)));
+  const fl=S.folder?`<span class="pill p-check" style="margin-left:8px">${esc(PATH(S.folder))} <button class="btn link" style="padding:0 0 0 6px" data-a="folder-clear">×</button></span>`:'';
+  return `<h1>Documents</h1>
+    <p class="sub">Every document, filed in its folder. Playing as <b>${esc(D.me)}</b> (${ROLE[D.me]}).</p>
+    ${renderTasks()}
+    <div class="row" style="margin-bottom:12px">
+      <input id="q" class="t" type="search" placeholder="Search number, title or type" value="${esc(S.q)}" style="max-width:320px;flex:1" aria-label="Search">
+      <select id="pj" class="t" style="width:auto" aria-label="Project"><option value="">All projects</option>${D.projects.map(p=>`<option value="${p.code}" ${S.proj===p.code?'selected':''}>${esc(p.name)}</option>`).join('')}</select>
+      <select id="st" class="t" style="width:auto" aria-label="Status">
+        <option value="">All statuses</option>
+        ${['Submitted','Checked','Approved','Returned'].map(s=>`<option value="${s}" ${S.status===s?'selected':''}>${{Submitted:'Waiting for check',Checked:'Waiting for approval',Approved:'Approved',Returned:'Sent back'}[s]}</option>`).join('')}
+      </select>
+      <label class="small"><input type="checkbox" data-a="show-removed" ${S.showRemoved?'checked':''}> Show removed</label>
+      <span class="grow"></span>
+      <button class="btn primary" data-a="add-open">+ Add document</button>
+    </div>
+    <div class="row" style="margin-bottom:8px">${fl}</div>
+    <div class="tw"><table><thead><tr><th>Number</th><th>Title</th><th>Project</th><th>Folder</th><th>Current</th><th>Latest</th></tr></thead><tbody>
+    ${rows.length?rows.map(d=>{
+      const c=curIdx(d),l=lastIdx(d),lr=d.revs[l];
+      return `<tr class="click" data-a="open" data-id="${d.id}" tabindex="0">
+        <td class="no">${esc(d.no)}${d.deleted?' <span class="pill p-bad">Removed</span>':''}</td>
+        <td class="strong">${esc(d.title)}<div class="small muted">${esc(TYPE(d.type).l)}</div></td>
+        <td>${esc(projOf(d.p).code)}</td>
+        <td class="small muted">${esc(PATH(d.folder))}</td>
+        <td>${c>=0?`Rev ${c}`:'<span class="muted">None yet</span>'}</td>
+        <td>Rev ${l} ${statusPill(lr.status)}</td></tr>`;}).join(''):`<tr><td colspan="6" class="muted" style="padding:24px;text-align:center">No documents match. Try clearing a filter.</td></tr>`}
+    </tbody></table></div>`;
+}
+function countIn(path){return D.docs.filter(d=>!d.deleted&&(d.folder===path||d.folder.startsWith(path+'/'))).length;}
+function renderFolders(){
+  const groups=['EPC','Operations'];
+  const seen=new Set();
+  const li=(path,label,cls)=>`<li><button class="node ${cls}" aria-pressed="${S.folder===path}" data-a="folder-pick" data-f="${esc(path)}"><span>${esc(label)}</span><span class="n">${countIn(path)}</span></button></li>`;
+  let out='';
+  groups.forEach(g=>{
+    out+=`<li class="group">${g==='EPC'?'EPC (design and build)':'Operations (running the plant)'}</li>`;
+    LEAVES.filter(l=>GROUP(l)===g).forEach(leaf=>{
+      const parts=leaf.split('/');
+      for(let k=2;k<parts.length;k++){
+        const p=parts.slice(0,k).join('/');
+        if(!seen.has(p)){seen.add(p);out+=li(p,parts[k-1],'mid');}
+      }
+      out+=li(leaf,parts[parts.length-1],'leaf');
+    });
+  });
+  return `<h1>Folders</h1>
+    <p class="sub">The full structure. Every document goes in exactly one folder. Click a folder to see its documents.</p>
+    <div class="two" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr)">
+      <section class="card"><ul class="tree" aria-label="Folder structure">${out}</ul></section>
+      <section class="card"><h3>How folders are chosen</h3>
+        <p class="muted small" style="margin:0 0 10px">The document type decides the folder. Choose the type when adding a document and the folder fills in.</p>
+        <div class="tw" style="border-radius:10px"><table style="min-width:0"><thead><tr><th>Type</th><th>Goes to</th></tr></thead><tbody>
+        ${TYPES.map(t=>`<tr><td><span class="no">${t.c}</span> ${esc(t.l)}</td><td class="small">${esc(PATH(t.f))}</td></tr>`).join('')}
+        </tbody></table></div>
+      </section>
+    </div>`;
+}
+function renderDoc(){
+  const d=docById(S.open);
+  if(!d){S.view='list';return renderList();}
+  const c=curIdx(d),l=lastIdx(d),cur=c>=0?d.revs[c]:null;
+  let revs='';
+  for(let i=l;i>=0;i--){
+    const r=d.revs[i];
+    if(r.status==='Not on file'){
+      revs+=`<div class="rev"><div class="dot"></div><div><div class="rt"><span class="strong">Rev ${i}</span>${statusPill(r.status)}</div><div class="rm">Missing from the old records. It cannot be current.</div></div></div>`;
+      continue;
+    }
+    const cls=i===c?'cur':(i===l?'lat':'');
+    let acts='';
+    if(r.status==='Submitted')acts+=`<button class="btn ok" data-a="check" data-i="${i}">Check</button>`;
+    if(r.status==='Checked')acts+=`<button class="btn ok" data-a="approve" data-i="${i}">Approve</button>`;
+    if(['Submitted','Checked'].includes(r.status)){
+      acts+=`<button class="btn danger" data-a="return" data-i="${i}">Send back</button>`;
+      acts+=`<input class="t" style="max-width:340px;flex:1" data-retext="${i}" placeholder="Why? (10+ characters, shown to the uploader)" value="${esc(S.retText[i]||'')}" aria-label="Reason for sending back rev ${i}">`;
+    }
+    revs+=`<div class="rev ${cls}"><div class="dot"></div><div>
+      <div class="rt"><span class="strong">Rev ${i}</span>${statusPill(r.status)}${revTags(d,i)}</div>
+      <div class="rm">${r.date} · added by ${esc(r.by)}${r.reason?' · '+esc(r.reason):''}${r.imported?' · imported':''}</div>
+      <div class="rs">${esc(r.summary)||'<span class="muted">No summary</span>'}</div>
+      ${r.file?`<div class="rm">File: ${esc(r.file)}</div>`:''}
+      ${r.checker?`<div class="rm">Checker: ${esc(r.checker)}${r.checkedBy?' (done)':''} · Approver: ${esc(r.approver)}${r.approvedBy?' (done)':''}</div>`:''}
+      ${r.returnNote?`<div class="warnbox">Sent back: ${esc(r.returnNote)}</div>`:''}
+      ${acts?`<div class="ra">${acts}</div>`:''}
+    </div></div>`;
+  }
+  const waiting=d.revs[l].status==='Submitted'&&!d.deleted;
+  const addRev=S.revOpen?renderRevForm():`<button class="btn" data-a="rev-open">+ Add a new version</button>`;
+  const remove=d.deleted
+    ?`<div class="warnbox">This document is removed. Its file is renamed to <span class="no">${esc(d.name)}</span>. Nothing was erased.</div><div class="row" style="margin-top:8px"><button class="btn ok" data-a="restore">Restore</button></div>`
+    :(S.remOpen?renderRemoveForm(d):`<button class="btn danger" data-a="rem-open">Remove document</button>`);
+  const logs=D.log.filter(e=>e.text.includes(d.no)).slice(0,6);
+  return `<button class="btn link" data-a="nav" data-v="list" style="padding-left:0">← All documents</button>
+    <h1 style="margin-top:6px">${esc(d.title)}</h1>
+    <div class="crumb" style="margin:4px 0 14px">${esc(projOf(d.p).name)} · ${esc(TYPE(d.type).l)} · <b>${esc(PATH(d.folder))}</b></div>
+    <p class="sub" style="margin-bottom:12px"><span class="no">${esc(d.no)}</span>${d.deleted?' · <span class="pill p-bad">Removed</span>':''}</p>
+    ${waiting&&c>=0?`<div class="infobox">The latest version is waiting. Rev ${c} stays current until it is approved.</div>`:''}
+    ${waiting&&c<0?`<div class="infobox">No version is approved yet. The first approval makes it current.</div>`:''}
+    <div class="two">
+      <section class="card"><div class="muted small">Current version (in use)</div>
+        ${cur?`<div class="strong" style="font-size:18px;margin-top:4px">Rev ${c}</div><div style="margin-top:6px">${esc(cur.summary)}</div><div class="small muted" style="margin-top:6px">Approved by ${esc(cur.approvedBy||'—')}</div>`:'<div style="margin-top:6px" class="muted">No approved version yet.</div>'}
+      </section>
+      <section class="card"><div class="muted small">Latest version</div>
+        <div class="strong" style="font-size:18px;margin-top:4px">Rev ${l} ${statusPill(d.revs[l].status)}</div>
+        <div style="margin-top:6px">${esc(d.revs[l].summary)||'<span class="muted">No summary</span>'}</div>
+      </section>
+    </div>
+    <h2>History</h2>
+    <div class="card">${revs}</div>
+    <h2>Add a version</h2>
+    ${d.deleted?'<p class="muted small">Restore the document to add a version.</p>':addRev}
+    <h2>Remove</h2>
+    <div>${remove}</div>
+    <h2>Recent activity</h2>
+    <div class="card log">${logs.length?logs.map(e=>`<div class="l"><span class="wt">${fmtT(e.t)} · ${esc(e.who)}</span><span>${esc(e.text)}</span></div>`).join(''):'<span class="muted">Nothing yet.</span>'}</div>`;
+}
+function renderRevForm(){
+  const e=S.rerrs||{};
+  return `<section class="card">
+    ${S.tried2&&Object.keys(e).length?`<div class="errbox">Fix the items marked in red.</div>`:''}
+    ${fileBlock('rev',S.rdraft,e)}
+    <div class="row"><button class="btn primary" data-a="rev-save">Send for check</button><button class="btn link" data-a="rev-close">Cancel</button></div>
+  </section>`;
+}
+function renderRemoveForm(d){
+  return `<section class="card">
+    <div class="warnbox" style="margin-top:0"><b>What happens:</b> the document is hidden. Its file is renamed in SharePoint to <span class="no">DELETED_${DAY().replace(/-/g,'')}_${esc(d.orig)}</span>. Nothing is erased, and you can restore it.</div>
+    <div class="two" style="margin-top:12px"><div class="field"><label for="remR">Reason <span class="req">*</span></label><select class="t" id="remR"><option value="">Choose…</option>${['Duplicate of another record','Created in error','No longer needed','Replaced by another document'].map(x=>`<option ${S.remReason===x?'selected':''}>${x}</option>`).join('')}</select></div>
+    <div class="field"><label for="remT">Why, in a sentence <span class="req">*</span></label><input class="t" id="remT" value="${esc(S.remText)}" placeholder="At least 20 characters"></div></div>
+    <div class="row"><button class="btn danger" data-a="rem-go">Remove document</button><button class="btn link" data-a="rem-close">Cancel</button></div>
+  </section>`;
+}
+/* Shared file, reason, checker, approver, summary and note fields. */
+function fileBlock(scope,f,e){
+  const err=k=>(scope==='add'?S.tried:S.tried2)&&e[k]?`<div class="err">${esc(e[k])}</div>`:'';
+  const people=k=>PEOPLE.map(p=>`<option ${f[k]===p?'selected':''}>${p}</option>`).join('');
+  return `
+    <div class="field"><label>File <span class="req">*</span></label>
+      <div class="drop"><span>${f.file?`📄 ${esc(f.file.name)} <span class="muted">${(f.file.size/1048576).toFixed(1)} MB</span>`:'<span class="muted">No file chosen yet</span>'}</span>
+        <input type="file" data-s="${scope}" data-file="1" accept=".pdf,.docx,.xlsx,.dwg,.zip" aria-label="Choose file"></div>
+      ${err('file')}<div class="help">PDF, Word, Excel, DWG or ZIP. Only the file name is kept in this demo.</div></div>
+    <div class="two">
+      <div class="field"><label for="${scope}-reason">Reason <span class="req">*</span></label><select id="${scope}-reason" class="t" data-s="${scope}" data-f="reason"><option value="">Choose…</option>${REASONS.map(x=>`<option ${f.reason===x?'selected':''}>${x}</option>`).join('')}</select>${err('reason')}</div>
+      <div class="field"><label for="${scope}-checker">Checker <span class="req">*</span></label><select id="${scope}-checker" class="t" data-s="${scope}" data-f="checker"><option value="">Choose…</option>${people('checker')}</select>${err('checker')}</div>
+    </div>
+    <div class="field"><label for="${scope}-approver">Approver <span class="req">*</span></label><select id="${scope}-approver" class="t" data-s="${scope}" data-f="approver"><option value="">Choose…</option>${people('approver')}</select>${err('approver')}<div class="help">Must be a different person from the checker.</div></div>
+    <div class="field"><label for="${scope}-summary">One-line summary <span class="req">*</span></label><input id="${scope}-summary" class="t" data-s="${scope}" data-f="summary" value="${esc(f.summary||'')}" placeholder="What changed, and why?">${err('summary')}<div class="help">Anyone should understand the change from this line alone.</div></div>
+    <div class="field"><label for="${scope}-note">Note for the checker <span class="req">*</span></label><textarea id="${scope}-note" class="t" data-s="${scope}" data-f="note" placeholder="What should the checker look at?">${esc(f.note||'')}</textarea>${err('note')}</div>`;
+}
+function renderAddModal(){
+  const f=S.draft,e=S.errs||{};
+  const p=f.project?projOf(f.project):null;
+  const typ=f.type?TYPE(f.type):null;
+  const number=p&&typ?(p.stream?streamInfo(f.project,f.type).next:(f.no||'')):'';
+  const folder=typ?typ.f:'';
+  const err=k=>S.tried&&e[k]?`<div class="err">${esc(e[k])}</div>`:'';
+  return `<div class="scrim" data-a="modal-close"><div class="modal" role="dialog" aria-modal="true" aria-label="Add a document" data-stop="1">
+    <h3>Add a new document</h3>
+    <div class="stepline"><span>1. Project and type</span><span>2. Number and folder</span><span>3. File and people</span><span>4. Send</span></div>
+    ${S.tried&&Object.keys(e).length?`<div class="errbox">Fix the items marked in red.</div>`:''}
+    <div class="two">
+      <div class="field"><label for="a-project">Project <span class="req">*</span></label>
+        <select id="a-project" class="t" data-s="add" data-f="project"><option value="">Choose…</option>${D.projects.map(x=>`<option value="${x.code}" ${f.project===x.code?'selected':''}>${esc(x.name)}</option>`).join('')}</select>${err('project')}</div>
+      <div class="field"><label for="a-type">Document type <span class="req">*</span></label>
+        <select id="a-type" class="t" data-s="add" data-f="type"><option value="">Choose…</option>
+          ${['EPC','Operations'].map(g=>`<optgroup label="${g}">${TYPES.filter(t=>GROUP(t.f)===g).map(t=>`<option value="${t.c}" ${f.type===t.c?'selected':''}>${t.c} · ${esc(t.l)}</option>`).join('')}</optgroup>`).join('')}
+        </select>${err('type')}</div>
+    </div>
+    <div class="two">
+      <div class="field"><label for="a-no">Document number</label>
+        ${p&&p.stream||!p?`<input id="a-no" class="t" readonly value="${esc(number)}" placeholder="Choose a project and type">`:
+          `<input id="a-no" class="t" data-s="add" data-f="no" value="${esc(f.no||'')}" placeholder="${esc(f.project)}-${esc(f.type||'XXX')}-0001">`}
+        ${err('no')}<div class="help">${esc(numberNote(f.project,f.type))}</div></div>
+      <div class="field"><label>Folder (filed automatically)</label>
+        <input class="t" readonly value="${esc(folder?PATH(folder):'Choose a type first')}"><div class="help">${typ?esc(GROUP(typ.f))+' group. Filed by document type.':'The folder follows the document type.'}</div></div>
+    </div>
+    <div class="field"><label for="a-title">Title <span class="req">*</span></label><input id="a-title" class="t" data-s="add" data-f="title" value="${esc(f.title||'')}" placeholder="What is this document?">${err('title')}</div>
+    ${fileBlock('add',f,e)}
+    <div class="row" style="justify-content:flex-end;margin-top:8px"><button class="btn link" data-a="modal-close">Cancel</button><button class="btn primary" data-a="add-save">Send for check</button></div>
+  </div></div>`;
+}
+function renderImport(){
+  const rp=S.impRows;
+  const ok=rp&&rp.rows&&rp.rows.some(r=>!r.issues.some(i=>i.k==='block'||i.k==='skip'));
+  const tbl=rp?(rp.error?`<div class="errbox">${esc(rp.error)}</div>`:`
+    <div class="tw" style="margin-top:12px"><table><thead><tr><th>Line</th><th>Number</th><th>Folder</th><th>Rev</th><th>Result</th></tr></thead><tbody>
+    ${rp.rows.map(r=>{
+      const bad=r.issues.some(i=>i.k==='block'),skip=r.issues.some(i=>i.k==='skip');
+      const cls=bad?'p-bad':(skip?'p-old':'p-ok');
+      const label=bad?'Problem. Will not import.':(skip?'Already on file. Skipped.':'Ready to import');
+      return `<tr><td class="muted">${r.L}</td><td class="no">${esc(r.no)}</td><td class="small">${esc(PATH(r.folder))}</td><td>Rev ${r.rev}</td>
+        <td><span class="pill ${cls}">${label}</span>${r.issues.filter(i=>i.k==='info'||i.k==='block').map(i=>`<div class="small muted" style="margin-top:4px">${esc(i.m)}</div>`).join('')}</td></tr>`;}).join('')}
+    </tbody></table></div>
+    <div class="row" style="margin-top:12px"><button class="btn primary" data-a="imp-go" ${ok?'':'disabled'}>Import ready rows</button><span class="small muted">Nothing is saved until you press this.</span></div>`):'';
+  return `<h1>Bring in a list</h1>
+    <p class="sub">Have a spreadsheet of existing documents? Paste it here. The folder fills in from the document type if you leave it blank. Nothing is saved until you press Import.</p>
+    <section class="card">
+      <div class="field"><label for="impT">Your list</label>
+        <textarea id="impT" class="t" style="min-height:150px;font-family:ui-monospace,Consolas,monospace;font-size:13px">${esc(S.imp.text)}</textarea>
+        <div class="help">Columns: doc_no, title, rev, date, summary, file_name, by. Optional: folder.</div></div>
+      <div class="row"><button class="btn" data-a="imp-sample">Use sample list</button><button class="btn primary" data-a="imp-check">Check the list</button></div>
+      ${tbl}
+    </section>`;
+}
+function renderLog(){
+  return `<h1>Activity</h1>
+    <p class="sub">Every action, newest first. Nothing here can be edited.</p>
+    <div class="card log">${D.log.slice(0,200).map(e=>`<div class="l"><span class="wt">${fmtT(e.t)} · ${esc(e.who)}</span><span>${esc(e.text)}</span></div>`).join('')||'<span class="muted">Nothing yet.</span>'}</div>`;
+}
+function render(){
+  const focus=document.activeElement&&document.activeElement.id;
+  const caret=focus&&document.activeElement.selectionStart;
+  renderNav();
+  let html;
+  if(S.view==='list')html=renderList();
+  else if(S.view==='doc')html=renderDoc();
+  else if(S.view==='folders')html=renderFolders();
+  else if(S.view==='import')html=renderImport();
+  else html=renderLog();
+  $('#main').innerHTML=html;
+  $('#modalWrap').innerHTML=S.modal==='add'?renderAddModal():'';
+  if(focus&&document.getElementById(focus)){const el=document.getElementById(focus);el.focus();if(caret!=null&&el.setSelectionRange)try{el.setSelectionRange(caret,caret);}catch(e){}}
+}
+
+/* ================= Events ================= */
+const ACT={
+  nav:el=>{S.view=el.dataset.v;S.open=null;S.revOpen=false;S.remOpen=false;},
+  open:el=>{S.open=el.dataset.id;S.view='doc';S.revOpen=false;S.remOpen=false;S.retText={};},
+  'folder-pick':el=>{S.folder=el.dataset.f;S.view='list';S.proj='';S.q='';prog('browsed');save();},
+  'folder-clear':()=>{S.folder='';},
+  'add-open':()=>{S.modal='add';S.draft={};S.errs={};S.tried=false;},
+  'modal-close':()=>{S.modal=null;S.draft={};S.errs={};S.tried=false;},
+  'add-save':()=>{saveNewDoc();},
+  'rev-open':()=>{S.revOpen=true;S.rdraft={};S.rerrs={};S.tried2=false;},
+  'rev-close':()=>{S.revOpen=false;S.rdraft={};S.rerrs={};S.tried2=false;},
+  'rev-save':()=>{saveRev(docById(S.open));},
+  check:el=>doCheck(docById(S.open),+el.dataset.i),
+  approve:el=>doApprove(docById(S.open),+el.dataset.i),
+  return:el=>doReturn(docById(S.open),+el.dataset.i),
+  'rem-open':()=>{S.remOpen=true;},
+  'rem-close':()=>{S.remOpen=false;},
+  'rem-go':()=>{S.remReason=($('#remR')||{}).value||'';S.remText=($('#remT')||{}).value||'';doRemove(docById(S.open));},
+  restore:()=>doRestore(docById(S.open)),
+  'imp-sample':()=>{S.imp.text=SAMPLE_CSV();S.impRows=null;},
+  'imp-check':()=>{S.imp.text=$('#impT')?$('#impT').value:S.imp.text;S.impRows=parseList(S.imp.text);},
+  'imp-go':()=>{const r=runImport(S.impRows);toast(`Imported ${r.added} rows. Skipped ${r.skipped}.`);S.impRows=null;S.view='list';},
+  'tasks-hide':()=>{S.hideTasks=true;},
+  'tasks-show':()=>{S.hideTasks=false;},
+  reset:()=>{try{localStorage.removeItem(KEY);}catch(e){}D=seed();S.view='list';S.open=null;S.modal=null;S.folder='';save();toast('Demo reset to the start.');}
+};
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-a]');
+  if(!el)return;
+  if(el.dataset.a==='modal-close'&&e.target.closest('[data-stop]')&&!e.target.closest('button'))return;
+  if(el.tagName==='INPUT'&&el.type==='checkbox')return;
+  const fn=ACT[el.dataset.a];
+  if(fn){fn(el);render();}
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&e.target.matches('tr[data-a="open"]')){ACT.open(e.target);render();}
+  if(e.key==='Escape'&&S.modal){ACT['modal-close']();render();}
+});
+document.addEventListener('change',e=>{
+  const t=e.target;
+  if(t.id==='me'){D.me=t.value;S.errs={};save();render();return;}
+  if(t.id==='st'){S.status=t.value;render();return;}
+  if(t.id==='pj'){S.proj=t.value;render();return;}
+  if(t.dataset.a==='show-removed'){S.showRemoved=t.checked;render();return;}
+  if(t.dataset.file){const f=t.files[0]||null;(t.dataset.s==='add'?S.draft:S.rdraft).file=f;render();return;}
+  if(t.dataset.s&&t.dataset.f){(t.dataset.s==='add'?S.draft:S.rdraft)[t.dataset.f]=t.value;if(t.tagName==='SELECT')render();return;}
+});
+document.addEventListener('input',e=>{
+  const t=e.target;
+  if(t.type==='file')return;
+  if(t.dataset.s&&t.dataset.f){(t.dataset.s==='add'?S.draft:S.rdraft)[t.dataset.f]=t.value;return;}
+  if(t.dataset.retext!==undefined){S.retText[t.dataset.retext]=t.value;return;}
+  if(t.id==='q'){S.q=t.value;render();return;}
+  if(t.id==='remT'){S.remText=t.value;return;}
+  if(t.id==='impT'){S.imp.text=t.value;return;}
+});
+render();
+</script>
+</body>
+</html>
