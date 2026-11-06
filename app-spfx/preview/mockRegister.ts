@@ -9,12 +9,19 @@ import * as P from '../src/domain/permissions';
 import * as DR from '../src/domain/drafts';
 import * as TR from '../src/domain/transmittal';
 import * as MAIL from '../src/domain/mail';
+import * as CT from '../src/domain/contacts';
 import { textPdf } from '../src/domain/pdf';
 import * as RT from '../src/domain/retention';
 import * as TREE from '../src/domain/tree';
 
 const DRAFTS: DR.DraftRow[] = [];
 const TRANSMITTALS: TR.TransmittalRow[] = [];
+/* Recipients. Companies group the people. Demo data only. */
+const CONTACTS: CT.Contact[] = [
+  { id: 901, company: 'Client A', name: 'Ana Reyes', email: 'ana@clienta.example', removed: false },
+  { id: 902, company: 'Client A', name: 'Ben Okafor', email: 'ben@clienta.example', removed: false },
+  { id: 903, company: 'Contractor B', name: 'Chen Wei', email: 'chen@contractorb.example', removed: false },
+];
 const draftDoc = (d: DR.DraftRow) => DR.canSeeDraft(d, ME, can('edit_any'));
 import { buildDashboard } from '../src/domain/dashboard';
 
@@ -171,15 +178,27 @@ export class MockRegister {
     this.log('Uploaded new version', doc.number, `v${n} · no check or approval`);
   }
   async transmittals(project: string) { return TRANSMITTALS.filter(t => t.project === project); }
+  async contacts() { return CONTACTS.slice(); }
+  async addContact(input: { company: string; name: string; email: string }) {
+    const errors = CT.contactErrors(input, CONTACTS);
+    if (Object.keys(errors).length) throw new RuleError('Please fix the highlighted fields.', errors);
+    CONTACTS.push({ id: nextId++, company: input.company.trim(), name: input.name.trim(), email: input.email.trim(), removed: false });
+    this.log('Added recipient', '', `${input.name.trim()} · ${input.company.trim()}`);
+  }
+  async removeContact(c: CT.Contact) {
+    const row = CONTACTS.find(x => x.id === c.id)!;
+    row.removed = true;
+    this.log('Removed recipient', '', `${c.name} · ${c.company}. Kept, marked removed.`);
+  }
   /* Demo: nothing is really emailed. The status moves the same way it does in SharePoint. */
   async issueTransmittal(input: any): Promise<string> {
-    if (!input.to.trim()) throw new RuleError('Say who it is for.', { to: 'Say who it is for.' });
+    if (!input.to.trim()) throw new RuleError('Choose who it is for.', { to: 'Choose who it is for.' });
     if (!input.purpose.trim()) throw new RuleError('Say why it is sent.', { purpose: 'Say why it is sent.' });
     if (!input.lines.length) throw new RuleError('Choose at least one document.');
-    if (input.send && !MAIL.validEmail(input.toEmail)) throw new RuleError('Enter a valid email address to send it.', { toEmail: 'Enter a valid email address.' });
+    if (input.send && (!input.toEmails.length || input.toEmails.some((e: string) => !MAIL.validEmail(e)))) throw new RuleError('Choose at least one recipient with a valid email address.');
     const number = TR.nextTransmittalNumber(input.project, TRANSMITTALS.map(t => t.number));
     const date = today();
-    const base = { number, to: input.to.trim(), toEmail: (input.toEmail || '').trim(), date, purpose: input.purpose.trim(), notes: input.notes.trim(), issuedBy: ME, lines: input.lines, status: input.send ? 'Held' : 'Recorded', sentAt: '' };
+    const base = { number, to: input.to.trim(), toEmail: input.toEmails.join('; '), date, purpose: input.purpose.trim(), notes: input.notes.trim(), issuedBy: ME, lines: input.lines, status: input.send ? 'Held' : 'Recorded', sentAt: '' };
     const csv = TR.transmittalCsv({ to: base.to, date, purpose: base.purpose, notes: base.notes, lines: input.lines });
     const pdf = new File([textPdf(`Transmittal ${number}`, TR.transmittalPdfLines(base))], `${number}.pdf`, { type: 'application/pdf' });
     TRANSMITTALS.unshift({ id: nextId++, project: input.project, fileUrl: urlOf(new File(['﻿' + csv], `${number}.csv`, { type: 'text/csv' })), checksum: await sumOf(new File([csv], 'x.csv')),

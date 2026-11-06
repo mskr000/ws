@@ -2,6 +2,8 @@ import * as React from 'react';
 import type { ProjectInfo } from '../domain/types';
 import * as R from '../domain/rules';
 import * as MAIL from '../domain/mail';
+import * as K from '../domain/contacts';
+import { RecipientPicker } from './RecipientPicker';
 import { transmittalCsv, TransmittalLine, TransmittalRow, nextTransmittalNumber, emailDraft } from '../domain/transmittal';
 import { Register, Me } from '../services/register';
 import { Btn, Field, Notice, Select, Title, Section, Table, th, td, card, input, row, C, MONO, FONT, hint, DownloadIcon, Pill } from './ui';
@@ -29,8 +31,11 @@ export function TransmittalPage(props: { reg: Register; me: Me; projects: Projec
   const [project, setProject] = React.useState(props.projects[0]?.code || '');
   const [rows, setRows] = React.useState<Array<TransmittalLine & { id: number }> | null>(null);
   const [picked, setPicked] = React.useState<number[]>([]);
-  const [to, setTo] = React.useState('');
-  const [toEmail, setToEmail] = React.useState('');
+  const [selIds, setSelIds] = React.useState<number[]>([]);
+  const [recips, setRecips] = React.useState<K.Contact[]>([]);
+  const to = Array.from(new Set(recips.map(r => r.company))).join(', ');
+  const toEmails = recips.map(r => r.email.trim());
+  const toEmail = toEmails.join('; ');
   const [purpose, setPurpose] = React.useState('For review');
   const [notes, setNotes] = React.useState('');
   const [issued, setIssued] = React.useState<TransmittalRow[]>([]);
@@ -65,7 +70,7 @@ export function TransmittalPage(props: { reg: Register; me: Me; projects: Projec
   const nextNo = nextTransmittalNumber(project, issued.map(t => t.number));
   const mail = emailDraft({ number: nextNo, projectName, to, date: today, purpose, from: props.me.name, lines });
   const toggle = (id: number) => setPicked(p => (p.includes(id) ? p.filter(x => x !== id) : [...p, id]));
-  const emailOk = MAIL.validEmail(toEmail);
+  const emailOk = recips.length > 0 && toEmails.every(e => MAIL.validEmail(e));
 
   /* Send, or undo, for a transmittal by its number. Looks up the current row first. */
   const findRow = async (number: string): Promise<TransmittalRow> => {
@@ -104,7 +109,7 @@ export function TransmittalPage(props: { reg: Register; me: Me; projects: Projec
   const issue = async (send: boolean) => {
     setBusy(true); setErr(''); setMsg('');
     try {
-      const number = await props.reg.issueTransmittal({ project, to, toEmail, purpose, notes, lines, send });
+      const number = await props.reg.issueTransmittal({ project, to, toEmails, purpose, notes, lines, send });
       setPicked([]);
       reloadIssued();
       if (send) {
@@ -149,12 +154,12 @@ export function TransmittalPage(props: { reg: Register; me: Me; projects: Projec
           <Select label="Project" value={project} onChange={setProject} options={props.projects.map(p => [p.code, `${p.name} (${p.code})`])} width={320} />
         </div>
         <div style={{ marginTop: 14, ...row, alignItems: 'flex-start' }}>
-          <div style={{ flex: '1 1 220px' }}><Field label="Sent to (name)"><input aria-label="To" value={to} onChange={e => setTo(e.target.value)} placeholder="Client or contractor" style={input} /></Field></div>
-          <div style={{ flex: '1 1 260px' }}><Field label="Recipient email" error={toEmail && !emailOk ? 'Enter a full address, e.g. name@company.com' : undefined} help="Stored with the record. Needed to send."><input aria-label="Recipient email" type="email" value={toEmail} onChange={e => setToEmail(e.target.value)} placeholder="name@company.com" style={input} /></Field></div>
           <div style={{ flex: '1 1 200px' }}><Field label="Purpose"><input aria-label="Purpose" value={purpose} onChange={e => setPurpose(e.target.value)} style={input} /></Field></div>
         </div>
         <Field label="Notes (optional)"><input aria-label="Notes" value={notes} onChange={e => setNotes(e.target.value)} style={input} /></Field>
       </div>
+
+      <RecipientPicker reg={props.reg} selected={selIds} setSelected={setSelIds} onSelectedChange={setRecips} />
 
       <div style={card}>
         {rows === null && !err ? <div style={hint}>Loading documents…</div> : null}
@@ -180,7 +185,7 @@ export function TransmittalPage(props: { reg: Register; me: Me; projects: Projec
         <div style={card}>
           <div style={{ ...hint, marginBottom: 8 }}>{chosen.length} document{chosen.length === 1 ? '' : 's'} on this transmittal. Next number: <span style={{ fontFamily: MONO }}>{nextNo}</span></div>
           <div style={{ ...row, marginTop: 4 }}>
-            <Btn kind="primary" disabled={chosen.length === 0 || !emailOk || !to.trim() || busy || !!held} onClick={() => issue(true)}>{busy ? 'Working…' : 'Send by email (undo for 60 seconds)'}</Btn>
+            <Btn kind="primary" disabled={chosen.length === 0 || !emailOk || busy || !!held} onClick={() => issue(true)}>{busy ? 'Working…' : 'Send by email (undo for 60 seconds)'}</Btn>
             <Btn disabled={chosen.length === 0 || busy} onClick={() => issue(false)}>Record only, do not email</Btn>
             <Btn disabled={chosen.length === 0} onClick={downloadPreview}>Save draft list (CSV)</Btn>
           </div>

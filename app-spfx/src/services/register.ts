@@ -20,13 +20,14 @@ import * as P from '../domain/permissions';
 import * as DR from '../domain/drafts';
 import * as TR from '../domain/transmittal';
 import * as MAIL from '../domain/mail';
+import * as CT from '../domain/contacts';
 import { textPdf } from '../domain/pdf';
 import * as RT from '../domain/retention';
 import * as TREE from '../domain/tree';
 
 export const LISTS = {
   projects: 'Projects', projectTypes: 'ProjectTypes', projectFolders: 'ProjectFolders', templates: 'Templates',
-  documents: 'Documents', revisions: 'Revisions', periods: 'PeriodEntries', certificates: 'CertificateVersions', audit: 'AuditLog', grants: 'Permissions', drafts: 'Drafts', transmittals: 'Transmittals',
+  documents: 'Documents', revisions: 'Revisions', periods: 'PeriodEntries', certificates: 'CertificateVersions', audit: 'AuditLog', grants: 'Permissions', drafts: 'Drafts', transmittals: 'Transmittals', contacts: 'Contacts',
 } as const;
 export const LIBRARY = 'Register Files';
 export const GROUPS = { members: 'Register Members', records: 'Register Records Lead' } as const;
@@ -466,17 +467,17 @@ export class Register {
   }
   /* Records the transmittal: list file and PDF copy saved in the library, audit entry written. If it is to be emailed,
      it is held for the undo window. Nothing is sent here. Nothing is deleted. */
-  async issueTransmittal(input: { project: string; to: string; toEmail: string; purpose: string; notes: string; lines: TR.TransmittalLine[]; send: boolean }): Promise<string> {
+  async issueTransmittal(input: { project: string; to: string; toEmails: string[]; purpose: string; notes: string; lines: TR.TransmittalLine[]; send: boolean }): Promise<string> {
     const me = await this.whoAmI();
     if (!input.to.trim()) throw new RuleError('Say who it is for.', { to: 'Say who it is for.' });
     if (!input.purpose.trim()) throw new RuleError('Say why it is sent.', { purpose: 'Say why it is sent.' });
     if (!input.lines.length) throw new RuleError('Choose at least one document.');
-    if (input.send && !MAIL.validEmail(input.toEmail)) throw new RuleError('Enter a valid email address to send it.', { toEmail: 'Enter a valid email address.' });
+    if (input.send && (!input.toEmails.length || input.toEmails.some(e => !MAIL.validEmail(e)))) throw new RuleError('Choose at least one recipient with a valid email address.');
     const existing = (await this.transmittals(input.project)).map(t => t.number);
     const number = TR.nextTransmittalNumber(input.project, existing);
     const date = R.isoDay();
     const now = new Date().toISOString();
-    const base = { number, to: input.to.trim(), toEmail: input.toEmail.trim(), date, purpose: input.purpose.trim(), notes: input.notes.trim(), issuedBy: me.name, lines: input.lines, status: input.send ? 'Held' : 'Recorded', sentAt: '' };
+    const base = { number, to: input.to.trim(), toEmail: input.toEmails.join('; '), date, purpose: input.purpose.trim(), notes: input.notes.trim(), issuedBy: me.name, lines: input.lines, status: input.send ? 'Held' : 'Recorded', sentAt: '' };
     const csv = TR.transmittalCsv({ to: base.to, date, purpose: base.purpose, notes: base.notes, lines: input.lines });
     const up = await this.upload(`${number}.csv`, new File(['﻿' + csv], `${number}.csv`, { type: 'text/csv' }));
     const pdfBytes = textPdf(`Transmittal ${number}`, TR.transmittalPdfLines(base));
@@ -499,7 +500,7 @@ export class Register {
     const mail = TR.emailDraft({ number: t.number, projectName: t.project, to: t.to, date: t.date, purpose: t.purpose, from: me.name, lines: t.lines });
     const csvText = '﻿' + TR.transmittalCsv({ to: t.to, date: t.date, purpose: t.purpose, notes: t.notes, lines: t.lines });
     const pdfBytes = textPdf(`Transmittal ${t.number}`, TR.transmittalPdfLines(t));
-    const msg = MAIL.graphMessage({ to: t.toEmail, subject: mail.subject, body: mail.body, attachments: [
+    const msg = MAIL.graphMessage({ to: t.toEmail.split(';').map(x => x.trim()).filter(Boolean), subject: mail.subject, body: mail.body, attachments: [
       { name: `${t.number}.csv`, contentType: 'text/csv', base64: toBase64(new TextEncoder().encode(csvText)) },
       { name: `${t.number}.pdf`, contentType: 'application/pdf', base64: toBase64(pdfBytes) },
     ] });
@@ -521,6 +522,25 @@ export class Register {
   /* Mail goes out through the signed-in user's Microsoft 365 account. */
   private async graphClient(): Promise<any> {
     return this.context.msGraphClientFactory.getClient('3');
+  }
+
+  /* ---------- recipients: companies and the people in them ---------- */
+  async contacts(): Promise<CT.Contact[]> {
+    const rows = await this.sp.web.lists.getByTitle(LISTS.contacts).items.select('Id', 'Title', 'Company', 'Email', 'IsRemoved').orderBy('Company').top(2000)();
+    return rows.map((r: any) => ({ id: r.Id, company: r.Company || '', name: r.Title || '', email: r.Email || '', removed: !!r.IsRemoved }));
+  }
+  async addContact(input: { company: string; name: string; email: string }): Promise<void> {
+    await this.whoAmI();
+    const errors = CT.contactErrors(input, await this.contacts());
+    if (Object.keys(errors).length) throw new RuleError('Please fix the highlighted fields.', errors);
+    await this.sp.web.lists.getByTitle(LISTS.contacts).items.add({ Title: input.name.trim(), Company: input.company.trim(), Email: input.email.trim(), IsRemoved: false });
+    await this.log('Added recipient', '', `${input.name.trim()} · ${input.company.trim()}`);
+  }
+  /* Never deleted. The person is marked removed and stops appearing in the list. */
+  async removeContact(c: CT.Contact): Promise<void> {
+    await this.whoAmI();
+    await this.sp.web.lists.getByTitle(LISTS.contacts).items.getById(c.id).update({ IsRemoved: true });
+    await this.log('Removed recipient', '', `${c.name} · ${c.company}. Kept, marked removed.`);
   }
 
   /* ---------- working drafts ---------- */

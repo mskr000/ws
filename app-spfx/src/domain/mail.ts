@@ -18,12 +18,12 @@ export function validEmail(s: string): boolean {
 }
 
 /* The message as Microsoft Graph expects it. Sent from the signed-in person's own mailbox. */
-export function graphMessage(p: { to: string; subject: string; body: string; attachments: Array<{ name: string; contentType: string; base64: string }> }) {
+export function graphMessage(p: { to: string[]; subject: string; body: string; attachments: Array<{ name: string; contentType: string; base64: string }> }) {
   return {
     message: {
       subject: p.subject,
       body: { contentType: 'Text', content: p.body },
-      toRecipients: [{ emailAddress: { address: p.to.trim() } }],
+      toRecipients: p.to.map(a => ({ emailAddress: { address: a.trim() } })),
       attachments: p.attachments.map(a => ({ '@odata.type': '#microsoft.graph.fileAttachment', name: a.name, contentType: a.contentType, contentBytes: a.base64 })),
     },
     saveToSentItems: true,

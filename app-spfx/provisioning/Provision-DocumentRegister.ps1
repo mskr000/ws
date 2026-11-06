@@ -126,6 +126,10 @@ Ensure-Field 'ProjectFolders' 'IsRemoved' 'Boolean' 'Removed'
 Ensure-Field 'ProjectTypes' 'Enabled' 'Boolean' 'On for this project'
 Ensure-Field 'Permissions' 'IsRemoved' 'Boolean' 'Revoked'
 Ensure-Field 'Documents' 'HoldReason' 'Text' 'Legal hold reason'
+Ensure-List 'Contacts' | Out-Null
+Ensure-Field 'Contacts' 'Company' 'Text' 'Company'
+Ensure-Field 'Contacts' 'Email' 'Text' 'Email'
+Ensure-Field 'Contacts' 'IsRemoved' 'Boolean' 'Removed'
 Ensure-List 'Transmittals' | Out-Null
 Ensure-Field 'Transmittals' 'ProjectCode' 'Text' 'Project code'
 Ensure-Field 'Transmittals' 'ToName' 'Text' 'Sent to'
@@ -182,7 +186,7 @@ if (-not (Get-PnPRoleDefinition -Identity 'Register Add Only' -ErrorAction Silen
 
 # Stop the register lists and library inheriting access from the whole site.
 # Site owners keep access. Everyone else gets only what is set below.
-$secured = @('Projects','ProjectTypes','ProjectFolders','Templates','Documents','Revisions','PeriodEntries','CertificateVersions','AuditLog','Permissions','Drafts','Transmittals','Register Files')
+$secured = @('Projects','ProjectTypes','ProjectFolders','Templates','Documents','Revisions','PeriodEntries','CertificateVersions','AuditLog','Permissions','Drafts','Transmittals','Contacts','Register Files')
 foreach ($l in $secured) {
   Set-PnPList -Identity $l -BreakRoleInheritance -CopyRoleAssignments:$false -ClearSubscopes | Out-Null
   Set-PnPListPermission -Identity $l -AddRole 'Full Control' -Group 'Register Records Lead' | Out-Null
@@ -208,6 +212,8 @@ Set-PnPListPermission -Identity 'Register Files' -AddRole 'Edit' -Group 'Registe
 # Drafts: members add and discard their own. The web part shows each person only their own drafts (and editors all).
 # SharePoint itself cannot hide one member's draft from another member without item-level permissions. See UPGRADING.md.
 Set-PnPListPermission -Identity 'Drafts' -AddRole 'Edit' -Group 'Register Members' | Out-Null
+# Recipients: members add people and companies. Removal only marks a person as removed.
+Set-PnPListPermission -Identity 'Contacts' -AddRole 'Edit' -Group 'Register Members' | Out-Null
 # Transmittals: members issue, nobody edits a sent record.
 Set-PnPListPermission -Identity 'Transmittals' -AddRole 'Register Add Only' -Group 'Register Members' | Out-Null
 

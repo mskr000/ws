@@ -17,8 +17,9 @@ test('email addresses are checked before anything is held', () => {
 });
 
 test('the message carries recipient, subject, body and attachments', () => {
-  const g = M.graphMessage({ to: ' a@b.co ', subject: 'S', body: 'B', attachments: [{ name: 'x.csv', contentType: 'text/csv', base64: 'AA==' }] });
+  const g = M.graphMessage({ to: [' a@b.co ', 'c@d.org'], subject: 'S', body: 'B', attachments: [{ name: 'x.csv', contentType: 'text/csv', base64: 'AA==' }] });
   assert.equal(g.message.toRecipients[0].emailAddress.address, 'a@b.co');
+  assert.equal(g.message.toRecipients.length, 2);
   assert.equal(g.message.attachments[0].name, 'x.csv');
   assert.equal(g.saveToSentItems, true);
 });

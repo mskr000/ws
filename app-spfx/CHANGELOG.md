@@ -88,3 +88,10 @@
 - Status on each transmittal: Recorded, Held, Sent, Cancelled. Every step is in the audit log.
 - Needs IT approval of the Mail.Send API permission (set in package-solution.json).
 - Tests: 65 + 12 automated checks.
+
+## 0.18.0 (2026-11-06)
+- Recipients: save companies and the people in them. Pick a company, tick people, or select everyone at once.
+- Add a company or a person. Removing a person marks them removed; nothing is deleted.
+- Selected people show as cards: name, email, company. Count shown.
+- One transmittal can go to several people. Each address is checked and sent to.
+- Tests: 68 + 12 automated checks.
