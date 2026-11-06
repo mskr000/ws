@@ -6,3 +6,4 @@ solution/
 sharepoint/
 *.sppkg
 release/
+preview/bundle.js
