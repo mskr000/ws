@@ -67,6 +67,13 @@ function createServer({ service, devAuth = true }) {
 
       if (req.method === 'GET' && p === '/api/me') return send(res, 200, { name: who, role });
       if (req.method === 'GET' && p === '/api/projects') return send(res, 200, service.listProjects());
+      if (req.method === 'GET' && p === '/api/template') return send(res, 200, service.standardTemplate());
+      if (req.method === 'POST' && p === '/api/projects') return send(res, 201, { code: service.createProject(who, body) });
+      if (parts.length === 3 && parts[1] === 'projects') {
+        const code = decodeURIComponent(parts[2]);
+        if (req.method === 'GET') return send(res, 200, service.getProject(code));
+        if (req.method === 'PUT') return send(res, 200, { changes: service.updateProject(who, code, body) });
+      }
       if (req.method === 'GET' && p === '/api/types') return send(res, 200, service.listTypes());
       if (req.method === 'GET' && p === '/api/users') return send(res, 200, service.listUsers());
       if (req.method === 'GET' && p === '/api/documents') {

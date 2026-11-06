@@ -30,6 +30,16 @@ For an empty register with no demo content: stop the app, delete `data`, run `no
 
 **Backup:** stop the app, copy the whole `app/data` folder somewhere safe, start the app again.
 
+## Projects
+
+Projects tab → **Add a project**. Set:
+
+1. **Basics:** code (2 to 5 capitals or digits, e.g. U100) and name.
+2. **Folders:** start from the standard EPC and Operations structure. Add or remove folders.
+3. **Document types:** turn on the types the project uses. Each files into one folder. Set a first number to continue an existing register.
+
+Only the records lead can add or change a project.
+
 ## Sign-in (development only)
 
 The "Signed in as" list is a stand-in. Anyone on this computer can pick any name. Company sign-in

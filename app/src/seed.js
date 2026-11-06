@@ -5,33 +5,23 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 
 const USERS = [['Sam', 'member'], ['Priya', 'member'], ['Tom', 'member'], ['Mia', 'admin']];
-const PROJECTS = [['U100', 'Unit 100 Refinery'], ['TF7', 'Tank Farm TF-7'], ['NEW1', 'New Substation SS-9']];
-const TYPES = [
-  ['PID', 'P&ID', 'controlled', 'EPC/02 Engineering/02.1 Process'],
-  ['ISO', 'Piping isometric', 'controlled', 'EPC/02 Engineering/02.2 Piping'],
-  ['SLD', 'Single line diagram', 'controlled', 'EPC/02 Engineering/02.3 Electrical'],
-  ['MS', 'Method statement', 'controlled', 'EPC/04 Construction/04.1 Method Statements'],
-  ['SOP', 'Startup procedure', 'controlled', 'Operations/02 SOPs'],
-  ['MAN', 'Operations manual', 'controlled', 'Operations/01 Manuals'],
-  ['MNT', 'Monthly maintenance check', 'periodic', 'Operations/03 Maintenance'],
-  ['RPT', 'Monthly operations report', 'periodic', 'Operations/05 Reports'],
-  ['CERT', 'Certificate or inspection', 'record', 'Operations/06 Certificates'],
-  ['PTW', 'Permit to work template', 'record', 'Operations/04 Permits'],
-];
-const FOLDERS = [
-  'EPC/01 Project Management',
-  'EPC/02 Engineering/02.1 Process', 'EPC/02 Engineering/02.2 Piping', 'EPC/02 Engineering/02.3 Electrical',
-  'EPC/02 Engineering/02.4 Instrumentation & Control', 'EPC/02 Engineering/02.5 Civil & Structural',
-  'EPC/03 Procurement/03.1 Requisitions', 'EPC/03 Procurement/03.2 Purchase Orders', 'EPC/03 Procurement/03.3 Vendor Documents',
-  'EPC/04 Construction/04.1 Method Statements', 'EPC/04 Construction/04.2 Inspection & Test Plans', 'EPC/04 Construction/04.3 Daily Reports',
-  'EPC/05 Commissioning', 'EPC/06 Handover/06.1 As-Built', 'EPC/06 Handover/06.2 O&M Manuals',
-  'Operations/01 Manuals', 'Operations/02 SOPs', 'Operations/03 Maintenance', 'Operations/04 Permits', 'Operations/05 Reports', 'Operations/06 Certificates',
-];
+const PROJECTS = [['U100', 'Unit 100 Refinery'], ['TF7', 'Tank Farm TF-7']];
+const { TYPE_ROWS: TYPES, FOLDERS } = require('./template');
+
+function setupFromTemplate(db, code) {
+  for (const f of FOLDERS) db.prepare('INSERT OR IGNORE INTO project_folders (project, path) VALUES (?, ?)').run(code, f);
+  for (const [t, , , folder] of TYPES) db.prepare('INSERT OR IGNORE INTO project_types (project, type, folder, first_number) VALUES (?, ?, ?, 1)').run(code, t, folder);
+}
 
 function loadReference(db) {
   for (const [name, role] of USERS) db.prepare('INSERT OR IGNORE INTO users (name, role) VALUES (?, ?)').run(name, role);
   for (const [code, name] of PROJECTS) db.prepare('INSERT OR IGNORE INTO projects (code, name) VALUES (?, ?)').run(code, name);
   for (const row of TYPES) db.prepare('INSERT OR IGNORE INTO types (code, label, cls, folder) VALUES (?, ?, ?, ?)').run(...row);
+  /* Projects created before project setup existed get the standard template once. */
+  for (const [code] of PROJECTS) {
+    const has = db.prepare('SELECT COUNT(*) n FROM project_types WHERE project = ?').get(code).n;
+    if (!has) setupFromTemplate(db, code);
+  }
 }
 
 function placeholderFile(filesDir, name) {
@@ -101,7 +91,7 @@ function seedDemo(db, filesDir) {
   cert('U100-CERT-0003', 'Crane load test certificate', 'Mia', '2027-06-30', 'Load test passed.');
 
   // Project stream already started for U100 and TF7; NEW1 has no numbering yet.
-  ins("UPDATE projects SET stream_started = 1 WHERE code IN ('U100','TF7')");
+
   ins(`INSERT INTO audit (at,who,action,document_id,detail) VALUES ('2026-02-03T09:00:00Z','Sam','Created document',?, 'U100-PID-1001 · rev 0')`, d1);
   ins(`INSERT INTO audit (at,who,action,document_id,detail) VALUES ('2026-09-09T16:10:00Z','Mia','Uploaded period',?, 'U100-MNT-0001 2026-08 (late)')`, d3);
 }
@@ -110,4 +100,4 @@ function addDaysIso(days) {
   return new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
 }
 
-module.exports = { loadReference, seedDemo, USERS, PROJECTS, TYPES, FOLDERS };
+module.exports = { loadReference, seedDemo, setupFromTemplate, USERS, PROJECTS };

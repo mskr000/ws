@@ -12,7 +12,22 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS projects (
   code TEXT PRIMARY KEY,
   name TEXT NOT NULL,
-  stream_started INTEGER NOT NULL DEFAULT 0
+  stream_started INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','archived')),
+  created_at TEXT NOT NULL DEFAULT '',
+  created_by TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS project_folders (
+  project TEXT NOT NULL REFERENCES projects(code),
+  path TEXT NOT NULL,
+  PRIMARY KEY (project, path)
+);
+CREATE TABLE IF NOT EXISTS project_types (
+  project TEXT NOT NULL REFERENCES projects(code),
+  type TEXT NOT NULL REFERENCES types(code),
+  folder TEXT NOT NULL,
+  first_number INTEGER NOT NULL DEFAULT 1 CHECK (first_number >= 1),
+  PRIMARY KEY (project, type)
 );
 CREATE TABLE IF NOT EXISTS types (
   code TEXT PRIMARY KEY,
@@ -104,7 +119,16 @@ function openDb(file) {
   const db = new DatabaseSync(file);
   db.exec('PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;');
   db.exec(SCHEMA);
+  migrate(db);
   return db;
+}
+
+/* Upgrades for databases created by earlier versions. Each step runs once. */
+function migrate(db) {
+  const cols = db.prepare('PRAGMA table_info(projects)').all().map(c => c.name);
+  if (!cols.includes('status')) db.exec("ALTER TABLE projects ADD COLUMN status TEXT NOT NULL DEFAULT 'active'");
+  if (!cols.includes('created_at')) db.exec("ALTER TABLE projects ADD COLUMN created_at TEXT NOT NULL DEFAULT ''");
+  if (!cols.includes('created_by')) db.exec("ALTER TABLE projects ADD COLUMN created_by TEXT NOT NULL DEFAULT ''");
 }
 
 /* Run fn inside a transaction. Rolls back on any error. */

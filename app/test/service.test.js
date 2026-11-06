@@ -114,10 +114,3 @@ test('file lookup refuses anything that is not a stored hash', () => {
   expectError(() => service.fileForSha('../../etc/passwd'), 404);
 });
 
-test('new project without numbering takes the typed number, then continues it', () => {
-  const { service } = setup();
-  const a = service.createDocument('Sam', controlledBody({ project: 'NEW1', type: 'ISO', number: 'NEW1-ISO-0001' }));
-  assert.equal(service.getDocument(a).number, 'NEW1-ISO-0001');
-  const b = service.createDocument('Sam', controlledBody({ project: 'NEW1', type: 'ISO', title: 'Second isometric' }));
-  assert.equal(service.getDocument(b).number, 'NEW1-ISO-0002');
-});

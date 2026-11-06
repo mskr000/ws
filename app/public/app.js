@@ -60,6 +60,7 @@
     document.querySelectorAll('[role=tab]').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === S.tab));
     try {
       if (S.tab === 'audit') return renderAudit();
+      if (S.tab === 'projects') return renderProjects();
       if (S.view === 'doc') return renderDoc();
       return renderList();
     } catch (e) { $('#main').innerHTML = `<div class="errbox">${esc(e.message)}</div>`; }
@@ -230,7 +231,8 @@
       } catch (e) { $('#pflash').innerHTML = errs(e.fields) || `<div class="errbox">${esc(e.message)}</div>`; }
     };
   }
-  function openNew() {
+  async function openNew() {
+    S.projects = (await api('GET', '/api/projects')).filter(p => p.status === 'active');
     const f = S.draft.new || { project: (S.projects.find(p => p.stream_started) || S.projects[0] || {}).code, type: 'PID', cls: 'controlled', owner: S.me };
     S.draft.new = f;
     const t = S.types.find(x => x.code === f.type) || S.types[0];
@@ -241,7 +243,7 @@
       <div class="two"><div class="field"><label>Project</label><select class="t" id="np">${S.projects.map(p => `<option value="${p.code}" ${p.code === f.project ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></div>
       <div class="field"><label>Type</label><select class="t" id="nt">${S.types.map(x => `<option value="${x.code}" ${x.code === t.code ? 'selected' : ''}>${x.code} · ${esc(x.label)}</option>`).join('')}</select></div></div>
       <div class="note"><b>${CLS[t.cls]}.</b> ${t.cls === 'controlled' ? 'Upload, check and approve. Revisions.' : t.cls === 'periodic' ? 'Set up a monthly series. Each month is uploaded. No approval.' : 'Upload with an expiry date. Renew before expiry.'}<br>Folder: ${esc(t.folder.split('/').join(' › '))}</div>
-      <div class="field"><label>Document number</label>${(S.projects.find(p => p.code === f.project) || {}).stream_started ? '<div class="help">Assigned from the project numbering stream when you save.</div>' : `<input class="t" id="nno" value="${esc(f.number || '')}" placeholder="${esc(f.project)}-${esc(t.code)}-0001"><div class="help">This project has no numbering yet. This number starts it.</div>`}</div>
+      <div class="field"><label>Document number</label><div class="help">Assigned automatically from the project's numbering when you save.</div></div>
       <div class="field"><label>Title</label><input class="t" id="ntitle" value="${esc(f.title || '')}"></div>
       ${t.cls === 'periodic' ? `<div class="two"><div class="field"><label>Owner</label><select class="t" id="nown">${personOpts(f.owner)}</select></div>
         <div class="field"><label>Due day each month (1–28)</label><input type="number" min="1" max="28" class="t" id="ndue" value="${esc(f.dueDay || 5)}"></div></div>
@@ -261,7 +263,7 @@
     $('#ncancel').onclick = closeOverlay;
     $('#nsave').onclick = async () => {
       try {
-        const body = { project: $('#np').value, type: $('#nt').value, title: $('#ntitle').value, owner: $('#nown').value, number: $('#nno') ? $('#nno').value : undefined };
+        const body = { project: $('#np').value, type: $('#nt').value, title: $('#ntitle').value, owner: $('#nown').value };
         if (t.cls === 'periodic') Object.assign(body, { dueDay: $('#ndue').value, start: $('#nstart').value });
         else {
           body.file = await fileToBody($('#nfile')); body.summary = $('#nsum').value;
@@ -280,6 +282,136 @@
     const rows = await api('GET', '/api/audit');
     $('#main').innerHTML = `<h1>Activity</h1><p class="sub">Every action, newest first. The log cannot be edited or deleted.</p>
       <div class="card log">${rows.map(r => `<div><span class="muted">${esc(r.at.replace('T', ' ').slice(0, 16))} · ${esc(r.who)}</span><span><b>${esc(r.action)}</b> ${esc(r.number || '')} ${esc(r.detail)}</span></div>`).join('') || 'Nothing yet.'}</div>`;
+  }
+
+
+  /* ---------- Projects: setup, folders, document types ---------- */
+  const isAdmin = () => (S.users.find(u => u.name === S.me) || {}).role === 'admin';
+  async function renderProjects() {
+    const list = await api('GET', '/api/projects');
+    $('#main').innerHTML = `<h1>Projects</h1>
+      <p class="sub">Each project has its own code, folder structure and document types. ${isAdmin() ? '' : 'Only the records lead can add or change a project.'}</p>
+      <div class="row" style="margin-bottom:10px"><span class="grow"></span>${isAdmin() ? '<button class="btn primary" id="addproj">+ Add project</button>' : ''}</div>
+      <div class="tw"><table><thead><tr><th>Code</th><th>Name</th><th>Status</th><th>Documents</th><th></th></tr></thead><tbody>
+      ${list.map(p => `<tr><td class="no"><b>${esc(p.code)}</b></td><td>${esc(p.name)}</td>
+        <td><span class="pill ${p.status === 'active' ? 'p-ok' : 'p-old'}">${p.status === 'active' ? 'Active' : 'Archived'}</span></td>
+        <td>${p.documents}</td><td><button class="btn" data-editproj="${esc(p.code)}">${isAdmin() ? 'Open setup' : 'View setup'}</button></td></tr>`).join('') || '<tr><td colspan="5" class="muted" style="padding:20px">No projects yet.</td></tr>'}
+      </tbody></table></div>`;
+    const add = $('#addproj');
+    if (add) add.onclick = () => openProjectForm(null);
+    document.querySelectorAll('[data-editproj]').forEach(b => b.onclick = () => openProjectForm(b.dataset.editproj));
+  }
+  async function openProjectForm(code) {
+    let pf;
+    if (!code) {
+      const tpl = await api('GET', '/api/template');
+      pf = { mode: 'new', code: '', name: '', status: 'active', folders: tpl.folders.slice(),
+        types: tpl.types.map(t => ({ code: t.code, label: t.label, cls: t.cls, enabled: true, folder: t.folder, firstNumber: 1, documents: 0 })) };
+    } else {
+      const p = await api('GET', '/api/projects/' + encodeURIComponent(code));
+      pf = { mode: 'edit', code: p.code, name: p.name, status: p.status, locked: p.locked,
+        folders: p.folders.map(f => f.path), folderDocs: Object.fromEntries(p.folders.map(f => [f.path, f.documents])),
+        types: p.types.map(t => ({ ...t })) };
+      pf.typeDocs = Object.fromEntries(p.types.map(t => [t.code, t.documents]));
+    }
+    S.pf = pf; S.pfErr = {}; S.pfNewFolder = '';
+    drawProjectForm();
+  }
+  function drawProjectForm() {
+    const pf = S.pf, admin = isAdmin(), ro = !admin;
+    const ov = $('#overlay'); ov.hidden = false;
+    const enabled = pf.types.filter(t => t.enabled);
+    const errList = Object.values(S.pfErr);
+    ov.innerHTML = `<div class="scrim"><div class="modal" role="dialog" aria-modal="true" aria-label="Project setup" style="width:min(820px,100%)">
+      <h3>${pf.mode === 'new' ? 'Add a project' : esc(pf.code) + ' · project setup'}</h3>
+      <p class="sub" style="margin-bottom:12px">Work through the three parts. Then press Save.${pf.locked ? ' <b>Documents exist.</b> The code and folders with documents are locked.' : ''}</p>
+      ${errList.length ? `<div class="errbox">${errList.map(esc).join('<br>')}</div>` : ''}
+      <h2 style="margin-top:0">1. Basics</h2>
+      <div class="two">
+        <div class="field"><label for="pcode">Project code</label><input class="t" id="pcode" value="${esc(pf.code)}" ${pf.mode === 'edit' || ro ? 'disabled' : ''} placeholder="e.g. U100">
+          <div class="help">2 to 5 capital letters or digits. Used at the start of every document number. Cannot change later.</div></div>
+        <div class="field"><label for="pname">Project name</label><input class="t" id="pname" value="${esc(pf.name)}" ${ro ? 'disabled' : ''}></div>
+      </div>
+      ${pf.mode === 'edit' ? `<div class="field"><label for="pstat">Status</label><select class="t" id="pstat" ${ro ? 'disabled' : ''} style="max-width:240px"><option value="active" ${pf.status === 'active' ? 'selected' : ''}>Active</option><option value="archived" ${pf.status === 'archived' ? 'selected' : ''}>Archived (no new documents)</option></select></div>` : ''}
+
+      <h2>2. Folders</h2>
+      <p class="help" style="margin:0 0 8px">Every document is filed in one folder. Start from the standard structure, then add or remove. A folder that holds documents cannot be removed.</p>
+      <div class="tw" style="max-height:260px;overflow:auto"><table style="min-width:0"><tbody>
+        ${pf.folders.map(f => {
+          const n = pf.folderDocs ? pf.folderDocs[f] || 0 : 0;
+          return `<tr><td class="small">${esc(f.split('/').join(' › '))}</td><td style="width:120px" class="small muted">${n ? n + ' doc(s)' : ''}</td>
+            <td style="width:90px"><button class="btn link" data-rmfolder="${esc(f)}" ${ro || n ? 'disabled' : ''}>Remove</button></td></tr>`;
+        }).join('') || '<tr><td class="muted">No folders yet.</td></tr>'}
+      </tbody></table></div>
+      <div class="row" style="margin-top:8px"><input class="t" id="newfolder" placeholder="New folder, e.g. EPC/07 Close-out/07.1 Records" value="${esc(S.pfNewFolder)}" style="flex:1" ${ro ? 'disabled' : ''}>
+        <button class="btn" id="addfolder" ${ro ? 'disabled' : ''}>Add folder</button>
+        ${pf.mode === 'new' ? '<button class="btn link" id="resetfolders">Reset to standard</button>' : ''}</div>
+      <div class="help">Up to 4 levels, separated by /. Letters, digits, spaces, . - & ( ).</div>
+
+      <h2>3. Document types</h2>
+      <p class="help" style="margin:0 0 8px">Turn on the types this project uses. Each one files into one folder. Numbering starts at the first number (set it to continue an existing register).</p>
+      <div class="tw" style="max-height:300px;overflow:auto"><table style="min-width:0"><thead><tr><th></th><th>Type</th><th>Kind</th><th>Files into</th><th>First number</th></tr></thead><tbody>
+        ${pf.types.map((t, i) => {
+          const locked = pf.mode === 'edit' && (pf.typeDocs ? pf.typeDocs[t.code] : 0) > 0;
+          return `<tr><td><input type="checkbox" data-tenable="${i}" ${t.enabled ? 'checked' : ''} ${ro || (locked && t.enabled) ? 'disabled' : ''}></td>
+            <td><span class="no">${esc(t.code)}</span> ${esc(t.label)}${locked ? ' <span class="small muted">· in use</span>' : ''}</td>
+            <td class="small">${esc(t.cls)}</td>
+            <td><select class="t" data-tfolder="${i}" ${ro || !t.enabled ? 'disabled' : ''} style="min-width:200px">${pf.folders.map(f => `<option ${f === t.folder ? 'selected' : ''}>${esc(f)}</option>`).join('')}</select></td>
+            <td><input class="t" type="number" min="1" max="9999" data-tfirst="${i}" value="${esc(t.firstNumber)}" style="width:90px" ${ro || locked ? 'disabled' : ''}></td></tr>`;
+        }).join('')}
+      </tbody></table></div>
+      <div class="row" style="justify-content:flex-end;margin-top:14px"><span class="small muted grow">${enabled.length} document types on · ${pf.folders.length} folders</span>
+        <button class="btn link" id="pcancel">Cancel</button>${ro ? '' : `<button class="btn primary" id="psave">${pf.mode === 'new' ? 'Create project' : 'Save changes'}</button>`}</div>
+    </div></div>`;
+    bindProjectForm();
+  }
+  function bindProjectForm() {
+    const pf = S.pf;
+    $('#pcancel').onclick = closeOverlay;
+    const name = $('#pname'), code = $('#pcode');
+    if (name) name.oninput = e => { pf.name = e.target.value; };
+    if (code) code.oninput = e => { pf.code = e.target.value.toUpperCase(); };
+    const st = $('#pstat'); if (st) st.onchange = e => { pf.status = e.target.value; };
+    const nf = $('#newfolder'); if (nf) nf.oninput = e => { S.pfNewFolder = e.target.value; };
+    const add = $('#addfolder');
+    if (add) add.onclick = () => {
+      const f = (S.pfNewFolder || '').trim();
+      if (!f) return;
+      if (pf.folders.includes(f)) { S.pfErr = { dup: 'That folder already exists.' }; return drawProjectForm(); }
+      pf.folders.push(f); S.pfNewFolder = ''; S.pfErr = {}; drawProjectForm();
+    };
+    const reset = $('#resetfolders');
+    if (reset) reset.onclick = async () => {
+      const tpl = await api('GET', '/api/template');
+      pf.folders = tpl.folders.slice();
+      pf.types = pf.types.map(t => { const std = tpl.types.find(x => x.code === t.code); return { ...t, folder: std ? std.folder : t.folder }; });
+      drawProjectForm();
+    };
+    document.querySelectorAll('[data-rmfolder]').forEach(b => b.onclick = () => {
+      const f = b.dataset.rmfolder;
+      pf.folders = pf.folders.filter(x => x !== f);
+      pf.types.forEach(t => { if (t.folder === f) t.folder = pf.folders[0] || ''; });
+      drawProjectForm();
+    });
+    document.querySelectorAll('[data-tenable]').forEach(c => c.onchange = () => { pf.types[+c.dataset.tenable].enabled = c.checked; drawProjectForm(); });
+    document.querySelectorAll('[data-tfolder]').forEach(s => s.onchange = () => { pf.types[+s.dataset.tfolder].folder = s.value; });
+    document.querySelectorAll('[data-tfirst]').forEach(s => s.oninput = () => { pf.types[+s.dataset.tfirst].firstNumber = Number(s.value); });
+    const save = $('#psave');
+    if (save) save.onclick = async () => {
+      if (name) pf.name = name.value;
+      if (code) pf.code = code.value.toUpperCase();
+      const body = { code: pf.code, name: pf.name, status: pf.status, folders: pf.folders,
+        types: pf.types.map(t => ({ code: t.code, enabled: t.enabled, folder: t.folder, firstNumber: t.firstNumber })) };
+      try {
+        if (pf.mode === 'new') await api('POST', '/api/projects', body);
+        else await api('PUT', '/api/projects/' + encodeURIComponent(pf.code), body);
+        closeOverlay(); toast(pf.mode === 'new' ? `${pf.code} created.` : 'Saved.');
+        S.tab = 'projects'; render();
+      } catch (e) {
+        S.pfErr = e.fields ? Object.fromEntries(Object.entries(e.fields).map(([k, v]) => [k, v])) : { error: e.message };
+        drawProjectForm();
+      }
+    };
   }
 
   boot();

@@ -128,8 +128,9 @@ function removeErrors({ reason, text }) {
   return e;
 }
 
-/* Next number in a project's stream for one type. Includes removed documents so numbers are never reused. */
-function nextNumber(project, type, existingNumbers) {
+/* Next number in a project's stream for one type. Continues from the highest number used, or from the
+   project's first number if that is higher. Removed documents count, so numbers are never reused. */
+function nextNumber(project, type, existingNumbers, firstNumber = 1) {
   const prefix = `${project}-${type}-`;
   let max = 0;
   for (const n of existingNumbers) {
@@ -138,10 +139,54 @@ function nextNumber(project, type, existingNumbers) {
       if (Number.isInteger(v) && v > max) max = v;
     }
   }
-  return prefix + String(max + 1).padStart(4, '0');
+  const next = Math.max(max + 1, Number(firstNumber) || 1);
+  return prefix + String(next).padStart(4, '0');
+}
+
+/* ---------- Project setup ---------- */
+const CODE_RE = /^[A-Z0-9]{2,5}$/;
+const FOLDER_SEG_RE = /^[A-Za-z0-9][A-Za-z0-9 .&()\-]{0,59}$/;
+
+/* A folder path is 1 to 4 segments separated by "/". Each segment is a plain name. */
+function folderPathErrors(path) {
+  const segs = String(path || '').split('/');
+  if (segs.length < 1 || segs.length > 4) return 'Folder path can have 1 to 4 levels.';
+  for (const s of segs) {
+    if (!FOLDER_SEG_RE.test(s.trim()) || s !== s.trim()) return `"${s}" is not a valid folder name.`;
+  }
+  return null;
+}
+
+/* Full check of a project setup before anything is written. Returns { field: message }. */
+function projectSetupErrors({ code, name, folders, types, firstNumbers = {}, isNew, existingCodes = [] }) {
+  const e = {};
+  if (isNew) {
+    if (!CODE_RE.test(code || '')) e.code = 'Project code: 2 to 5 capital letters or digits, for example U100.';
+    else if (existingCodes.includes(code)) e.code = `${code} already exists.`;
+  }
+  if (!(name || '').trim()) e.name = 'Give the project a name.';
+  if (!Array.isArray(folders) || folders.length === 0) e.folders = 'Add at least one folder.';
+  else {
+    const seen = new Set();
+    folders.forEach(f => {
+      const err = folderPathErrors(f);
+      if (err) e[`folder:${f}`] = err;
+      if (seen.has(f)) e[`folder:${f}`] = 'This folder is listed twice.';
+      seen.add(f);
+    });
+  }
+  const enabled = (types || []).filter(t => t.enabled);
+  if (enabled.length === 0) e.types = 'Turn on at least one document type.';
+  for (const t of enabled) {
+    if (!folders || !folders.includes(t.folder)) e[`type:${t.code}`] = `${t.code} must file into one of the project folders.`;
+    const n = Number(t.firstNumber || 1);
+    if (!Number.isInteger(n) || n < 1 || n > 9999) e[`first:${t.code}`] = 'First number must be between 1 and 9999.';
+  }
+  return e;
 }
 
 module.exports = {
+  projectSetupErrors, folderPathErrors, CODE_RE,
   CLASSES, REASONS, ALLOWED_EXT, MAX_BYTES, EXPIRY_WARN_DAYS, STATUS,
   isoDay, monthKey, addMonths, dueDate, daysBetween,
   periodState, recordState,
