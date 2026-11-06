@@ -18,6 +18,11 @@ const port = Number(process.env.DMS_PORT || 8787);
 const db = openDb(dbFile);
 const cmd = process.argv[2] || 'start';
 
+if (cmd === 'backup') {
+  const { backupTo } = require('./db');
+  console.log(`Backup written to ${backupTo(db, path.join(dataDir, 'backups'))}`);
+  process.exit(0);
+}
 if (cmd === 'seed') {
   seedDemo(db, filesDir);
   console.log(`Demo data written to ${dbFile}`);

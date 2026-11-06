@@ -5,9 +5,11 @@ import { DocumentList } from './DocumentList';
 import { DocumentPage } from './DocumentPage';
 import { AddDocument } from './AddDocument';
 import { ProjectsPage } from './ProjectsPage';
+import { DashboardPage } from './DashboardPage';
+import { TransmittalPage } from './TransmittalPage';
 import { Segmented, Title, Notice, Table, th, td, GLOBAL_CSS, C, FONT, MONO, hint, row } from './ui';
 
-type View = { kind: 'list' } | { kind: 'doc'; id: number } | { kind: 'add' } | { kind: 'projects' } | { kind: 'log' };
+type View = { kind: 'dashboard' } | { kind: 'list' } | { kind: 'doc'; id: number } | { kind: 'add' } | { kind: 'transmittal' } | { kind: 'projects' } | { kind: 'log' };
 
 export interface AppProps { context: unknown; siteUrl: string; /* Preview only: supply a register instead of SharePoint. */ registerFactory?: () => Register }
 
@@ -16,7 +18,7 @@ export function App(props: AppProps) {
   const [me, setMe] = React.useState<Me | null>(null);
   const [allProjects, setAllProjects] = React.useState<ProjectInfo[]>([]);
   const [members, setMembers] = React.useState<string[]>([]);
-  const [view, setView] = React.useState<View>({ kind: 'list' });
+  const [view, setView] = React.useState<View>({ kind: 'dashboard' });
   const [err, setErr] = React.useState('');
   const [version, setVersion] = React.useState(0);
   const projects = allProjects.filter(p => p.status === 'active');
@@ -40,8 +42,8 @@ export function App(props: AppProps) {
   if (err) return <Notice tone="bad">{err}</Notice>;
   if (!reg || !me) return <div style={{ ...hint, padding: 24 }}>Signing you in and loading the register…</div>;
 
-  const section = view.kind === 'projects' ? 'projects' : view.kind === 'log' ? 'log' : 'documents';
-  const pick = (v: string) => setView(v === 'projects' ? { kind: 'projects' } : v === 'log' ? { kind: 'log' } : { kind: 'list' });
+  const section = view.kind === 'dashboard' ? 'dashboard' : view.kind === 'transmittal' ? 'transmittal' : view.kind === 'projects' ? 'projects' : view.kind === 'log' ? 'log' : 'documents';
+  const pick = (v: string) => setView(v === 'dashboard' ? { kind: 'dashboard' } : v === 'transmittal' ? { kind: 'transmittal' } : v === 'projects' ? { kind: 'projects' } : v === 'log' ? { kind: 'log' } : { kind: 'list' });
   return (
     <div className="dr" style={{ fontFamily: FONT, color: C.ink }} data-version={version}>
       <style>{GLOBAL_CSS}</style>
@@ -50,7 +52,7 @@ export function App(props: AppProps) {
           <div style={{ fontSize: 13, color: C.soft }}>Signed in as <span style={{ color: C.ink, fontWeight: 600 }}>{me.name}</span></div>
           {me.isRecordsLead ? <div style={{ ...hint, marginTop: 2 }}>Records Lead</div> : null}
         </div>
-        <Segmented value={section} onChange={pick} options={[['documents', 'Documents'], ['projects', 'Projects'], ['log', 'Activity']]} />
+        <Segmented value={section} onChange={pick} options={[['dashboard', 'Dashboard'], ['documents', 'Documents'], ['transmittal', 'Transmittal'], ['projects', 'Projects'], ['log', 'Activity']]} />
       </div>
 
       {view.kind === 'list' ? <DocumentList key={version} reg={reg} projects={projects} onOpen={id => setView({ kind: 'doc', id })} onAdd={() => setView({ kind: 'add' })} /> : null}
@@ -58,6 +60,8 @@ export function App(props: AppProps) {
       {view.kind === 'add' ? <AddDocument reg={reg} me={me} projects={projects} members={members} onCancel={() => setView({ kind: 'list' })} onDone={id => { bump(); setView({ kind: 'doc', id }); }} /> : null}
       {view.kind === 'projects' ? <ProjectsPage reg={reg} projects={allProjects} isRecordsLead={me.isRecordsLead} onChanged={() => { reg.projects().then(setAllProjects).catch(() => undefined); bump(); }} /> : null}
       {view.kind === 'log' ? <ActivityPage reg={reg} /> : null}
+      {view.kind === 'dashboard' ? <DashboardPage key={version} reg={reg} me={me} onOpen={id => setView({ kind: 'doc', id })} /> : null}
+      {view.kind === 'transmittal' ? <TransmittalPage reg={reg} projects={projects} /> : null}
     </div>
   );
 }

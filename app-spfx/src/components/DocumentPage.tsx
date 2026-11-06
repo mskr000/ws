@@ -69,6 +69,7 @@ export function DocumentPage(props: { reg: Register; id: number; me: Me; members
         <div style={{ margin: '6px 0', background: C.bg, border: `1px solid ${C.line}`, borderRadius: 9, padding: '9px 11px' }}>{r.summary}</div>
         {r.returnNote ? <Notice tone="warn">Sent back: {r.returnNote}</Notice> : null}
         {r.fileUrl ? <div style={{ fontSize: 13 }}><a href={r.fileUrl} target="_blank" rel="noopener noreferrer">Open {r.fileName}</a></div> : null}
+        <div style={{ fontSize: 12, color: C.soft, fontFamily: MONO, wordBreak: 'break-all' }}>SHA-256 {r.checksum || 'not recorded'}</div>
         <div style={{ ...row, marginTop: 8 }}>
           {canCheckIt ? <Btn kind="ok" onClick={() => run(() => props.reg.check(r, doc), 'Checked. Waiting for the approver.')}>Check</Btn> : null}
           {canApproveIt ? <Btn kind="ok" onClick={() => run(() => props.reg.approve(r, doc), 'Approved. It is now the current version.')}>Approve</Btn> : null}

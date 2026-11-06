@@ -23,3 +23,10 @@
 - Folder structure from a CSV file (`folder,types`). Errors are listed; nothing changes if the file has problems.
 - Full document type library (19 types) on the server.
 - Tests: 39 automated checks.
+
+## 0.4.0 (2026-11-06)
+- Data format 2. Upgrades run as numbered steps, each once, in a transaction.
+- A full backup is written to `data/backups/` before any upgrade of existing data.
+- A database from a newer version is refused, not changed.
+- `node src/cli.js backup` writes a backup on demand.
+- Tests: 43 automated checks.

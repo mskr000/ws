@@ -13,6 +13,8 @@ import * as R from '../domain/rules';
 import * as N from '../domain/numbering';
 import type { ProjectInfo, DocTypeInfo, DocumentRow, RevisionRow, PeriodRow, CertRow, AuditRow } from '../domain/types';
 import { safeFileName, odataString, nextVersion } from '../domain/sp';
+import { sha256Hex } from '../domain/sha';
+import { buildDashboard } from '../domain/dashboard';
 import * as SU from '../domain/setup';
 
 export const LISTS = {
@@ -222,11 +224,13 @@ export class Register {
       Title: action, WhoName: me.name, At: new Date().toISOString(), DocNumber: docNumber, DocumentId: documentId ?? null, Detail: detail.slice(0, 900),
     });
   }
-  private async upload(fileName: string, file: File): Promise<string> {
+  /* Uploads the file and returns its link and SHA-256 checksum, computed from the bytes sent. */
+  private async upload(fileName: string, file: File): Promise<{ url: string; checksum: string }> {
     const folder = this.sp.web.getFolderByServerRelativePath(this.libraryPath);
     const buffer = await file.arrayBuffer();
+    const checksum = await sha256Hex(buffer);
     const added = await folder.files.addUsingPath(safeFileName(fileName), buffer, { Overwrite: false });
-    return added.ServerRelativeUrl;
+    return { url: added.ServerRelativeUrl, checksum };
   }
 
   async createDocument(input: {
@@ -262,7 +266,7 @@ export class Register {
     }
     if (Object.keys(errors).length) throw new RuleError('Please fix the highlighted fields.', errors);
 
-    const url = await this.upload(`${number}_r0_${file!.name}`, file!);
+    const up = await this.upload(`${number}_r0_${file!.name}`, file!);
     const item = await this.sp.web.lists.getByTitle(LISTS.documents).items.add({
       Title: title, DocNumber: number, ProjectCode: input.project.code, DocType: input.type.code, DocKind: input.type.kind,
       Folder: input.type.folder, Owner: input.owner, IsRemoved: false, SharePointName: `${number}.pdf`,
@@ -271,13 +275,13 @@ export class Register {
     if (input.type.kind === 'controlled') {
       await this.sp.web.lists.getByTitle(LISTS.revisions).items.add({
         Title: `${number} rev 0`, DocumentId: id, RevNumber: 0, Status: 'Submitted', Reason: input.reason, Summary: input.summary!.trim(),
-        Note: input.note!.trim(), Uploader: me.name, Checker: input.checker, Approver: input.approver, FileName: file!.name, FileUrl: url,
+        Note: input.note!.trim(), Uploader: me.name, Checker: input.checker, Approver: input.approver, FileName: file!.name, FileUrl: up.url, Checksum: up.checksum,
       });
       await this.log('Created document', number, `${title} · rev 0 waiting for ${input.checker}`, id);
     } else {
       await this.sp.web.lists.getByTitle(LISTS.certificates).items.add({
         Title: `${number} v0`, DocumentId: id, VersionNo: 0, Summary: input.summary!.trim(), ExpiresOn: input.expiresOn, Uploader: me.name,
-        FileName: file!.name, FileUrl: url, UploadedAt: new Date().toISOString(),
+        FileName: file!.name, FileUrl: up.url, Checksum: up.checksum, UploadedAt: new Date().toISOString(),
       });
       await this.log('Created certificate', number, `${title} · expires ${input.expiresOn}`, id);
     }
@@ -290,10 +294,10 @@ export class Register {
       file: input.file ? { name: input.file.name, size: input.file.size } : null });
     if (Object.keys(errors).length) throw new RuleError('Please fix the highlighted fields.', errors);
     const n = nextVersion(revs.map(r => r.n));
-    const url = await this.upload(`${doc.number}_r${n}_${input.file!.name}`, input.file!);
+    const up = await this.upload(`${doc.number}_r${n}_${input.file!.name}`, input.file!);
     await this.sp.web.lists.getByTitle(LISTS.revisions).items.add({
       Title: `${doc.number} rev ${n}`, DocumentId: doc.id, RevNumber: n, Status: 'Submitted', Reason: input.reason, Summary: input.summary.trim(),
-      Note: input.note.trim(), Uploader: me.name, Checker: input.checker, Approver: input.approver, FileName: input.file!.name, FileUrl: url,
+      Note: input.note.trim(), Uploader: me.name, Checker: input.checker, Approver: input.approver, FileName: input.file!.name, FileUrl: up.url, Checksum: up.checksum,
     });
     await this.log('Added revision', doc.number, `rev ${n} · waiting for ${input.checker}`, doc.id);
     return n;
@@ -329,10 +333,10 @@ export class Register {
     const version = nextVersion(prior.map(p => p.version));
     const errors = R.periodErrors({ file: input.file ? { name: input.file.name, size: input.file.size } : null, summary: input.summary, replaceReason: input.replaceReason, existing });
     if (Object.keys(errors).length) throw new RuleError('Please fix the highlighted fields.', errors);
-    const url = await this.upload(`${doc.number}_${key}_v${version}_${input.file!.name}`, input.file!);
+    const up = await this.upload(`${doc.number}_${key}_v${version}_${input.file!.name}`, input.file!);
     await this.sp.web.lists.getByTitle(LISTS.periods).items.add({
       Title: `${doc.number} ${key}`, DocumentId: doc.id, PeriodKey: key, Version: version, NotNeeded: false, Summary: input.summary.trim(),
-      Uploader: me.name, UploadedAt: new Date().toISOString(), FileName: input.file!.name, FileUrl: url, ReplaceReason: input.replaceReason.trim() || null,
+      Uploader: me.name, UploadedAt: new Date().toISOString(), FileName: input.file!.name, FileUrl: up.url, Checksum: up.checksum, ReplaceReason: input.replaceReason.trim() || null,
     });
     await this.log(existing ? 'Replaced period' : 'Uploaded period', doc.number, `${key}: ${input.summary.trim()}`, doc.id);
   }
@@ -348,6 +352,19 @@ export class Register {
     await this.log('Marked not needed', doc.number, `${key}: ${reason.trim()}`, doc.id);
   }
 
+  /* Dashboard numbers. Reads each document's history, so cost grows with the register. Fine for a pilot register. */
+  async dashboard(me: Me, today: string) {
+    const projects = await this.projects();
+    const docs = await this.documents();
+    const docRows = await Promise.all(docs.map(async d => ({ d, revs: await this.revisions(d.id), periods: await this.periods(d.id), certs: await this.certificates(d.id) })));
+    return buildDashboard({
+      me: me.name, today, projects, docs,
+      revisions: docRows.flatMap(x => x.revs.map(r => ({ documentId: r.documentId, n: r.n, status: r.status, checker: r.checker, approver: r.approver, by: r.uploader }))),
+      periods: docRows.flatMap(x => x.periods),
+      certificates: docRows.flatMap(x => x.certs),
+    });
+  }
+
   async renew(doc: DocumentRow, certs: CertRow[], input: { file: File | null; summary: string; expiresOn: string }): Promise<void> {
     const me = await this.whoAmI();
     const denied = R.canUploadSeries(doc.owner, me.name, me.isRecordsLead);
@@ -355,10 +372,10 @@ export class Register {
     const errors = R.renewalErrors({ file: input.file ? { name: input.file.name, size: input.file.size } : null, summary: input.summary, expiresOn: input.expiresOn });
     if (Object.keys(errors).length) throw new RuleError('Please fix the highlighted fields.', errors);
     const n = nextVersion(certs.map(c => c.n));
-    const url = await this.upload(`${doc.number}_v${n}_${input.file!.name}`, input.file!);
+    const up = await this.upload(`${doc.number}_v${n}_${input.file!.name}`, input.file!);
     await this.sp.web.lists.getByTitle(LISTS.certificates).items.add({
       Title: `${doc.number} v${n}`, DocumentId: doc.id, VersionNo: n, Summary: input.summary.trim(), ExpiresOn: input.expiresOn, Uploader: me.name,
-      FileName: input.file!.name, FileUrl: url, UploadedAt: new Date().toISOString(),
+      FileName: input.file!.name, FileUrl: up.url, Checksum: up.checksum, UploadedAt: new Date().toISOString(),
     });
     await this.log('Renewed certificate', doc.number, `version ${n} · expires ${input.expiresOn}`, doc.id);
   }
@@ -390,13 +407,13 @@ function toDocument(r: any): DocumentRow {
 function toRevision(r: any): RevisionRow {
   return { id: r.Id, documentId: r.DocumentId, n: r.RevNumber, status: r.Status, reason: r.Reason || '', summary: r.Summary || '', note: r.Note || '',
     uploader: r.Uploader || '', checker: r.Checker || '', approver: r.Approver || '', checkedBy: r.CheckedBy || '', approvedBy: r.ApprovedBy || '',
-    returnNote: r.ReturnNote || '', fileName: r.FileName || '', fileUrl: r.FileUrl || '', createdAt: r.Created || '' };
+    returnNote: r.ReturnNote || '', fileName: r.FileName || '', fileUrl: r.FileUrl || '', checksum: r.Checksum || '', createdAt: r.Created || '' };
 }
 function toPeriod(r: any): PeriodRow {
   return { id: r.Id, documentId: r.DocumentId, periodKey: r.PeriodKey, version: r.Version || 1, notNeeded: !!r.NotNeeded, notNeededReason: r.NotNeededReason || '',
-    summary: r.Summary || '', uploader: r.Uploader || '', uploadedAt: r.UploadedAt || null, fileUrl: r.FileUrl || '', replaceReason: r.ReplaceReason || '' };
+    summary: r.Summary || '', uploader: r.Uploader || '', uploadedAt: r.UploadedAt || null, fileUrl: r.FileUrl || '', replaceReason: r.ReplaceReason || '', checksum: r.Checksum || '' };
 }
 function toCert(r: any): CertRow {
   return { id: r.Id, documentId: r.DocumentId, n: r.VersionNo, summary: r.Summary || '', expiresOn: r.ExpiresOn, uploader: r.Uploader || '',
-    fileName: r.FileName || '', fileUrl: r.FileUrl || '', uploadedAt: r.UploadedAt || '' };
+    fileName: r.FileName || '', fileUrl: r.FileUrl || '', uploadedAt: r.UploadedAt || '', checksum: r.Checksum || '' };
 }

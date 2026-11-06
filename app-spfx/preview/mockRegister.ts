@@ -4,6 +4,11 @@ import * as N from '../src/domain/numbering';
 import type { ProjectInfo, DocTypeInfo, DocumentRow, RevisionRow, PeriodRow, CertRow, AuditRow } from '../src/domain/types';
 import { RuleError } from '../src/services/register';
 import * as SU from '../src/domain/setup';
+import { sha256Hex } from '../src/domain/sha';
+import { buildDashboard } from '../src/domain/dashboard';
+
+/* SHA-256 of the file the user picked. Same method as the SharePoint version. */
+async function sumOf(file: File | null): Promise<string> { return file ? sha256Hex(await file.arrayBuffer()) : ''; }
 
 let ME = 'Sam';
 const LEAD = 'Mia';
@@ -38,16 +43,16 @@ function seed() {
   const add = (d: Omit<DocumentRow, 'id'>) => { const row = { ...d, id: nextId++ }; docs.push(row); return row; };
   const pid = add({ number: 'U100-PID-1001', title: 'Pump layout, Unit 100', project: 'U100', type: 'PID', kind: 'controlled', folder: 'EPC/02 Engineering/02.1 Process', owner: 'Sam', removed: false, spName: 'U100-PID-1001.pdf', dueDay: null, startPeriod: null });
   const rv = (n: number, status: RevisionRow['status'], summary: string, extra: Partial<RevisionRow> = {}) =>
-    revs.push({ id: nextId++, documentId: pid.id, n, status, reason: 'Design change', summary, note: 'Check the vents', uploader: 'Sam', checker: 'Priya', approver: 'Tom', checkedBy: '', approvedBy: '', returnNote: '', fileName: `U100-PID-1001_r${n}.pdf`, fileUrl: '#', createdAt: '2026-04-10', ...extra });
+    revs.push({ id: nextId++, documentId: pid.id, n, status, reason: 'Design change', summary, note: 'Check the vents', uploader: 'Sam', checker: 'Priya', approver: 'Tom', checkedBy: '', approvedBy: '', returnNote: '', fileName: `U100-PID-1001_r${n}.pdf`, fileUrl: '#', checksum: '', createdAt: '2026-04-10', ...extra });
   rv(0, 'Approved', 'First issue for internal review.', { checkedBy: 'Priya', approvedBy: 'Tom', createdAt: '2026-02-03' });
   rv(1, 'Approved', 'Moved pump 300 mm north after the site survey.', { checkedBy: 'Priya', approvedBy: 'Tom', createdAt: '2026-04-10' });
   rv(2, 'Submitted', 'Added a bypass valve on the cooling line.', { createdAt: today() });
 
   const mnt = add({ number: 'U100-MNT-0001', title: 'Monthly pump vibration check', project: 'U100', type: 'MNT', kind: 'periodic', folder: 'Operations/03 Maintenance', owner: 'Mia', removed: false, spName: 'U100-MNT-0001.pdf', dueDay: 5, startPeriod: '2026-06' });
-  ['2026-06', '2026-07', '2026-08'].forEach((k, i) => periods.push({ id: nextId++, documentId: mnt.id, periodKey: k, version: 1, notNeeded: false, notNeededReason: '', summary: 'All pumps within limits.', uploader: 'Mia', uploadedAt: `${k}-0${4 + i}T10:00:00Z`, fileUrl: '#', replaceReason: '' }));
+  ['2026-06', '2026-07', '2026-08'].forEach((k, i) => periods.push({ id: nextId++, documentId: mnt.id, periodKey: k, version: 1, notNeeded: false, notNeededReason: '', summary: 'All pumps within limits.', uploader: 'Mia', uploadedAt: `${k}-0${4 + i}T10:00:00Z`, fileUrl: '#', replaceReason: '', checksum: '' }));
 
   const cert = add({ number: 'U100-CERT-0001', title: 'Pressure vessel V-101 certificate', project: 'U100', type: 'CERT', kind: 'record', folder: 'Operations/06 Certificates', owner: 'Mia', removed: false, spName: 'U100-CERT-0001.pdf', dueDay: null, startPeriod: null });
-  certs.push({ id: nextId++, documentId: cert.id, n: 0, summary: 'Certificate issued by inspector.', expiresOn: '2026-11-28', uploader: 'Mia', fileName: 'V101_cert.pdf', fileUrl: '#', uploadedAt: '2025-11-28' });
+  certs.push({ id: nextId++, documentId: cert.id, n: 0, summary: 'Certificate issued by inspector.', expiresOn: '2026-11-28', uploader: 'Mia', fileName: 'V101_cert.pdf', fileUrl: '#', uploadedAt: '2025-11-28', checksum: '' });
 
   audit.push({ id: nextId++, when: '2026-04-10T14:20:00Z', who: 'Tom', action: 'Approved', docNumber: 'U100-PID-1001', detail: 'rev 1 approved by Tom' });
   audit.push({ id: nextId++, when: '2026-02-03T09:00:00Z', who: 'Sam', action: 'Created document', docNumber: 'U100-PID-1001', detail: 'rev 0 waiting for Priya' });
@@ -100,6 +105,14 @@ export class MockRegister {
     this.savedTemplates.push({ id: 'saved-' + nextId++, name: name.trim(), description, numberPattern: setup.numberPattern, folders: setup.folders, types: setup.types.filter(t => t.enabled), builtIn: false });
   }
   previewFolderCsv(text: string) { return SU.readFolderCsv(text); }
+  async dashboard(me: { name: string }, today: string) {
+    const docList = docs.slice();
+    return buildDashboard({
+      me: me.name, today, projects: PROJECTS, docs: docList,
+      revisions: revs.map(r => ({ documentId: r.documentId, n: r.n, status: r.status, checker: r.checker, approver: r.approver, by: r.uploader })),
+      periods: periods.slice(), certificates: certs.slice(),
+    });
+  }
   async documents(project?: string) { return docs.filter(d => !project || d.project === project); }
   async allDocumentNumbers() { return docs.map(d => d.number); }
   async revisions(id: number) { return revs.filter(r => r.documentId === id); }
@@ -119,9 +132,10 @@ export class MockRegister {
       if (!input.expiresOn || input.expiresOn <= today()) errors.expiresOn = 'Enter an expiry date after today.';
     } else if (!(input.dueDay >= 1 && input.dueDay <= 28)) errors.dueDay = 'Due day must be 1 to 28.';
     if (Object.keys(errors).length) throw new RuleError('Please fix the highlighted fields.', errors);
+    const cs = await sumOf(input.file);
     const d: DocumentRow = { id: nextId++, number, title: input.title.trim(), project: input.project.code, type: input.type.code, kind: input.type.kind, folder: input.type.folder, owner: input.owner, removed: false, spName: `${number}.pdf`, dueDay: input.dueDay ?? null, startPeriod: input.startPeriod ?? null };
     docs.push(d);
-    if (input.type.kind === 'controlled') revs.push({ id: nextId++, documentId: d.id, n: 0, status: 'Submitted', reason: input.reason, summary: input.summary.trim(), note: input.note.trim(), uploader: ME, checker: input.checker, approver: input.approver, checkedBy: '', approvedBy: '', returnNote: '', fileName: input.file.name, fileUrl: '#', createdAt: today() });
+    if (input.type.kind === 'controlled') revs.push({ id: nextId++, documentId: d.id, n: 0, status: 'Submitted', reason: input.reason, summary: input.summary.trim(), note: input.note.trim(), uploader: ME, checker: input.checker, approver: input.approver, checkedBy: '', approvedBy: '', returnNote: '', fileName: input.file.name, fileUrl: '#', checksum: cs, createdAt: today() });
     this.log('Created document', number, `${d.title}`);
     return d.id;
   }
@@ -130,7 +144,8 @@ export class MockRegister {
     const errors = R.revisionErrors({ uploader: ME, checker: input.checker, approver: input.approver, reason: input.reason, summary: input.summary, note: input.note, file: input.file ? { name: input.file.name, size: input.file.size } : null });
     if (Object.keys(errors).length) throw new RuleError('Please fix the highlighted fields.', errors);
     const n = list.length ? Math.max(...list.map(r => r.n)) + 1 : 0;
-    revs.push({ id: nextId++, documentId: doc.id, n, status: 'Submitted', reason: input.reason, summary: input.summary.trim(), note: input.note.trim(), uploader: ME, checker: input.checker, approver: input.approver, checkedBy: '', approvedBy: '', returnNote: '', fileName: input.file.name, fileUrl: '#', createdAt: today() });
+    const cs = await sumOf(input.file);
+    revs.push({ id: nextId++, documentId: doc.id, n, status: 'Submitted', reason: input.reason, summary: input.summary.trim(), note: input.note.trim(), uploader: ME, checker: input.checker, approver: input.approver, checkedBy: '', approvedBy: '', returnNote: '', fileName: input.file.name, fileUrl: '#', checksum: cs, createdAt: today() });
     this.log('Added revision', doc.number, `rev ${n}`);
     return n;
   }
@@ -145,21 +160,23 @@ export class MockRegister {
     this.rule(R.canUploadSeries(doc.owner, ME, ME === LEAD));
     const errors = R.periodErrors({ file: input.file ? { name: input.file.name, size: input.file.size } : null, summary: input.summary, replaceReason: input.replaceReason, existing: input.existing });
     if (Object.keys(errors).length) throw new RuleError('Please fix the highlighted fields.', errors);
-    periods.push({ id: nextId++, documentId: doc.id, periodKey: key, version: 1, notNeeded: false, notNeededReason: '', summary: input.summary.trim(), uploader: ME, uploadedAt: stamp(), fileUrl: '#', replaceReason: '' });
+    const cs = await sumOf(input.file);
+    periods.push({ id: nextId++, documentId: doc.id, periodKey: key, version: 1, notNeeded: false, notNeededReason: '', summary: input.summary.trim(), uploader: ME, uploadedAt: stamp(), fileUrl: '#', replaceReason: '', checksum: cs });
     this.log('Uploaded period', doc.number, key);
   }
   async markNotNeeded(doc: DocumentRow, key: string, reason: string) {
     this.rule(R.canUploadSeries(doc.owner, ME, ME === LEAD));
     const errors = R.naErrors(reason);
     if (Object.keys(errors).length) throw new RuleError('Please fix the highlighted fields.', errors);
-    periods.push({ id: nextId++, documentId: doc.id, periodKey: key, version: 1, notNeeded: true, notNeededReason: reason, summary: '', uploader: ME, uploadedAt: stamp(), fileUrl: '', replaceReason: '' });
+    periods.push({ id: nextId++, documentId: doc.id, periodKey: key, version: 1, notNeeded: true, notNeededReason: reason, summary: '', uploader: ME, uploadedAt: stamp(), fileUrl: '', replaceReason: '', checksum: '' });
     this.log('Marked not needed', doc.number, `${key}: ${reason}`);
   }
   async renew(doc: DocumentRow, list: CertRow[], input: any) {
     this.rule(R.canUploadSeries(doc.owner, ME, ME === LEAD));
     const errors = R.renewalErrors({ file: input.file ? { name: input.file.name, size: input.file.size } : null, summary: input.summary, expiresOn: input.expiresOn });
     if (Object.keys(errors).length) throw new RuleError('Please fix the highlighted fields.', errors);
-    certs.push({ id: nextId++, documentId: doc.id, n: list.length, summary: input.summary.trim(), expiresOn: input.expiresOn, uploader: ME, fileName: input.file.name, fileUrl: '#', uploadedAt: stamp() });
+    const cs = await sumOf(input.file);
+    certs.push({ id: nextId++, documentId: doc.id, n: list.length, summary: input.summary.trim(), expiresOn: input.expiresOn, uploader: ME, fileName: input.file.name, fileUrl: '#', uploadedAt: stamp(), checksum: cs });
     this.log('Renewed certificate', doc.number, input.expiresOn);
   }
   async removeDocument(doc: DocumentRow, reason: string, text: string) {

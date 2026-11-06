@@ -88,6 +88,7 @@ Ensure-Field 'Revisions' 'ApprovedBy' 'Text' 'Approved by'
 Ensure-Field 'Revisions' 'ReturnNote' 'Note' 'Sent back reason'
 Ensure-Field 'Revisions' 'FileName' 'Text' 'File name'
 Ensure-Field 'Revisions' 'FileUrl' 'Text' 'File link'
+Ensure-Field 'Revisions' 'Checksum' 'Text' 'SHA-256 checksum'
 
 Ensure-List 'PeriodEntries' | Out-Null
 Ensure-Field 'PeriodEntries' 'DocumentId' 'Number' 'Document ID' -Indexed
@@ -100,6 +101,7 @@ Ensure-Field 'PeriodEntries' 'Uploader' 'Text' 'Uploaded by'
 Ensure-Field 'PeriodEntries' 'UploadedAt' 'DateTime' 'Uploaded at'
 Ensure-Field 'PeriodEntries' 'FileName' 'Text' 'File name'
 Ensure-Field 'PeriodEntries' 'FileUrl' 'Text' 'File link'
+Ensure-Field 'PeriodEntries' 'Checksum' 'Text' 'SHA-256 checksum'
 Ensure-Field 'PeriodEntries' 'ReplaceReason' 'Note' 'Replace reason'
 
 Ensure-List 'CertificateVersions' | Out-Null
@@ -110,6 +112,7 @@ Ensure-Field 'CertificateVersions' 'ExpiresOn' 'DateTime' 'Expires on'
 Ensure-Field 'CertificateVersions' 'Uploader' 'Text' 'Uploaded by'
 Ensure-Field 'CertificateVersions' 'FileName' 'Text' 'File name'
 Ensure-Field 'CertificateVersions' 'FileUrl' 'Text' 'File link'
+Ensure-Field 'CertificateVersions' 'Checksum' 'Text' 'SHA-256 checksum'
 Ensure-Field 'CertificateVersions' 'UploadedAt' 'DateTime' 'Uploaded at'
 
 Ensure-List 'AuditLog' | Out-Null

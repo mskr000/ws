@@ -122,22 +122,58 @@ CREATE TRIGGER IF NOT EXISTS audit_no_delete BEFORE DELETE ON audit
 BEGIN SELECT RAISE(ABORT, 'audit log is append-only'); END;
 `;
 
-function openDb(file) {
+/* Data format version. Stored in the database itself (PRAGMA user_version).
+   Bump DATA_VERSION and add a step to MIGRATIONS when the stored data changes shape. */
+const DATA_VERSION = 2;
+
+const MIGRATIONS = {
+  // 0 -> 1: projects gained status, created_at, created_by (earliest local databases).
+  1: db => {
+    const cols = db.prepare('PRAGMA table_info(projects)').all().map(c => c.name);
+    if (!cols.includes('status')) db.exec("ALTER TABLE projects ADD COLUMN status TEXT NOT NULL DEFAULT 'active'");
+    if (!cols.includes('created_at')) db.exec("ALTER TABLE projects ADD COLUMN created_at TEXT NOT NULL DEFAULT ''");
+    if (!cols.includes('created_by')) db.exec("ALTER TABLE projects ADD COLUMN created_by TEXT NOT NULL DEFAULT ''");
+  },
+  // 1 -> 2: projects gained a numbering pattern.
+  2: db => {
+    const cols = db.prepare('PRAGMA table_info(projects)').all().map(c => c.name);
+    if (!cols.includes('number_pattern')) db.exec("ALTER TABLE projects ADD COLUMN number_pattern TEXT NOT NULL DEFAULT '{PROJ}-{TYPE}-{SEQ:4}'");
+  },
+};
+
+function userVersion(db) { return db.prepare('PRAGMA user_version').get().user_version; }
+
+function hasData(db) {
+  return !!db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'projects'").get();
+}
+
+/* Opens the database and brings it to DATA_VERSION. Before any upgrade of existing data,
+   a full copy is written to the backups folder. Refuses data written by a newer version. */
+function openDb(file, { backupDir } = {}) {
   if (file !== ':memory:') fs.mkdirSync(path.dirname(file), { recursive: true });
   const db = new DatabaseSync(file);
   db.exec('PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;');
+  const from = userVersion(db);
+  if (from > DATA_VERSION) {
+    db.close();
+    throw new Error(`This data was written by a newer version (format ${from}). This app reads format ${DATA_VERSION}. Install the newer version instead.`);
+  }
+  const existing = hasData(db);
+  if (existing && from < DATA_VERSION) backupTo(db, backupDir || path.join(path.dirname(file), 'backups'), from);
   db.exec(SCHEMA);
-  migrate(db);
+  for (let v = from + 1; v <= DATA_VERSION; v++) {
+    tx(db, () => { MIGRATIONS[v](db); db.exec(`PRAGMA user_version = ${v}`); });
+  }
   return db;
 }
 
-/* Upgrades for databases created by earlier versions. Each step runs once. */
-function migrate(db) {
-  const cols = db.prepare('PRAGMA table_info(projects)').all().map(c => c.name);
-  if (!cols.includes('status')) db.exec("ALTER TABLE projects ADD COLUMN status TEXT NOT NULL DEFAULT 'active'");
-  if (!cols.includes('created_at')) db.exec("ALTER TABLE projects ADD COLUMN created_at TEXT NOT NULL DEFAULT ''");
-  if (!cols.includes('created_by')) db.exec("ALTER TABLE projects ADD COLUMN created_by TEXT NOT NULL DEFAULT ''");
-  if (!cols.includes('number_pattern')) db.exec("ALTER TABLE projects ADD COLUMN number_pattern TEXT NOT NULL DEFAULT '{PROJ}-{TYPE}-{SEQ:4}'");
+/* A consistent copy of the whole database, safe while the app is running (VACUUM INTO). */
+function backupTo(db, dir, fromVersion = userVersion(db)) {
+  fs.mkdirSync(dir, { recursive: true });
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const out = path.join(dir, `register-format${fromVersion}-${stamp}.db`);
+  db.exec(`VACUUM INTO '${out.replace(/'/g, "''")}'`);
+  return out;
 }
 
 /* Run fn inside a transaction. Rolls back on any error. */
@@ -153,4 +189,4 @@ function tx(db, fn) {
   }
 }
 
-module.exports = { openDb, tx };
+module.exports = { openDb, tx, backupTo, DATA_VERSION };

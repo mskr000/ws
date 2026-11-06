@@ -33,6 +33,7 @@ export interface RevisionRow {
   returnNote: string;
   fileName: string;
   fileUrl: string;
+  checksum: string;
   createdAt: string;
 }
 export interface PeriodRow {
@@ -47,6 +48,7 @@ export interface PeriodRow {
   uploadedAt: string | null;
   fileUrl: string;
   replaceReason: string;
+  checksum: string;
 }
 export interface CertRow {
   id: number;
@@ -58,5 +60,6 @@ export interface CertRow {
   fileName: string;
   fileUrl: string;
   uploadedAt: string;
+  checksum: string;
 }
 export interface AuditRow { id: number; when: string; who: string; action: string; docNumber: string; detail: string }

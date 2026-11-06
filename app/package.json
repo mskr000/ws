@@ -6,7 +6,7 @@
   "scripts": {
     "seed": "node src/cli.js seed",
     "start": "node src/cli.js",
-    "test": "node --test test/rules.test.js test/service.test.js test/projects.test.js test/setup-extras.test.js"
+    "test": "node --test test/rules.test.js test/service.test.js test/projects.test.js test/setup-extras.test.js test/data-format.test.js"
   },
   "engines": { "node": ">=22.13" }
 }
