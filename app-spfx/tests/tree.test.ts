@@ -38,3 +38,9 @@ test('renamed path keeps the parent', () => {
   assert.equal(T.renamedPath('A/B', 'Z'), 'A/Z');
   assert.equal(T.renamedPath('Top', 'Z'), 'Z');
 });
+
+test('restoring a removed folder brings back what is under it and its removed parents', () => {
+  const removed = ['A', 'A/B', 'A/B/C', 'D'];
+  assert.deepEqual(T.restorePlan(removed, 'A/B').sort(), ['A', 'A/B', 'A/B/C'].sort());
+  assert.deepEqual(T.restorePlan(removed, 'D'), ['D']);
+});

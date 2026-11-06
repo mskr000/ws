@@ -20,7 +20,8 @@ export const PRESETS: Record<string, Cap[]> = {
 
 export const ALL_PROJECTS = '*';
 
-export interface Grant { id: number; user: string; project: string; folder: string; cap: Cap }
+/* A revoked grant is kept in the list (never deleted). It simply stops counting. */
+export interface Grant { id: number; user: string; project: string; folder: string; cap: Cap; revoked?: boolean }
 export interface Me { name: string; grants: Grant[] }
 
 /* Folder '' matches the whole project. Folder 'A/B' also matches 'A/B/C'. */
@@ -32,7 +33,7 @@ export function folderMatches(grantFolder: string, folder: string): boolean {
 /* Project '' or '*' in a check means "any project". A grant for '*' covers every project. */
 export function allowed(grants: Grant[], user: string, cap: Cap, project = ALL_PROJECTS, folder = ''): boolean {
   return grants.some(g =>
-    g.user === user && g.cap === cap &&
+    !g.revoked && g.user === user && g.cap === cap &&
     (g.project === ALL_PROJECTS || project === ALL_PROJECTS || g.project === project) &&
     folderMatches(g.folder, folder));
 }

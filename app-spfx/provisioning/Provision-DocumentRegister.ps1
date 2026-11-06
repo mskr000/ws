@@ -121,6 +121,10 @@ Ensure-List 'Drafts' | Out-Null
 Ensure-Field 'Projects' 'ProjectKind' 'Text' 'Kind (Standard or Internal)'
 Ensure-Field 'Projects' 'ProjectOwner' 'Text' 'Owner (creator)'
 Ensure-Field 'Documents' 'LegalHold' 'Boolean' 'Legal hold'
+# Nothing is deleted. Removed items stay in the list, marked as removed.
+Ensure-Field 'ProjectFolders' 'IsRemoved' 'Boolean' 'Removed'
+Ensure-Field 'ProjectTypes' 'Enabled' 'Boolean' 'On for this project'
+Ensure-Field 'Permissions' 'IsRemoved' 'Boolean' 'Revoked'
 Ensure-Field 'Documents' 'HoldReason' 'Text' 'Legal hold reason'
 Ensure-List 'Transmittals' | Out-Null
 Ensure-Field 'Transmittals' 'ProjectCode' 'Text' 'Project code'

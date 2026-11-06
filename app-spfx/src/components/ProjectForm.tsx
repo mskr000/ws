@@ -80,7 +80,13 @@ export function ProjectForm(props: { reg: Register; me: Me; code: string | null;
     const busy = branch.find(x => before && (before.docsInFolder[x] || 0) > 0);
     if (busy) { setErrors({ ...errors, [`folder:${f}`]: `${before!.docsInFolder[busy]} document(s) are filed in ${busy}. Move them first.` }); return; }
     const left = pf.folders.filter(x => !branch.includes(x));
-    set({ folders: left, types: pf.types.map(t => branch.includes(t.folder) ? { ...t, folder: left[0] || '' } : t) });
+    /* Removed, not deleted: the folder is kept as a removed item and can be restored. */
+    const removed = Array.from(new Set([...(pf.removedFolders || []), ...branch]));
+    set({ folders: left, removedFolders: removed, types: pf.types.map(t => branch.includes(t.folder) ? { ...t, folder: left[0] || '' } : t) });
+  };
+  const restoreFolder = (path: string) => {
+    const plan = TREE.restorePlan(pf.removedFolders || [], path);
+    set({ folders: Array.from(new Set([...pf.folders, ...plan])), removedFolders: (pf.removedFolders || []).filter(r => !plan.includes(r)) });
   };
   /* Rename one folder, and everything inside it. Applied on Save, so a wrong name can be fixed until then. */
   const renameFolder = (path: string, newName: string): boolean => {
@@ -197,7 +203,21 @@ export function ProjectForm(props: { reg: Register; me: Me; code: string | null;
           <input aria-label="New folder path" placeholder="New folder, for example EPC/07 Close-out/07.1 Records" value={newFolder} disabled={ro} onChange={e => setNewFolder(e.target.value)} style={{ ...input, flex: 1 }} />
           <Btn disabled={ro} onClick={addFolder}>Add folder</Btn>
         </div>
-        <div style={{ fontSize: 12.5, color: C.soft }}>Up to 4 levels. Use + to add inside a folder. Removing a folder removes everything inside it, but only if none of it holds documents.</div>
+        <div style={{ fontSize: 12.5, color: C.soft }}>Up to 4 levels. Use + to add inside a folder. Remove marks a folder and everything in it as removed, but only if none of it holds documents. Nothing is deleted.</div>
+        {(pf.removedFolders || []).length ? (
+          <div style={{ marginTop: 14 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: C.soft, marginBottom: 6 }}>Removed folders (kept, not deleted)</div>
+            <div style={{ border: '1px dashed ' + C.lineStrong, borderRadius: 8, padding: 6 }}>
+              {(pf.removedFolders || []).map(f => (
+                <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 6px' }}>
+                  <span style={{ flex: 1, minWidth: 0, fontSize: 14, color: C.soft, textDecoration: 'line-through' }}>{f.split('/').join(' › ')}</span>
+                  <span style={{ fontSize: 12, color: C.soft }}>removed</span>
+                  {!ro ? <Btn kind="link" label={'Restore ' + f} onClick={() => restoreFolder(f)}>Restore</Btn> : null}
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </section>
 
       <section style={card}>
@@ -288,7 +308,7 @@ function FolderNodeRow(props: {
           </>
         )}
         {canAddSub ? <Btn kind="link" onClick={() => setAdding(a => !a)}>+ Inside</Btn> : null}
-        {!ro ? <Btn kind="link" onClick={() => props.onRemove(node.path)}>Remove</Btn> : null}
+        {!ro ? <Btn kind="link" label={'Remove ' + node.name} onClick={() => props.onRemove(node.path)}>Remove</Btn> : null}
       </div>
       {adding ? (
         <div style={{ display: 'flex', gap: 6, padding: '4px 6px 6px', paddingLeft: 34 + props.depth * 20 }}>

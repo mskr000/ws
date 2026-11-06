@@ -84,7 +84,7 @@ seed();
 
 export class MockRegister {
   async whoAmI() { return { name: ME, grants: GRANTS.slice() }; }
-  async grants() { return GRANTS.slice(); }
+  async grants() { return GRANTS.filter(g => !g.revoked); }
   async addGrant(input: { user: string; project: string; folder: string; cap: P.Cap }) {
     if (!can('permissions')) throw new RuleError('You do not have permission to manage permissions. Ask an admin.');
     const problem = P.grantErrors(input, GRANTS);
@@ -94,8 +94,8 @@ export class MockRegister {
   }
   async removeGrant(g: P.Grant) {
     if (!can('permissions')) throw new RuleError('You do not have permission to manage permissions. Ask an admin.');
-    if (g.cap === 'permissions' && GRANTS.filter(x => x.cap === 'permissions' && x.project === '*').length <= 1) throw new RuleError('Keep at least one admin. Add another admin before removing this one.');
-    GRANTS.splice(GRANTS.indexOf(g), 1);
+    if (g.cap === 'permissions' && GRANTS.filter(x => !x.revoked && x.cap === 'permissions' && x.project === '*').length <= 1) throw new RuleError('Keep at least one admin. Add another admin before removing this one.');
+    g.revoked = true; /* kept, never deleted */
     this.log('Removed permission', '', `${g.user} · ${P.CAP_LABEL[g.cap]} · ${g.project}${g.folder ? ' / ' + g.folder : ''}`);
   }
   async members() { return MEMBERS; }

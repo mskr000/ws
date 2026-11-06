@@ -70,3 +70,12 @@
 - A wrong name can be fixed before saving (no change is saved until Save changes) or after (rename again).
 - Known gap: moving a folder under a different parent is not supported. Rename changes the name only.
 - Tests: 54 + 12 automated checks.
+
+## 0.15.0 (2026-11-06)
+- Nothing is deleted. Remove on a folder marks it and everything in it as removed. The folder stays in the list, shown struck through, with Restore.
+- Document types turned off are kept with an off flag, not deleted.
+- Permissions revoked are kept, marked revoked, and no longer count.
+- Projects are never deleted. Archive is the only way to stop using one.
+- Guard test: fails if any code path deletes a record, file, folder or project.
+- Provisioning adds Removed and On columns. Permissions list adds Revoked.
+- Tests: 56 + 12 automated checks.

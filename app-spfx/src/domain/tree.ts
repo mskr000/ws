@@ -30,6 +30,13 @@ export function levelOf(path: string): number {
   return path ? path.split('/').length : 0;
 }
 
+/* What restoring one removed folder brings back: itself, anything removed under it, and any removed parents it needs. */
+export function restorePlan(removed: string[], path: string): string[] {
+  const parts = path.split('/');
+  const ancestors = parts.slice(0, -1).map((_, i) => parts.slice(0, i + 1).join('/'));
+  return removed.filter(r => r === path || r.startsWith(path + '/') || ancestors.includes(r));
+}
+
 /* A folder rename: the folder at "from" becomes "to", and everything under it moves with it. */
 export interface Rename { from: string; to: string }
 

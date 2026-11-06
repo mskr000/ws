@@ -62,8 +62,8 @@ export class Register {
 
   /* ---------- who can do what ---------- */
   async grants(): Promise<P.Grant[]> {
-    const rows = await this.sp.web.lists.getByTitle(LISTS.grants).items.select('Id', 'Title', 'ProjectCode', 'FolderPath', 'Capability').top(5000)();
-    return rows.map((r: any) => ({ id: r.Id, user: r.Title, project: r.ProjectCode || P.ALL_PROJECTS, folder: r.FolderPath || '', cap: r.Capability as P.Cap }));
+    const rows = await this.sp.web.lists.getByTitle(LISTS.grants).items.select('Id', 'Title', 'ProjectCode', 'FolderPath', 'Capability', 'IsRemoved').top(5000)();
+    return rows.filter((r: any) => !r.IsRemoved).map((r: any) => ({ id: r.Id, user: r.Title, project: r.ProjectCode || P.ALL_PROJECTS, folder: r.FolderPath || '', cap: r.Capability as P.Cap }));
   }
   async addGrant(input: { user: string; project: string; folder: string; cap: P.Cap }): Promise<void> {
     const me = await this.whoAmI();
@@ -80,8 +80,9 @@ export class Register {
     if (g.cap === 'permissions' && (await this.grants()).filter(x => x.cap === 'permissions' && x.project === P.ALL_PROJECTS).length <= 1) {
       throw new RuleError('Keep at least one admin. Add another admin before removing this one.');
     }
-    await this.sp.web.lists.getByTitle(LISTS.grants).items.getById(g.id).delete();
-    await this.log('Removed permission', '', `${g.user} · ${P.CAP_LABEL[g.cap]} · ${g.project === P.ALL_PROJECTS ? 'all projects' : g.project}${g.folder ? ' / ' + g.folder : ''}`);
+    /* Never deleted. Marked as removed, so the history stays. */
+    await this.sp.web.lists.getByTitle(LISTS.grants).items.getById(g.id).update({ IsRemoved: true });
+    await this.log('Revoked permission', '', `${g.user} · ${P.CAP_LABEL[g.cap]} · ${g.project === P.ALL_PROJECTS ? 'all projects' : g.project}${g.folder ? ' / ' + g.folder : ''}`);
   }
   /* Names of people in the register. Used for owner, checker and approver choices. */
   async members(): Promise<string[]> {
@@ -116,9 +117,15 @@ export class Register {
   async projectSetup(code: string): Promise<{ setup: SU.ProjectSetup; locked: boolean; docsInFolder: Record<string, number>; docsOfType: Record<string, number> }> {
     const p = (await this.sp.web.lists.getByTitle(LISTS.projects).items.filter(`Title eq ${odataString(code)}`).top(1)())[0];
     if (!p) throw new RuleError(`${code} was not found.`);
-    const folders = (await this.sp.web.lists.getByTitle(LISTS.projectFolders).items.select('Title').filter(`ProjectCode eq ${odataString(code)}`).top(500)()).map((r: any) => r.Title as string);
-    const types = (await this.sp.web.lists.getByTitle(LISTS.projectTypes).items.select('TypeCode', 'Folder', 'FirstNumber').filter(`ProjectCode eq ${odataString(code)}`).top(200)())
-      .map((r: any) => ({ code: r.TypeCode as string, enabled: true, folder: r.Folder as string, firstNumber: r.FirstNumber || 1 }));
+    const frows = await this.sp.web.lists.getByTitle(LISTS.projectFolders).items.select('Title', 'IsRemoved').filter(`ProjectCode eq ${odataString(code)}`).top(500)();
+    const folders = frows.filter((r: any) => !r.IsRemoved).map((r: any) => r.Title as string);
+    const removedFolders = frows.filter((r: any) => r.IsRemoved).map((r: any) => r.Title as string);
+    const trows = await this.sp.web.lists.getByTitle(LISTS.projectTypes).items.select('TypeCode', 'Folder', 'FirstNumber', 'Enabled').filter(`ProjectCode eq ${odataString(code)}`).top(200)();
+    /* Every type in the library, with its on/off state for this project. Off types keep their row. */
+    const types = SU.DOC_TYPES.map(d => {
+      const r = trows.find((x: any) => x.TypeCode === d.code);
+      return { code: d.code, enabled: !!r && r.Enabled !== false, folder: r?.Folder || d.folder, firstNumber: r?.FirstNumber || 1 };
+    });
     const docs = await this.documents(code);
     const docsInFolder: Record<string, number> = {};
     const docsOfType: Record<string, number> = {};
@@ -127,7 +134,7 @@ export class Register {
       for (const f of folders) if (d.folder === f || d.folder.startsWith(f + '/')) docsInFolder[f] = (docsInFolder[f] || 0) + 1;
     }
     return {
-      setup: { code, name: p.ProjectName, status: p.ProjectStatus === 'Archived' ? 'archived' : 'active', numberPattern: p.NumberPattern || R.DEFAULT_PATTERN, folders, types,
+      setup: { code, name: p.ProjectName, status: p.ProjectStatus === 'Archived' ? 'archived' : 'active', numberPattern: p.NumberPattern || R.DEFAULT_PATTERN, folders, types, removedFolders,
         kind: p.ProjectKind === 'Internal' ? 'internal' : 'standard', owner: p.ProjectOwner || '' },
       locked: docs.length > 0, docsInFolder, docsOfType,
     };
@@ -174,10 +181,17 @@ export class Register {
     const pItem = (await plist.items.filter(`Title eq ${odataString(code)}`).top(1)())[0];
     await plist.items.getById(pItem.Id).update({ ProjectName: setup.name.trim(), ProjectStatus: setup.status === 'archived' ? 'Archived' : 'Active', NumberPattern: setup.numberPattern.trim() });
 
+    /* Folders: never deleted. Each one is active or removed, and its row says which. */
     const flist = this.sp.web.lists.getByTitle(LISTS.projectFolders);
-    const fRows = await flist.items.select('Id', 'Title').filter(`ProjectCode eq ${odataString(code)}`).top(500)();
-    for (const r of fRows) if (!setup.folders.includes(r.Title)) await flist.items.getById(r.Id).delete();
-    for (const f of setup.folders) if (!cur.folders.includes(f)) await flist.items.add({ Title: f, ProjectCode: code });
+    const fRows = await flist.items.select('Id', 'Title', 'IsRemoved').filter(`ProjectCode eq ${odataString(code)}`).top(500)();
+    const removedList = (setup.removedFolders || []).filter(f => !setup.folders.includes(f));
+    const wanted: Array<[string, boolean]> = [...setup.folders.map(f => [f, false] as [string, boolean]), ...removedList.map(f => [f, true] as [string, boolean])];
+    for (const [title, removed] of wanted) {
+      const row = fRows.find((r: any) => r.Title === title);
+      if (!row) await flist.items.add({ Title: title, ProjectCode: code, IsRemoved: removed });
+      else if (!!row.IsRemoved !== removed) await flist.items.getById(row.Id).update({ IsRemoved: removed });
+    }
+    for (const r of fRows) if (!wanted.some(([t]) => t === r.Title)) await flist.items.getById(r.Id).update({ IsRemoved: true });
 
     /* Renamed folders: move the documents filed in them, and log it. Numbers never change. */
     if (renames.length) {
@@ -192,18 +206,19 @@ export class Register {
     }
 
     const tlist = this.sp.web.lists.getByTitle(LISTS.projectTypes);
-    const tRows = await tlist.items.select('Id', 'TypeCode').filter(`ProjectCode eq ${odataString(code)}`).top(200)();
-    for (const r of tRows) if (!setup.types.some(x => x.code === r.TypeCode && x.enabled)) await tlist.items.getById(r.Id).delete();
-    for (const t of setup.types.filter(x => x.enabled)) {
+    /* Types: turned off by Enabled = false, never deleted. */
+    const tRows = await tlist.items.select('Id', 'TypeCode', 'Enabled').filter(`ProjectCode eq ${odataString(code)}`).top(200)();
+    for (const t of setup.types) {
       const row = tRows.find((r: any) => r.TypeCode === t.code);
-      if (row) await tlist.items.getById(row.Id).update({ Folder: t.folder, FirstNumber: t.firstNumber });
-      else await tlist.items.add({ Title: `${code} ${t.code}`, ProjectCode: code, TypeCode: t.code, Folder: t.folder, FirstNumber: t.firstNumber });
+      if (!row && !t.enabled) continue;
+      if (row) await tlist.items.getById(row.Id).update({ Enabled: t.enabled, Folder: t.folder, FirstNumber: t.firstNumber });
+      else await tlist.items.add({ Title: `${code} ${t.code}`, ProjectCode: code, TypeCode: t.code, Folder: t.folder, FirstNumber: t.firstNumber, Enabled: true });
     }
     const changes = [cur.name !== setup.name.trim() ? 'name' : '', cur.numberPattern !== setup.numberPattern ? 'numbering' : '',
       cur.status !== setup.status ? `status ${setup.status}` : ''].filter(Boolean);
     const addedF = setup.folders.filter(f => !cur.folders.includes(f)), removedF = cur.folders.filter(f => !setup.folders.includes(f));
     if (addedF.length) changes.push(`folders added: ${addedF.join(', ')}`);
-    if (removedF.length) changes.push(`folders removed: ${removedF.join(', ')}`);
+    if (removedF.length) changes.push(`folders removed (kept, marked removed): ${removedF.join(', ')}`);
     await this.log('Changed project', '', `${code}: ${changes.join(' · ') || 'no changes'}`);
     return changes.length;
   }

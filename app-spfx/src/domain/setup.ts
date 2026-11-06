@@ -57,6 +57,8 @@ export interface ProjectSetup {
   code: string; name: string; status: 'active' | 'archived'; numberPattern: string;
   folders: string[]; types: SetupType[];
   kind?: 'standard' | 'internal'; owner?: string;
+  /* Folders removed from the structure. Kept, never deleted. Shown struck through and can be restored. */
+  removedFolders?: string[];
 }
 
 /* Full check of a project setup. Returns { field: message }. Keys: code, name, folders, types, numberPattern,
