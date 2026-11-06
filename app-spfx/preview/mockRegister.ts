@@ -9,6 +9,7 @@ import * as P from '../src/domain/permissions';
 import * as DR from '../src/domain/drafts';
 import * as TR from '../src/domain/transmittal';
 import * as RT from '../src/domain/retention';
+import * as TREE from '../src/domain/tree';
 
 const DRAFTS: DR.DraftRow[] = [];
 const TRANSMITTALS: TR.TransmittalRow[] = [];
@@ -128,13 +129,15 @@ export class MockRegister {
     this.log('Created project', '', `${setup.code} · ${setup.name}`);
     return setup.code;
   }
-  async updateProject(setup: SU.ProjectSetup, before: any) {
+  async updateProject(setup: SU.ProjectSetup, before: any, renames: TREE.Rename[] = []) {
     if (!P.canManageProject({ name: ME, grants: GRANTS }, { code: setup.code, kind: before.setup.kind || 'standard', owner: before.setup.owner || '' })) throw new RuleError('You do not have permission to change this project. Ask an admin.');
     const errors = SU.projectSetupErrors(setup, false, []);
-    for (const f of before.setup.folders) if (!setup.folders.includes(f) && (before.docsInFolder[f] || 0) > 0) errors[`folder:${f}`] = `${before.docsInFolder[f]} document(s) are filed here. Move them first.`;
+    for (const f of before.setup.folders) if (!setup.folders.includes(TREE.applyRenames(f, renames)) && (before.docsInFolder[f] || 0) > 0) errors[`folder:${f}`] = `${before.docsInFolder[f]} document(s) are filed here. Move them first.`;
     for (const t of before.setup.types) { const still = setup.types.find((x: SU.SetupType) => x.code === t.code && x.enabled); if (!still && (before.docsOfType[t.code] || 0) > 0) errors[`type:${t.code}`] = `${before.docsOfType[t.code]} document(s) of this type exist.`; }
     if (before.locked && setup.numberPattern !== before.setup.numberPattern) errors.numberPattern = 'Numbering has started. The pattern cannot change now.';
     if (Object.keys(errors).length) throw new RuleError('Please fix the highlighted fields.', errors);
+    for (const d of docs) { const to = TREE.applyRenames(d.folder, renames); if (to !== d.folder && d.project === setup.code) { this.log('Moved to renamed folder', d.number, `${d.folder} → ${to}`); d.folder = to; } }
+    for (const r of renames) this.log('Renamed folder', '', `${r.from} → ${r.to}`);
     this.setups[setup.code] = setup;
     const p = PROJECTS.find(x => x.code === setup.code)!; p.name = setup.name; p.status = setup.status; p.numberPattern = setup.numberPattern;
     this.log('Changed project', '', setup.code);
@@ -177,6 +180,11 @@ export class MockRegister {
     TRANSMITTALS.unshift({ id: nextId++, number, project: input.project, to: input.to.trim(), date, purpose: input.purpose.trim(), notes: input.notes.trim(), lines: input.lines, fileUrl: urlOf(file), checksum: await sumOf(file), issuedBy: ME });
     this.log('Issued transmittal', number, `${input.to.trim()} · ${input.purpose.trim()} · ${input.lines.length} document(s)`);
     return number;
+  }
+  async planData(project: string) {
+    const ids = new Set(docs.filter(d => d.project === project).map(d => d.id));
+    return { folders: this.setups[project].folders.slice(), docs: docs.filter(d => d.project === project),
+      revs: revs.filter(r => ids.has(r.documentId)), periods: periods.filter(p => ids.has(p.documentId)), certs: certs.filter(c => ids.has(c.documentId)) };
   }
   async drafts(documentId: number): Promise<DR.DraftRow[]> {
     return DRAFTS.filter(d => d.documentId === documentId).filter(draftDoc).slice().reverse();

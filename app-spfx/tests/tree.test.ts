@@ -20,3 +20,21 @@ test('subtree lists a folder and only what is under it', () => {
 test('levels are counted from the path', () => {
   assert.equal(T.levelOf('A/B/C'), 3);
 });
+
+test('rename moves the folder and everything under it', () => {
+  const rs = [{ from: 'A/B', to: 'A/Beta' }];
+  assert.equal(T.applyRenames('A/B', rs), 'A/Beta');
+  assert.equal(T.applyRenames('A/B/C/D', rs), 'A/Beta/C/D');
+  assert.equal(T.applyRenames('A/Bx', rs), 'A/Bx', 'a sibling with the same start is not moved');
+  assert.equal(T.applyRenames('A/C', rs), 'A/C');
+});
+
+test('renames apply in order, so a folder can be renamed twice before saving', () => {
+  const rs = [{ from: 'A/B', to: 'A/C' }, { from: 'A/C', to: 'A/D' }];
+  assert.equal(T.applyRenames('A/B/x', rs), 'A/D/x');
+});
+
+test('renamed path keeps the parent', () => {
+  assert.equal(T.renamedPath('A/B', 'Z'), 'A/Z');
+  assert.equal(T.renamedPath('Top', 'Z'), 'Z');
+});

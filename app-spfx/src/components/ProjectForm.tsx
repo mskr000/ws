@@ -30,6 +30,7 @@ export function ProjectForm(props: { reg: Register; me: Me; code: string | null;
   const [tplId, setTplId] = React.useState(privileged ? '' : 'internal-workspace');
   const [newFolder, setNewFolder] = React.useState('');
   const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
+  const [renames, setRenames] = React.useState<TREE.Rename[]>([]);
   const [csvMsg, setCsvMsg] = React.useState<{ tone: 'bad' | 'ok'; lines: string[] } | null>(null);
   const [saveName, setSaveName] = React.useState('');
   const [busy, setBusy] = React.useState(false);
@@ -81,6 +82,24 @@ export function ProjectForm(props: { reg: Register; me: Me; code: string | null;
     const left = pf.folders.filter(x => !branch.includes(x));
     set({ folders: left, types: pf.types.map(t => branch.includes(t.folder) ? { ...t, folder: left[0] || '' } : t) });
   };
+  /* Rename one folder, and everything inside it. Applied on Save, so a wrong name can be fixed until then. */
+  const renameFolder = (path: string, newName: string): boolean => {
+    const clean = newName.trim();
+    const key = `folder:${path}`;
+    if (!clean) { setErrors({ ...errors, [key]: 'Type a new name.' }); return false; }
+    if (clean.includes('/')) { setErrors({ ...errors, [key]: 'A name cannot contain "/". To move a folder, rename it or remove it and add it again.' }); return false; }
+    const target = TREE.renamedPath(path, clean);
+    if (target === path) { setErrors({ ...errors, [key]: '' }); return true; }
+    const bad = SU.folderPathError(target);
+    if (bad) { setErrors({ ...errors, [key]: bad }); return false; }
+    if (pf.folders.includes(target)) { setErrors({ ...errors, [key]: 'A folder with that name already exists here.' }); return false; }
+    const r: TREE.Rename = { from: path, to: target };
+    const apply = (f: string) => TREE.applyRenames(f, [r]);
+    set({ folders: pf.folders.map(apply), types: pf.types.map(t => ({ ...t, folder: apply(t.folder) })) });
+    setRenames(list => [...list, r]);
+    setErrors({});
+    return true;
+  };
   const addSubfolder = (parent: string, name: string) => {
     const f = `${parent}/${name.trim()}`;
     const bad = SU.folderPathError(f);
@@ -101,7 +120,7 @@ export function ProjectForm(props: { reg: Register; me: Me; code: string | null;
     setBusy(true); setErrors({}); setMsg(null);
     try {
       if (isNew) { const code = await props.reg.createProject({ ...pf, code: pf.code.trim().toUpperCase(), kind }); setMsg({ tone: 'ok', text: `${code} created.` }); props.onDone(); }
-      else { const n = await props.reg.updateProject(pf, before!); setMsg({ tone: 'ok', text: n ? 'Saved.' : 'No changes.' }); props.onDone(); }
+      else { const n = await props.reg.updateProject(pf, before!, renames); setMsg({ tone: 'ok', text: n ? 'Saved.' : 'No changes.' }); props.onDone(); }
     } catch (e) {
       if (e instanceof RuleError) { setErrors(e.fields); setMsg({ tone: 'bad', text: e.message }); }
       else setMsg({ tone: 'bad', text: String((e as Error).message || e) });
@@ -171,7 +190,7 @@ export function ProjectForm(props: { reg: Register; me: Me; code: string | null;
           {pf.folders.length === 0 ? <div style={{ padding: 10, color: C.soft }}>No folders yet.</div> : null}
           {TREE.folderTree(pf.folders).map(n => (
             <FolderNodeRow key={n.path} node={n} depth={0} ro={ro} before={before} errors={errors}
-              collapsed={collapsed} setCollapsed={setCollapsed} onRemove={removeFolder} onAddSub={addSubfolder} />
+              collapsed={collapsed} setCollapsed={setCollapsed} onRemove={removeFolder} onAddSub={addSubfolder} onRename={renameFolder} />
           ))}
         </div>
         <div style={{ ...row, marginTop: 8 }}>
@@ -235,11 +254,13 @@ export function ProjectForm(props: { reg: Register; me: Me; code: string | null;
 function FolderNodeRow(props: {
   node: TREE.FolderNode; depth: number; ro: boolean; before: { docsInFolder: Record<string, number> } | null; errors: Record<string, string>;
   collapsed: Record<string, boolean>; setCollapsed: (f: (c: Record<string, boolean>) => Record<string, boolean>) => void;
-  onRemove: (path: string) => void; onAddSub: (parent: string, name: string) => void;
+  onRemove: (path: string) => void; onAddSub: (parent: string, name: string) => void; onRename: (path: string, newName: string) => boolean;
 }) {
   const { node, ro } = props;
   const [adding, setAdding] = React.useState(false);
   const [name, setName] = React.useState('');
+  const [renaming, setRenaming] = React.useState(false);
+  const [rename, setRename] = React.useState(node.name);
   const open = !props.collapsed[node.path];
   const docs = props.before?.docsInFolder[node.path] || 0;
   const canAddSub = !ro && TREE.levelOf(node.path) < 4;
@@ -251,8 +272,21 @@ function FolderNodeRow(props: {
           disabled={node.children.length === 0} style={{ width: 22, border: 'none', background: 'none', cursor: node.children.length ? 'pointer' : 'default', color: C.soft, fontSize: 12 }}>
           {node.children.length ? (open ? '▾' : '▸') : '·'}
         </button>
-        <span style={{ fontWeight: props.depth === 0 ? 600 : 400, fontSize: 14, flex: 1, minWidth: 0 }}>{node.name}</span>
-        {docs > 0 ? <span style={{ fontSize: 12, color: C.soft, whiteSpace: 'nowrap' }}>{docs} doc{docs === 1 ? '' : 's'}</span> : null}
+        {renaming ? (
+          <>
+            <input aria-label={`Rename ${node.name}`} autoFocus value={rename} onChange={e => setRename(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && props.onRename(node.path, rename)) setRenaming(false); if (e.key === 'Escape') setRenaming(false); }}
+              style={{ ...input, padding: '5px 9px', fontSize: 14, flex: 1, minWidth: 0 }} />
+            <Btn onClick={() => { if (props.onRename(node.path, rename)) setRenaming(false); }}>Save name</Btn>
+            <Btn kind="link" onClick={() => { setRenaming(false); setRename(node.name); }}>Cancel</Btn>
+          </>
+        ) : (
+          <>
+            <span style={{ fontWeight: props.depth === 0 ? 600 : 400, fontSize: 14, flex: 1, minWidth: 0 }}>{node.name}</span>
+            {docs > 0 ? <span style={{ fontSize: 12, color: C.soft, whiteSpace: 'nowrap' }}>{docs} doc{docs === 1 ? '' : 's'}</span> : null}
+            {!ro ? <Btn kind="link" label={`Rename ${node.name}`} onClick={() => { setRename(node.name); setRenaming(true); }}>Rename</Btn> : null}
+          </>
+        )}
         {canAddSub ? <Btn kind="link" onClick={() => setAdding(a => !a)}>+ Inside</Btn> : null}
         {!ro ? <Btn kind="link" onClick={() => props.onRemove(node.path)}>Remove</Btn> : null}
       </div>

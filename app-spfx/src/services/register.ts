@@ -20,6 +20,7 @@ import * as P from '../domain/permissions';
 import * as DR from '../domain/drafts';
 import * as TR from '../domain/transmittal';
 import * as RT from '../domain/retention';
+import * as TREE from '../domain/tree';
 
 export const LISTS = {
   projects: 'Projects', projectTypes: 'ProjectTypes', projectFolders: 'ProjectFolders', templates: 'Templates',
@@ -150,13 +151,16 @@ export class Register {
     await this.log('Created project', '', `${code} · ${setup.name.trim()} · ${setup.folders.length} folders · ${setup.types.filter(x => x.enabled).length} document types`);
     return code;
   }
-  async updateProject(setup: SU.ProjectSetup, before: { setup: SU.ProjectSetup; docsInFolder: Record<string, number>; docsOfType: Record<string, number>; locked: boolean }): Promise<number> {
+  async updateProject(setup: SU.ProjectSetup, before: { setup: SU.ProjectSetup; docsInFolder: Record<string, number>; docsOfType: Record<string, number>; locked: boolean }, renames: TREE.Rename[] = []): Promise<number> {
     const me = await this.whoAmI();
     const ref = { code: setup.code, kind: before.setup.kind || 'standard', owner: before.setup.owner || '' } as P.ProjectRef;
     if (!P.canManageProject(me, ref)) throw new RuleError('You do not have permission to change this project. Ask an admin.');
     const errors = SU.projectSetupErrors(setup, false, []);
     const cur = before.setup;
-    for (const f of cur.folders) if (!setup.folders.includes(f) && (before.docsInFolder[f] || 0) > 0) errors[`folder:${f}`] = `${before.docsInFolder[f]} document(s) are filed here. Move them first.`;
+    for (const f of cur.folders) {
+      const now = TREE.applyRenames(f, renames); // a renamed folder is not a removed one
+      if (!setup.folders.includes(now) && (before.docsInFolder[f] || 0) > 0) errors[`folder:${f}`] = `${before.docsInFolder[f]} document(s) are filed here. Move them first.`;
+    }
     for (const t of cur.types) {
       const still = setup.types.find(x => x.code === t.code && x.enabled);
       if (!still && (before.docsOfType[t.code] || 0) > 0) errors[`type:${t.code}`] = `${before.docsOfType[t.code]} document(s) of this type exist. It cannot be turned off.`;
@@ -174,6 +178,18 @@ export class Register {
     const fRows = await flist.items.select('Id', 'Title').filter(`ProjectCode eq ${odataString(code)}`).top(500)();
     for (const r of fRows) if (!setup.folders.includes(r.Title)) await flist.items.getById(r.Id).delete();
     for (const f of setup.folders) if (!cur.folders.includes(f)) await flist.items.add({ Title: f, ProjectCode: code });
+
+    /* Renamed folders: move the documents filed in them, and log it. Numbers never change. */
+    if (renames.length) {
+      const docs = await this.documents(code);
+      for (const d of docs) {
+        const to = TREE.applyRenames(d.folder, renames);
+        if (to === d.folder) continue;
+        await this.sp.web.lists.getByTitle(LISTS.documents).items.getById(d.id).update({ Folder: to });
+        await this.log('Moved to renamed folder', d.number, `${d.folder} → ${to}`, d.id);
+      }
+      for (const r of renames) await this.log('Renamed folder', '', `${r.from} → ${r.to}`);
+    }
 
     const tlist = this.sp.web.lists.getByTitle(LISTS.projectTypes);
     const tRows = await tlist.items.select('Id', 'TypeCode').filter(`ProjectCode eq ${odataString(code)}`).top(200)();
@@ -390,6 +406,15 @@ export class Register {
       Title: `${doc.number} ${key}`, DocumentId: doc.id, PeriodKey: key, Version: 1, NotNeeded: true, NotNeededReason: reason.trim(), Uploader: me.name, UploadedAt: new Date().toISOString(),
     });
     await this.log('Marked not needed', doc.number, `${key}: ${reason.trim()}`, doc.id);
+  }
+
+  /* ---------- plan: calendar and master list ---------- */
+  /* Everything the plan views need for one project, read once. */
+  async planData(project: string) {
+    const setup = await this.projectSetup(project);
+    const docs = await this.documents(project);
+    const rows = await Promise.all(docs.map(async d => ({ revs: await this.revisions(d.id), periods: await this.periods(d.id), certs: await this.certificates(d.id) })));
+    return { folders: setup.setup.folders, docs, revs: rows.flatMap(x => x.revs), periods: rows.flatMap(x => x.periods), certs: rows.flatMap(x => x.certs) };
   }
 
   /* ---------- uncontrolled documents ---------- */

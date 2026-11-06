@@ -8,13 +8,14 @@ import { ProjectsPage } from './ProjectsPage';
 import { DashboardPage } from './DashboardPage';
 import { TransmittalPage } from './TransmittalPage';
 import { AccessPage } from './AccessPage';
+import { PlanPage } from './PlanPage';
 import { saveText } from '../services/download';
 import { auditCsv } from '../domain/audit';
 import * as R from '../domain/rules';
 import * as P from '../domain/permissions';
 import { Segmented, Title, Notice, Table, th, td, GLOBAL_CSS, C, FONT, MONO, hint, row, Btn } from './ui';
 
-type View = { kind: 'dashboard' } | { kind: 'list' } | { kind: 'doc'; id: number } | { kind: 'add' } | { kind: 'transmittal' } | { kind: 'projects' } | { kind: 'access' } | { kind: 'log' };
+type View = { kind: 'dashboard' } | { kind: 'list' } | { kind: 'doc'; id: number } | { kind: 'add' } | { kind: 'transmittal' } | { kind: 'projects' } | { kind: 'access' } | { kind: 'plan' } | { kind: 'log' };
 
 export interface AppProps { context: unknown; siteUrl: string; /* Preview only: supply a register instead of SharePoint. */ registerFactory?: () => Register }
 
@@ -47,8 +48,8 @@ export function App(props: AppProps) {
   if (err) return <Notice tone="bad">{err}</Notice>;
   if (!reg || !me) return <div style={{ ...hint, padding: 24 }}>Signing you in and loading the register…</div>;
 
-  const section = view.kind === 'access' ? 'access' : view.kind === 'dashboard' ? 'dashboard' : view.kind === 'transmittal' ? 'transmittal' : view.kind === 'projects' ? 'projects' : view.kind === 'log' ? 'log' : 'documents';
-  const pick = (v: string) => setView(v === 'access' ? { kind: 'access' } : v === 'dashboard' ? { kind: 'dashboard' } : v === 'transmittal' ? { kind: 'transmittal' } : v === 'projects' ? { kind: 'projects' } : v === 'log' ? { kind: 'log' } : { kind: 'list' });
+  const section = view.kind === 'plan' ? 'plan' : view.kind === 'access' ? 'access' : view.kind === 'dashboard' ? 'dashboard' : view.kind === 'transmittal' ? 'transmittal' : view.kind === 'projects' ? 'projects' : view.kind === 'log' ? 'log' : 'documents';
+  const pick = (v: string) => setView(v === 'plan' ? { kind: 'plan' } : v === 'access' ? { kind: 'access' } : v === 'dashboard' ? { kind: 'dashboard' } : v === 'transmittal' ? { kind: 'transmittal' } : v === 'projects' ? { kind: 'projects' } : v === 'log' ? { kind: 'log' } : { kind: 'list' });
   return (
     <div className="dr" style={{ fontFamily: FONT, color: C.ink }} data-version={version}>
       <style>{GLOBAL_CSS}</style>
@@ -57,7 +58,7 @@ export function App(props: AppProps) {
           <div style={{ fontSize: 13, color: C.soft }}>Signed in as <span style={{ color: C.ink, fontWeight: 600 }}>{me.name}</span></div>
           {P.can(me, 'permissions') ? <div style={{ ...hint, marginTop: 2 }}>Admin</div> : P.can(me, 'projects') ? <div style={{ ...hint, marginTop: 2 }}>Records Lead</div> : null}
         </div>
-        <Segmented value={section} onChange={pick} options={[['dashboard', 'Dashboard'], ['documents', 'Documents'], ['transmittal', 'Transmittal'], ['projects', 'Projects'], ...(P.can(me, 'permissions') ? [['access', 'Access'] as [string, string]] : []), ['log', 'Activity']]} />
+        <Segmented value={section} onChange={pick} options={[['dashboard', 'Dashboard'], ['documents', 'Documents'], ['transmittal', 'Transmittal'], ['projects', 'Projects'], ['plan', 'Plan'], ...(P.can(me, 'permissions') ? [['access', 'Access'] as [string, string]] : []), ['log', 'Activity']]} />
       </div>
 
       {view.kind === 'list' ? <DocumentList key={version} reg={reg} projects={projects} onOpen={id => setView({ kind: 'doc', id })} onAdd={() => setView({ kind: 'add' })} /> : null}
@@ -67,6 +68,7 @@ export function App(props: AppProps) {
       {view.kind === 'log' ? <ActivityPage reg={reg} /> : null}
       {view.kind === 'dashboard' ? <DashboardPage key={version} reg={reg} me={me} onOpen={id => setView({ kind: 'doc', id })} /> : null}
       {view.kind === 'access' && P.can(me, 'permissions') ? <AccessPage reg={reg} me={me} projects={allProjects} people={members} /> : null}
+      {view.kind === 'plan' ? <PlanPage reg={reg} projects={projects} /> : null}
       {view.kind === 'transmittal' ? <TransmittalPage reg={reg} me={me} projects={projects} /> : null}
     </div>
   );

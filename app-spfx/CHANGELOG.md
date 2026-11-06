@@ -58,3 +58,15 @@
 - Folders shown as an indented tree: expand or collapse, document counts, add inside a folder, remove a branch (only when empty).
 - Document types: short explanation of what a type is and what each kind does.
 - Tests: 48 + 12 automated checks.
+
+## 0.13.0 (2026-11-06)
+- Plan tab. Calendar: 12 months per recurring document, colour-coded (on time, late, missing, due, not needed).
+- Master list: every folder in the structure, what is filed in it, and where each document stands. Empty folders show as planned.
+- Master list exports to CSV.
+
+## 0.14.0 (2026-11-06)
+- Rename a folder: in the project form, each folder has Rename. Renames a folder and everything inside it.
+- Documents filed in a renamed folder move with it. Each move is logged. Document numbers do not change.
+- A wrong name can be fixed before saving (no change is saved until Save changes) or after (rename again).
+- Known gap: moving a folder under a different parent is not supported. Rename changes the name only.
+- Tests: 54 + 12 automated checks.

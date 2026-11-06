@@ -29,3 +29,21 @@ export function subtreePaths(paths: string[], path: string): string[] {
 export function levelOf(path: string): number {
   return path ? path.split('/').length : 0;
 }
+
+/* A folder rename: the folder at "from" becomes "to", and everything under it moves with it. */
+export interface Rename { from: string; to: string }
+
+/* Where a path ends up after a list of renames, applied in order. */
+export function applyRenames(path: string, renames: Rename[]): string {
+  let p = path;
+  for (const r of renames) {
+    if (p === r.from || p.startsWith(r.from + '/')) p = r.to + p.slice(r.from.length);
+  }
+  return p;
+}
+
+/* The same folder with a new last name. "A/B" renamed to "C" gives "A/C". */
+export function renamedPath(path: string, newName: string): string {
+  const i = path.lastIndexOf('/');
+  return i < 0 ? newName : `${path.slice(0, i)}/${newName}`;
+}
