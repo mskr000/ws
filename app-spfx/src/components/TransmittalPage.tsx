@@ -4,33 +4,19 @@ import * as R from '../domain/rules';
 import * as MAIL from '../domain/mail';
 import * as K from '../domain/contacts';
 import { RecipientPicker } from './RecipientPicker';
+import { DocumentPicker } from './DocumentPicker';
+import * as S from '../domain/selection';
 import { transmittalCsv, TransmittalLine, TransmittalRow, nextTransmittalNumber, emailDraft } from '../domain/transmittal';
 import { Register, Me } from '../services/register';
 import { Btn, Field, Notice, Select, Title, Section, Table, th, td, card, input, row, C, MONO, FONT, hint, DownloadIcon, Pill } from './ui';
-
-/* Where a document stands, in words, for the cover list. */
-async function standingOf(reg: Register, d: { id: number; kind: string }): Promise<string> {
-  if (d.kind === 'controlled') {
-    const revs = await reg.revisions(d.id);
-    const approved = revs.filter(r => r.status === 'Approved').sort((a, b) => b.n - a.n)[0];
-    if (approved) return `Current: Rev ${approved.n}`;
-    const last = revs.sort((a, b) => b.n - a.n)[0];
-    return last ? `Rev ${last.n}, not yet approved` : 'No revision on file';
-  }
-  if (d.kind === 'periodic') {
-    const ps = (await reg.periods(d.id)).filter(p => !p.notNeeded && p.uploadedAt).sort((a, b) => (a.periodKey < b.periodKey ? 1 : -1));
-    return ps[0] ? `Latest upload: ${ps[0].periodKey}` : 'Nothing uploaded yet';
-  }
-  const certs = (await reg.certificates(d.id)).sort((a, b) => b.n - a.n);
-  return certs[0] ? `Certificate expires ${certs[0].expiresOn}` : 'No certificate on file';
-}
 
 const STATUS_TONE: Record<string, 'ok' | 'wait' | 'bad' | 'none' | 'check'> = { Sent: 'ok', Held: 'wait', Cancelled: 'bad', Recorded: 'none' };
 
 export function TransmittalPage(props: { reg: Register; me: Me; projects: ProjectInfo[] }) {
   const [project, setProject] = React.useState(props.projects[0]?.code || '');
-  const [rows, setRows] = React.useState<Array<TransmittalLine & { id: number }> | null>(null);
-  const [picked, setPicked] = React.useState<number[]>([]);
+  const [chosen, setChosen] = React.useState<S.CandidateFile[]>([]);
+  const [ack, setAck] = React.useState(false);
+  const [folders, setFolders] = React.useState<string[]>([]);
   const [selIds, setSelIds] = React.useState<number[]>([]);
   const [recips, setRecips] = React.useState<K.Contact[]>([]);
   const to = Array.from(new Set(recips.map(r => r.company))).join(', ');
@@ -54,22 +40,18 @@ export function TransmittalPage(props: { reg: Register; me: Me; projects: Projec
   React.useEffect(() => {
     if (!project) return;
     let cancelled = false;
-    setRows(null); setPicked([]); setErr('');
-    props.reg.documents(project)
-      .then(docs => Promise.all(docs.filter(d => !d.removed).map(async d => ({ id: d.id, number: d.number, title: d.title, standing: await standingOf(props.reg, d) }))))
-      .then(r => { if (!cancelled) setRows(r); })
-      .catch(e => { if (!cancelled) setErr(String((e as Error).message || e)); });
+    setChosen([]); setAck(false); setErr('');
+    props.reg.projectSetup(project).then(r => { if (!cancelled) setFolders(r.setup.folders); }).catch(() => { if (!cancelled) setFolders([]); });
     reloadIssued();
     return () => { cancelled = true; };
   }, [project, props.reg, reloadIssued]);
 
-  const chosen = (rows || []).filter(r => picked.includes(r.id));
-  const lines = chosen.map(({ number, title, standing }) => ({ number, title, standing }));
+  const lines: TransmittalLine[] = chosen.map(f => ({ number: f.number, title: f.title, standing: f.standing, version: f.version, fileName: f.fileName, checksum: f.checksum, status: f.status }));
+  const notCurrent = chosen.some(S.needsConfirm);
   const preview = { to, date: today, purpose, notes, lines };
   const projectName = props.projects.find(p => p.code === project)?.name || project;
   const nextNo = nextTransmittalNumber(project, issued.map(t => t.number));
   const mail = emailDraft({ number: nextNo, projectName, to, date: today, purpose, from: props.me.name, lines });
-  const toggle = (id: number) => setPicked(p => (p.includes(id) ? p.filter(x => x !== id) : [...p, id]));
   const emailOk = recips.length > 0 && toEmails.every(e => MAIL.validEmail(e));
 
   /* Send, or undo, for a transmittal by its number. Looks up the current row first. */
@@ -109,8 +91,8 @@ export function TransmittalPage(props: { reg: Register; me: Me; projects: Projec
   const issue = async (send: boolean) => {
     setBusy(true); setErr(''); setMsg('');
     try {
-      const number = await props.reg.issueTransmittal({ project, to, toEmails, purpose, notes, lines, send });
-      setPicked([]);
+      const number = await props.reg.issueTransmittal({ project, to, toEmails, purpose, notes, lines, send, ack });
+      setChosen([]); setAck(false);
       reloadIssued();
       if (send) {
         firing.current = false;
@@ -161,32 +143,15 @@ export function TransmittalPage(props: { reg: Register; me: Me; projects: Projec
 
       <RecipientPicker reg={props.reg} selected={selIds} setSelected={setSelIds} onSelectedChange={setRecips} />
 
-      <div style={card}>
-        {rows === null && !err ? <div style={hint}>Loading documents…</div> : null}
-        {rows && rows.length === 0 ? <div style={hint}>No documents in this project yet.</div> : null}
-        {rows && rows.length ? (
-          <Table minWidth={560}>
-            <thead><tr><th style={th} /><th style={th}>Number</th><th style={th}>Title</th><th style={th}>Where it stands</th></tr></thead>
-            <tbody>
-              {rows.map(r => (
-                <tr key={r.id} className="dr-row">
-                  <td style={td}><input type="checkbox" aria-label={`Include ${r.number}`} checked={picked.includes(r.id)} onChange={() => toggle(r.id)} /></td>
-                  <td style={{ ...td, fontFamily: MONO, fontSize: 13 }}>{r.number}</td>
-                  <td style={td}>{r.title}</td>
-                  <td style={{ ...td, color: C.soft, fontSize: 14 }}>{r.standing}</td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        ) : null}
-      </div>
+      <DocumentPicker reg={props.reg} project={project} folders={folders} chosen={chosen} setChosen={setChosen} />
 
       <Section title="Send">
         <div style={card}>
-          <div style={{ ...hint, marginBottom: 8 }}>{chosen.length} document{chosen.length === 1 ? '' : 's'} on this transmittal. Next number: <span style={{ fontFamily: MONO }}>{nextNo}</span></div>
+          {notCurrent ? <label style={{ ...row, marginBottom: 10, fontSize: 14 }}><input type="checkbox" aria-label="Confirm files that are not current" checked={ack} onChange={e => setAck(e.target.checked)} /> I confirm the files marked above that are not the current version are meant to go out.</label> : null}
+          <div style={{ ...hint, marginBottom: 8 }}>{chosen.length} file{chosen.length === 1 ? '' : 's'} on this transmittal. Next number: <span style={{ fontFamily: MONO }}>{nextNo}</span></div>
           <div style={{ ...row, marginTop: 4 }}>
-            <Btn kind="primary" disabled={chosen.length === 0 || !emailOk || busy || !!held} onClick={() => issue(true)}>{busy ? 'Working…' : 'Send by email (undo for 60 seconds)'}</Btn>
-            <Btn disabled={chosen.length === 0 || busy} onClick={() => issue(false)}>Record only, do not email</Btn>
+            <Btn kind="primary" disabled={chosen.length === 0 || !emailOk || busy || !!held || (notCurrent && !ack)} onClick={() => issue(true)}>{busy ? 'Working…' : 'Send by email (undo for 60 seconds)'}</Btn>
+            <Btn disabled={chosen.length === 0 || busy || (notCurrent && !ack)} onClick={() => issue(false)}>Record only, do not email</Btn>
             <Btn disabled={chosen.length === 0} onClick={downloadPreview}>Save draft list (CSV)</Btn>
           </div>
           <div style={{ ...hint, marginTop: 10 }}>The email goes from your own Microsoft 365 mailbox. It carries the list (CSV) and a PDF copy. The PDF is kept with the record as evidence.</div>

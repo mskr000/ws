@@ -59,7 +59,7 @@ test('transmittal CSV and text carry the header and every line', () => {
   const t = { to: 'Client A', date: '2026-11-06', purpose: 'For review', notes: '', lines: [{ number: 'U100-PID-1001', title: 'Pump layout', standing: 'Current: Rev 1' }] };
   const csv = transmittalCsv(t);
   assert.match(csv, /To,Client A/);
-  assert.match(csv, /U100-PID-1001,Pump layout,Current: Rev 1/);
+  assert.match(csv, /U100-PID-1001,Pump layout,,,,Current: Rev 1,/);
   const txt = transmittalText(t);
   assert.match(txt, /^TRANSMITTAL/);
   assert.ok(txt.includes('U100-PID-1001\tPump layout'));

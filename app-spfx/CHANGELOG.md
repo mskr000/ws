@@ -95,3 +95,13 @@
 - Selected people show as cards: name, email, company. Count shown.
 - One transmittal can go to several people. Each address is checked and sent to.
 - Tests: 68 + 12 automated checks.
+
+## 0.19.0 (2026-11-06)
+- File picker for transmittals. Works at any size: one page of 25 documents at a time, filter by folder, search by number or title, or paste up to 100 numbers.
+- Each document lists its stored files with revision, file name and status: Current, Older version, Not approved yet, Sent back.
+- Only the current version is added by default ("Add current version").
+- Drafts are never offered. They are not stored as transmittal candidates.
+- Non-current files need an explicit confirmation before sending.
+- Limit of 200 files per transmittal.
+- Each file's version, file name and checksum are saved on the transmittal list and the PDF copy.
+- Tests: 75 + 12 automated checks.

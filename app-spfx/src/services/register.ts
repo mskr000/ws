@@ -21,6 +21,7 @@ import * as DR from '../domain/drafts';
 import * as TR from '../domain/transmittal';
 import * as MAIL from '../domain/mail';
 import * as CT from '../domain/contacts';
+import * as CS from '../domain/selection';
 import { textPdf } from '../domain/pdf';
 import * as RT from '../domain/retention';
 import * as TREE from '../domain/tree';
@@ -467,11 +468,14 @@ export class Register {
   }
   /* Records the transmittal: list file and PDF copy saved in the library, audit entry written. If it is to be emailed,
      it is held for the undo window. Nothing is sent here. Nothing is deleted. */
-  async issueTransmittal(input: { project: string; to: string; toEmails: string[]; purpose: string; notes: string; lines: TR.TransmittalLine[]; send: boolean }): Promise<string> {
+  async issueTransmittal(input: { project: string; to: string; toEmails: string[]; purpose: string; notes: string; lines: TR.TransmittalLine[]; send: boolean; ack?: boolean }): Promise<string> {
     const me = await this.whoAmI();
     if (!input.to.trim()) throw new RuleError('Say who it is for.', { to: 'Say who it is for.' });
     if (!input.purpose.trim()) throw new RuleError('Say why it is sent.', { purpose: 'Say why it is sent.' });
     if (!input.lines.length) throw new RuleError('Choose at least one document.');
+    const over = CS.overLimit(input.lines.length);
+    if (over) throw new RuleError(over);
+    if (input.lines.some(l => l.status && l.status !== 'current') && !input.ack) throw new RuleError('Some files are not the current version. Confirm that they should go out.', { ack: 'Confirm the files that are not current.' });
     if (input.send && (!input.toEmails.length || input.toEmails.some(e => !MAIL.validEmail(e)))) throw new RuleError('Choose at least one recipient with a valid email address.');
     const existing = (await this.transmittals(input.project)).map(t => t.number);
     const number = TR.nextTransmittalNumber(input.project, existing);
@@ -522,6 +526,25 @@ export class Register {
   /* Mail goes out through the signed-in user's Microsoft 365 account. */
   private async graphClient(): Promise<any> {
     return this.context.msGraphClientFactory.getClient('3');
+  }
+
+  /* ---------- choosing files for a transmittal ---------- */
+  /* One page of documents, by folder, number or title. Never loads the whole register. */
+  async findDocuments(project: string, o: { folder?: string; text?: string; numbers?: string[]; skip: number; take: number }): Promise<{ docs: DocumentRow[]; more: boolean }> {
+    let filter = `ProjectCode eq ${odataString(project)}`;
+    if (o.folder) filter += ` and (Folder eq ${odataString(o.folder)} or startswith(Folder,${odataString(o.folder + '/')}))`;
+    if (o.numbers && o.numbers.length) filter += ` and (${o.numbers.map(n => `DocNumber eq ${odataString(n)}`).join(' or ')})`;
+    else if (o.text && o.text.trim()) { const t = odataString(o.text.trim()); filter += ` and (substringof(${t},DocNumber) or substringof(${t},Title))`; }
+    const rows = await this.sp.web.lists.getByTitle(LISTS.documents).items
+      .select('Id', 'Title', 'DocNumber', 'ProjectCode', 'DocType', 'DocKind', 'Folder', 'Owner', 'IsRemoved', 'SharePointName', 'DueDay', 'StartPeriod', 'LegalHold', 'HoldReason')
+      .filter(filter).orderBy('DocNumber').skip(o.skip).top(o.take + 1)();
+    return { docs: rows.slice(0, o.take).map(toDocument), more: rows.length > o.take };
+  }
+  /* Every stored file of these documents, each with its revision and status. Drafts are never included. */
+  async filesFor(docs: DocumentRow[]): Promise<CS.CandidateFile[]> {
+    const parts = await Promise.all(docs.map(async d => CS.candidatesOf(d,
+      await this.revisions(d.id), await this.periods(d.id), await this.certificates(d.id))));
+    return parts.flat();
   }
 
   /* ---------- recipients: companies and the people in them ---------- */

@@ -1,6 +1,9 @@
 /* Transmittal: a cover list of documents for a client or contractor. Pure text and CSV. */
 
-export interface TransmittalLine { number: string; title: string; standing: string }
+export interface TransmittalLine {
+  number: string; title: string; standing: string;
+  version?: string; fileName?: string; checksum?: string; status?: string;
+}
 export interface TransmittalRow {
   id: number; number: string; project: string; to: string; toEmail: string; date: string; purpose: string; notes: string; lines: TransmittalLine[];
   fileUrl: string; checksum: string; pdfUrl: string; pdfChecksum: string; issuedBy: string;
@@ -16,8 +19,8 @@ export function csvCell(value: string): string {
 }
 
 export function transmittalCsv(t: TransmittalInput): string {
-  const head = [['To', t.to], ['Date', t.date], ['Purpose', t.purpose], ['Notes', t.notes], [], ['Number', 'Title', 'Where it stands']];
-  const rows = t.lines.map(l => [l.number, l.title, l.standing]);
+  const head = [['To', t.to], ['Date', t.date], ['Purpose', t.purpose], ['Notes', t.notes], [], ['Number', 'Title', 'Version', 'File name', 'File status', 'Where it stands', 'SHA-256 of file']];
+  const rows = t.lines.map(l => [l.number, l.title, l.version || '', l.fileName || '', l.status || '', l.standing, l.checksum || '']);
   return [...head, ...rows].map(r => r.map(csvCell).join(',')).join('\r\n');
 }
 

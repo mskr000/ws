@@ -10,6 +10,7 @@ import * as DR from '../src/domain/drafts';
 import * as TR from '../src/domain/transmittal';
 import * as MAIL from '../src/domain/mail';
 import * as CT from '../src/domain/contacts';
+import * as CS from '../src/domain/selection';
 import { textPdf } from '../src/domain/pdf';
 import * as RT from '../src/domain/retention';
 import * as TREE from '../src/domain/tree';
@@ -179,6 +180,18 @@ export class MockRegister {
   }
   async transmittals(project: string) { return TRANSMITTALS.filter(t => t.project === project); }
   async contacts() { return CONTACTS.slice(); }
+  /* Same contract as the SharePoint version: one page at a time. */
+  async findDocuments(project: string, o: { folder?: string; text?: string; numbers?: string[]; skip: number; take: number }) {
+    let list = docs.filter(d => d.project === project);
+    if (o.folder) list = list.filter(d => d.folder === o.folder || d.folder.startsWith(o.folder + '/'));
+    if (o.numbers && o.numbers.length) list = list.filter(d => o.numbers!.includes(d.number));
+    else if (o.text && o.text.trim()) { const t = o.text.trim().toLowerCase(); list = list.filter(d => d.number.toLowerCase().includes(t) || d.title.toLowerCase().includes(t)); }
+    list = list.slice().sort((a, b) => a.number.localeCompare(b.number));
+    return { docs: list.slice(o.skip, o.skip + o.take), more: list.length > o.skip + o.take };
+  }
+  async filesFor(list: DocumentRow[]): Promise<CS.CandidateFile[]> {
+    return list.flatMap(d => CS.candidatesOf(d, revs.filter(r => r.documentId === d.id), periods.filter(p => p.documentId === d.id), certs.filter(c => c.documentId === d.id)));
+  }
   async addContact(input: { company: string; name: string; email: string }) {
     const errors = CT.contactErrors(input, CONTACTS);
     if (Object.keys(errors).length) throw new RuleError('Please fix the highlighted fields.', errors);
@@ -195,6 +208,9 @@ export class MockRegister {
     if (!input.to.trim()) throw new RuleError('Choose who it is for.', { to: 'Choose who it is for.' });
     if (!input.purpose.trim()) throw new RuleError('Say why it is sent.', { purpose: 'Say why it is sent.' });
     if (!input.lines.length) throw new RuleError('Choose at least one document.');
+    const over = CS.overLimit(input.lines.length);
+    if (over) throw new RuleError(over);
+    if (input.lines.some((l: any) => l.status && l.status !== 'current') && !input.ack) throw new RuleError('Some files are not the current version. Confirm that they should go out.', { ack: 'Confirm the files that are not current.' });
     if (input.send && (!input.toEmails.length || input.toEmails.some((e: string) => !MAIL.validEmail(e)))) throw new RuleError('Choose at least one recipient with a valid email address.');
     const number = TR.nextTransmittalNumber(input.project, TRANSMITTALS.map(t => t.number));
     const date = today();
