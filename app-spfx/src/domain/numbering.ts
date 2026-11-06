@@ -1,5 +1,8 @@
 /* Numbering patterns. Ported from app/src/rules.js. Tokens: {PROJ} {TYPE} {SEQ:n} {YYYY}. */
 
+export const DEFAULT_PATTERN = '{PROJ}-{TYPE}-{SEQ:4}';
+export type DocKind = 'controlled' | 'periodic' | 'record';
+
 const TOKEN_RE = /\{(PROJ|TYPE|YYYY|SEQ(?::(\d))?)\}/g;
 
 export function patternError(pattern: string): string | null {

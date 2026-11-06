@@ -3,37 +3,40 @@ import type { ProjectInfo, AuditRow } from '../domain/types';
 import { Register, Me } from '../services/register';
 import { DocumentList } from './DocumentList';
 import { DocumentPage } from './DocumentPage';
+import { ProjectsPage } from './ProjectsPage';
 import { AddDocument } from './AddDocument';
 import { Btn, Notice, card, row, C } from './ui';
 
-type View = { kind: 'list' } | { kind: 'doc'; id: number } | { kind: 'add' } | { kind: 'log' };
+type View = { kind: 'list' } | { kind: 'doc'; id: number } | { kind: 'add' } | { kind: 'projects' } | { kind: 'log' };
 
-export interface AppProps { context: unknown; siteUrl: string }
+export interface AppProps { context: unknown; siteUrl: string; /* Preview only: supply a register instead of SharePoint. */ registerFactory?: () => Register }
 
 export function App(props: AppProps) {
   const [reg, setReg] = React.useState<Register | null>(null);
   const [me, setMe] = React.useState<Me | null>(null);
-  const [projects, setProjects] = React.useState<ProjectInfo[]>([]);
+  const [allProjects, setAllProjects] = React.useState<ProjectInfo[]>([]);
   const [members, setMembers] = React.useState<string[]>([]);
   const [view, setView] = React.useState<View>({ kind: 'list' });
   const [err, setErr] = React.useState('');
   const [version, setVersion] = React.useState(0);
+  const projects = allProjects.filter(p => p.status === 'active');
+  const reloadProjects = () => { if (reg) reg.projects().then(setAllProjects).catch(() => undefined); };
 
   React.useEffect(() => {
-    if (!props.siteUrl) return;
+    if (!props.siteUrl && !props.registerFactory) return;
     let cancelled = false;
     try {
-      const r = new Register(props.context, props.siteUrl);
+      const r = props.registerFactory ? props.registerFactory() : new Register(props.context, props.siteUrl);
       setReg(r);
       Promise.all([r.whoAmI(), r.projects(), r.members()]).then(([m, p, mem]) => {
         if (cancelled) return;
-        setMe(m); setProjects(p.filter(x => x.status === 'active')); setMembers(mem);
+        setMe(m); setAllProjects(p); setMembers(mem);
       }).catch(e => setErr(`Could not reach the register at ${props.siteUrl}. ${String(e.message || e)}`));
     } catch (e) { setErr(String((e as Error).message || e)); }
     return () => { cancelled = true; };
-  }, [props.siteUrl]);
+  }, [props.siteUrl, props.registerFactory]);
 
-  if (!props.siteUrl) return <Notice tone="info">Set the SharePoint site address in the web part settings (Edit web part, then the site address box).</Notice>;
+  if (!props.siteUrl && !props.registerFactory) return <Notice tone="info">Set the SharePoint site address in the web part settings (Edit web part, then the site address box).</Notice>;
   if (err) return <Notice tone="bad">{err}</Notice>;
   if (!reg || !me) return <div style={{ color: C.soft }}>Signing you in and loading the register…</div>;
 
@@ -44,12 +47,14 @@ export function App(props: AppProps) {
         <div style={{ fontSize: 13, color: C.soft }}>Signed in as <b style={{ color: C.ink }}>{me.name}</b>{me.isRecordsLead ? ' · Records Lead' : ''}</div>
         <div style={row}>
           <Btn kind={view.kind === 'list' || view.kind === 'doc' ? 'primary' : 'plain'} onClick={() => setView({ kind: 'list' })}>Documents</Btn>
+          <Btn kind={view.kind === 'projects' ? 'primary' : 'plain'} onClick={() => setView({ kind: 'projects' })}>Projects</Btn>
           <Btn kind={view.kind === 'log' ? 'primary' : 'plain'} onClick={() => setView({ kind: 'log' })}>Activity</Btn>
         </div>
       </div>
       {view.kind === 'list' ? <DocumentList key={version} reg={reg} projects={projects} onOpen={id => setView({ kind: 'doc', id })} onAdd={() => setView({ kind: 'add' })} /> : null}
       {view.kind === 'doc' ? <DocumentPage reg={reg} id={view.id} me={me} members={members} onBack={() => setView({ kind: 'list' })} onChanged={bump} /> : null}
       {view.kind === 'add' ? <AddDocument reg={reg} me={me} projects={projects} members={members} onCancel={() => setView({ kind: 'list' })} onDone={id => { bump(); setView({ kind: 'doc', id }); }} /> : null}
+      {view.kind === 'projects' ? <ProjectsPage reg={reg} projects={allProjects} isRecordsLead={me.isRecordsLead} onChanged={() => { reloadProjects(); bump(); }} /> : null}
       {view.kind === 'log' ? <ActivityPage reg={reg} /> : null}
     </div>
   );

@@ -3,10 +3,13 @@ import * as R from '../src/domain/rules';
 import * as N from '../src/domain/numbering';
 import type { ProjectInfo, DocTypeInfo, DocumentRow, RevisionRow, PeriodRow, CertRow, AuditRow } from '../src/domain/types';
 import { RuleError } from '../src/services/register';
+import * as SU from '../src/domain/setup';
 
-const ME = 'Sam';
+let ME = 'Sam';
 const LEAD = 'Mia';
+export function signInAs(name: string) { ME = name; }
 const MEMBERS = ['Mia', 'Priya', 'Sam', 'Tom'];
+export const PREVIEW_PEOPLE = MEMBERS;
 const PROJECTS: ProjectInfo[] = [
   { code: 'U100', name: 'Unit 100 Refinery', status: 'active', numberPattern: R.DEFAULT_PATTERN },
   { code: 'TF7', name: 'Tank Farm TF-7', status: 'active', numberPattern: R.DEFAULT_PATTERN },
@@ -55,7 +58,48 @@ export class MockRegister {
   async whoAmI() { return { name: ME, isRecordsLead: ME === LEAD }; }
   async members() { return MEMBERS; }
   async projects() { return PROJECTS; }
-  async projectTypes(p: string) { return TYPES[p] || []; }
+  async projectTypes(p: string) { return (TYPES[p] || []).map(t => ({ ...t, firstNumber: 1 })); }
+  private setups: Record<string, SU.ProjectSetup> = {
+    U100: { code: 'U100', name: 'Unit 100 Refinery', status: 'active', numberPattern: R.DEFAULT_PATTERN, folders: SU.STANDARD_FOLDERS.slice(),
+      types: SU.DOC_TYPES.map(d => ({ code: d.code, enabled: ['PID','SOP','MNT','RPT','CERT'].includes(d.code), folder: d.folder, firstNumber: 1 })) },
+    TF7: { code: 'TF7', name: 'Tank Farm TF-7', status: 'active', numberPattern: R.DEFAULT_PATTERN, folders: ['EPC/02 Engineering/02.1 Process'],
+      types: SU.DOC_TYPES.map(d => ({ code: d.code, enabled: d.code === 'PID', folder: 'EPC/02 Engineering/02.1 Process', firstNumber: 1 })) },
+  };
+  private savedTemplates: SU.TemplateDef[] = [];
+  async projectSetup(code: string) {
+    const setup = JSON.parse(JSON.stringify(this.setups[code]));
+    const folderDocs: Record<string, number> = {}; const typeDocs: Record<string, number> = {};
+    docs.filter(d => d.project === code).forEach(d => { typeDocs[d.type] = (typeDocs[d.type] || 0) + 1; setup.folders.forEach((f: string) => { if (d.folder === f || d.folder.startsWith(f + '/')) folderDocs[f] = (folderDocs[f] || 0) + 1; }); });
+    return { setup, locked: docs.some(d => d.project === code), docsInFolder: folderDocs, docsOfType: typeDocs };
+  }
+  async createProject(setup: SU.ProjectSetup) {
+    if (ME !== LEAD) throw new RuleError('Only the Records Lead can add a project.');
+    const errors = SU.projectSetupErrors(setup, true, PROJECTS.map(p => p.code));
+    if (Object.keys(errors).length) throw new RuleError('Please fix the highlighted fields.', errors);
+    PROJECTS.push({ code: setup.code, name: setup.name, status: 'active', numberPattern: setup.numberPattern });
+    this.setups[setup.code] = setup;
+    this.log('Created project', '', `${setup.code} · ${setup.name}`);
+    return setup.code;
+  }
+  async updateProject(setup: SU.ProjectSetup, before: any) {
+    if (ME !== LEAD) throw new RuleError('Only the Records Lead can change a project.');
+    const errors = SU.projectSetupErrors(setup, false, []);
+    for (const f of before.setup.folders) if (!setup.folders.includes(f) && (before.docsInFolder[f] || 0) > 0) errors[`folder:${f}`] = `${before.docsInFolder[f]} document(s) are filed here. Move them first.`;
+    for (const t of before.setup.types) { const still = setup.types.find((x: SU.SetupType) => x.code === t.code && x.enabled); if (!still && (before.docsOfType[t.code] || 0) > 0) errors[`type:${t.code}`] = `${before.docsOfType[t.code]} document(s) of this type exist.`; }
+    if (before.locked && setup.numberPattern !== before.setup.numberPattern) errors.numberPattern = 'Numbering has started. The pattern cannot change now.';
+    if (Object.keys(errors).length) throw new RuleError('Please fix the highlighted fields.', errors);
+    this.setups[setup.code] = setup;
+    const p = PROJECTS.find(x => x.code === setup.code)!; p.name = setup.name; p.status = setup.status; p.numberPattern = setup.numberPattern;
+    this.log('Changed project', '', setup.code);
+    return 1;
+  }
+  async templates() { return [...SU.BUILT_IN_TEMPLATES, ...this.savedTemplates]; }
+  async saveTemplate(name: string, description: string, setup: SU.ProjectSetup) {
+    if (ME !== LEAD) throw new RuleError('Only the Records Lead can save a template.');
+    if (!name.trim()) throw new RuleError('Give the template a name.', { name: 'Give the template a name.' });
+    this.savedTemplates.push({ id: 'saved-' + nextId++, name: name.trim(), description, numberPattern: setup.numberPattern, folders: setup.folders, types: setup.types.filter(t => t.enabled), builtIn: false });
+  }
+  previewFolderCsv(text: string) { return SU.readFolderCsv(text); }
   async documents(project?: string) { return docs.filter(d => !project || d.project === project); }
   async allDocumentNumbers() { return docs.map(d => d.number); }
   async revisions(id: number) { return revs.filter(r => r.documentId === id); }

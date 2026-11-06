@@ -10,7 +10,7 @@
     "build": "gulp build",
     "bundle": "gulp bundle --ship",
     "package-solution": "gulp package-solution --ship",
-    "test": "node --experimental-strip-types --test tests/rules.test.ts tests/numbering.test.ts"
+    "test": "node --experimental-strip-types --test tests/rules.test.ts tests/numbering.test.ts tests/sp.test.ts && node scripts/test-bundled.mjs"
   },
   "dependencies": {
     "@microsoft/sp-core-library": "1.20.0",
@@ -18,17 +18,18 @@
     "@microsoft/sp-office-ui-fabric-core": "1.20.0",
     "@microsoft/sp-property-pane": "1.20.0",
     "@microsoft/sp-webpart-base": "1.20.0",
-    "@pnp/sp": "4.22.0",
     "@pnp/logging": "4.22.0",
+    "@pnp/sp": "4.22.0",
     "react": "17.0.1",
     "react-dom": "17.0.1"
   },
   "devDependencies": {
-    "@microsoft/sp-build-web": "1.20.0",
     "@microsoft/rush-stack-compiler-5.3": "0.1.0",
+    "@microsoft/sp-build-web": "1.20.0",
+    "@types/node": "22.10.0",
     "@types/react": "17.0.45",
     "@types/react-dom": "17.0.17",
-    "@types/node": "22.10.0",
+    "esbuild": "^0.24.0",
     "gulp": "4.0.2",
     "typescript": "5.3.3"
   },

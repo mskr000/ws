@@ -12,12 +12,12 @@ import '@pnp/sp/behaviors/spfx';
 import * as R from '../domain/rules';
 import * as N from '../domain/numbering';
 import type { ProjectInfo, DocTypeInfo, DocumentRow, RevisionRow, PeriodRow, CertRow, AuditRow } from '../domain/types';
-import type { DocKind } from '../domain/rules';
 import { safeFileName, odataString, nextVersion } from '../domain/sp';
+import * as SU from '../domain/setup';
 
 export const LISTS = {
-  projects: 'Projects', types: 'DocumentTypes', documents: 'Documents', revisions: 'Revisions',
-  periods: 'PeriodEntries', certificates: 'CertificateVersions', audit: 'AuditLog',
+  projects: 'Projects', projectTypes: 'ProjectTypes', projectFolders: 'ProjectFolders', templates: 'Templates',
+  documents: 'Documents', revisions: 'Revisions', periods: 'PeriodEntries', certificates: 'CertificateVersions', audit: 'AuditLog',
 } as const;
 export const LIBRARY = 'Register Files';
 export const GROUPS = { members: 'Register Members', records: 'Register Records Lead' } as const;
@@ -65,13 +65,121 @@ export class Register {
       .select('Title', 'ProjectName', 'ProjectStatus', 'NumberPattern').orderBy('Title').top(500)();
     return rows.map((r: any) => ({ code: r.Title, name: r.ProjectName, status: r.ProjectStatus === 'Archived' ? 'archived' : 'active', numberPattern: r.NumberPattern || R.DEFAULT_PATTERN }));
   }
+  /* Document types on for this project, with their folder and first number. Labels and kinds come from the code library. */
   async projectTypes(project: string): Promise<DocTypeInfo[]> {
-    const rows = await this.sp.web.lists.getByTitle(LISTS.types).items
-      .select('Title', 'TypeLabel', 'Kind', 'DefaultFolder').top(200)();
-    const enabled = await this.sp.web.lists.getByTitle('ProjectTypes').items
-      .select('TypeCode', 'Folder').filter(`ProjectCode eq ${odataString(project)}`).top(200)();
-    const folderOf = new Map<string, string>(enabled.map((r: any) => [r.TypeCode, r.Folder]));
-    return rows.filter((r: any) => folderOf.has(r.Title)).map((r: any) => ({ code: r.Title, label: r.TypeLabel, kind: r.Kind as DocKind, folder: folderOf.get(r.Title) as string }));
+    const rows = await this.sp.web.lists.getByTitle(LISTS.projectTypes).items
+      .select('TypeCode', 'Folder', 'FirstNumber').filter(`ProjectCode eq ${odataString(project)}`).top(200)();
+    return rows.map((r: any) => {
+      const def = SU.typeDef(r.TypeCode);
+      return def ? { code: def.code, label: def.label, kind: def.kind, folder: r.Folder, firstNumber: r.FirstNumber || 1 } : null;
+    }).filter((x: DocTypeInfo | null): x is DocTypeInfo => x !== null);
+  }
+
+  /* ---------- project setup ---------- */
+  private requireLead(me: Me, what: string): void {
+    if (!me.isRecordsLead) throw new RuleError(`Only the Records Lead can ${what}.`);
+  }
+  /* Full setup of one project, for the setup form. */
+  async projectSetup(code: string): Promise<{ setup: SU.ProjectSetup; locked: boolean; docsInFolder: Record<string, number>; docsOfType: Record<string, number> }> {
+    const p = (await this.sp.web.lists.getByTitle(LISTS.projects).items.filter(`Title eq ${odataString(code)}`).top(1)())[0];
+    if (!p) throw new RuleError(`${code} was not found.`);
+    const folders = (await this.sp.web.lists.getByTitle(LISTS.projectFolders).items.select('Title').filter(`ProjectCode eq ${odataString(code)}`).top(500)()).map((r: any) => r.Title as string);
+    const types = (await this.sp.web.lists.getByTitle(LISTS.projectTypes).items.select('TypeCode', 'Folder', 'FirstNumber').filter(`ProjectCode eq ${odataString(code)}`).top(200)())
+      .map((r: any) => ({ code: r.TypeCode as string, enabled: true, folder: r.Folder as string, firstNumber: r.FirstNumber || 1 }));
+    const docs = await this.documents(code);
+    const docsInFolder: Record<string, number> = {};
+    const docsOfType: Record<string, number> = {};
+    for (const d of docs) {
+      docsOfType[d.type] = (docsOfType[d.type] || 0) + 1;
+      for (const f of folders) if (d.folder === f || d.folder.startsWith(f + '/')) docsInFolder[f] = (docsInFolder[f] || 0) + 1;
+    }
+    return {
+      setup: { code, name: p.ProjectName, status: p.ProjectStatus === 'Archived' ? 'archived' : 'active', numberPattern: p.NumberPattern || R.DEFAULT_PATTERN, folders, types },
+      locked: docs.length > 0, docsInFolder, docsOfType,
+    };
+  }
+  async createProject(setup: SU.ProjectSetup): Promise<string> {
+    const me = await this.whoAmI();
+    this.requireLead(me, 'add a project');
+    const code = setup.code.trim().toUpperCase();
+    const existing = (await this.projects()).map(p => p.code);
+    const errors = SU.projectSetupErrors({ ...setup, code }, true, existing);
+    if (Object.keys(errors).length) throw new RuleError('Please fix the highlighted fields.', errors);
+    await this.sp.web.lists.getByTitle(LISTS.projects).items.add({
+      Title: code, ProjectName: setup.name.trim(), ProjectStatus: 'Active', NumberPattern: setup.numberPattern.trim(),
+    });
+    for (const f of setup.folders) await this.sp.web.lists.getByTitle(LISTS.projectFolders).items.add({ Title: f, ProjectCode: code });
+    for (const t of setup.types.filter(x => x.enabled)) {
+      await this.sp.web.lists.getByTitle(LISTS.projectTypes).items.add({ Title: `${code} ${t.code}`, ProjectCode: code, TypeCode: t.code, Folder: t.folder, FirstNumber: t.firstNumber });
+    }
+    await this.log('Created project', '', `${code} · ${setup.name.trim()} · ${setup.folders.length} folders · ${setup.types.filter(x => x.enabled).length} document types`);
+    return code;
+  }
+  async updateProject(setup: SU.ProjectSetup, before: { setup: SU.ProjectSetup; docsInFolder: Record<string, number>; docsOfType: Record<string, number>; locked: boolean }): Promise<number> {
+    const me = await this.whoAmI();
+    this.requireLead(me, 'change a project');
+    const errors = SU.projectSetupErrors(setup, false, []);
+    const cur = before.setup;
+    for (const f of cur.folders) if (!setup.folders.includes(f) && (before.docsInFolder[f] || 0) > 0) errors[`folder:${f}`] = `${before.docsInFolder[f]} document(s) are filed here. Move them first.`;
+    for (const t of cur.types) {
+      const still = setup.types.find(x => x.code === t.code && x.enabled);
+      if (!still && (before.docsOfType[t.code] || 0) > 0) errors[`type:${t.code}`] = `${before.docsOfType[t.code]} document(s) of this type exist. It cannot be turned off.`;
+      if (still && (before.docsOfType[t.code] || 0) > 0 && still.firstNumber !== t.firstNumber) errors[`first:${t.code}`] = 'Numbering has started. The first number cannot change now.';
+    }
+    if (before.locked && setup.numberPattern !== cur.numberPattern) errors.numberPattern = 'Numbering has started. The pattern cannot change now.';
+    if (Object.keys(errors).length) throw new RuleError('Please fix the highlighted fields.', errors);
+
+    const code = cur.code;
+    const plist = this.sp.web.lists.getByTitle(LISTS.projects);
+    const pItem = (await plist.items.filter(`Title eq ${odataString(code)}`).top(1)())[0];
+    await plist.items.getById(pItem.Id).update({ ProjectName: setup.name.trim(), ProjectStatus: setup.status === 'archived' ? 'Archived' : 'Active', NumberPattern: setup.numberPattern.trim() });
+
+    const flist = this.sp.web.lists.getByTitle(LISTS.projectFolders);
+    const fRows = await flist.items.select('Id', 'Title').filter(`ProjectCode eq ${odataString(code)}`).top(500)();
+    for (const r of fRows) if (!setup.folders.includes(r.Title)) await flist.items.getById(r.Id).delete();
+    for (const f of setup.folders) if (!cur.folders.includes(f)) await flist.items.add({ Title: f, ProjectCode: code });
+
+    const tlist = this.sp.web.lists.getByTitle(LISTS.projectTypes);
+    const tRows = await tlist.items.select('Id', 'TypeCode').filter(`ProjectCode eq ${odataString(code)}`).top(200)();
+    for (const r of tRows) if (!setup.types.some(x => x.code === r.TypeCode && x.enabled)) await tlist.items.getById(r.Id).delete();
+    for (const t of setup.types.filter(x => x.enabled)) {
+      const row = tRows.find((r: any) => r.TypeCode === t.code);
+      if (row) await tlist.items.getById(row.Id).update({ Folder: t.folder, FirstNumber: t.firstNumber });
+      else await tlist.items.add({ Title: `${code} ${t.code}`, ProjectCode: code, TypeCode: t.code, Folder: t.folder, FirstNumber: t.firstNumber });
+    }
+    const changes = [cur.name !== setup.name.trim() ? 'name' : '', cur.numberPattern !== setup.numberPattern ? 'numbering' : '',
+      cur.status !== setup.status ? `status ${setup.status}` : ''].filter(Boolean);
+    const addedF = setup.folders.filter(f => !cur.folders.includes(f)), removedF = cur.folders.filter(f => !setup.folders.includes(f));
+    if (addedF.length) changes.push(`folders added: ${addedF.join(', ')}`);
+    if (removedF.length) changes.push(`folders removed: ${removedF.join(', ')}`);
+    await this.log('Changed project', '', `${code}: ${changes.join(' · ') || 'no changes'}`);
+    return changes.length;
+  }
+
+  /* Templates: built-in from code, saved ones from the Templates list. */
+  async templates(): Promise<SU.TemplateDef[]> {
+    const rows = await this.sp.web.lists.getByTitle(LISTS.templates).items.select('Id', 'Title', 'Description', 'Body').orderBy('Title').top(200)();
+    const saved = rows.map((r: any): SU.TemplateDef => {
+      const body = JSON.parse(r.Body);
+      return { id: `saved-${r.Id}`, name: r.Title, description: r.Description || '', numberPattern: body.numberPattern, folders: body.folders, types: body.types, builtIn: false };
+    });
+    return [...SU.BUILT_IN_TEMPLATES, ...saved];
+  }
+  async saveTemplate(name: string, description: string, setup: SU.ProjectSetup): Promise<void> {
+    const me = await this.whoAmI();
+    this.requireLead(me, 'save a template');
+    const clean = name.trim();
+    if (!clean) throw new RuleError('Give the template a name.', { name: 'Give the template a name.' });
+    if (SU.BUILT_IN_TEMPLATES.some(t => t.name === clean)) throw new RuleError('That name is used by a built-in template.', { name: 'That name is used by a built-in template.' });
+    const dup = await this.sp.web.lists.getByTitle(LISTS.templates).items.filter(`Title eq ${odataString(clean)}`).top(1)();
+    if (dup.length) throw new RuleError('A template with this name already exists.', { name: 'A template with this name already exists.' });
+    const body = JSON.stringify({ numberPattern: setup.numberPattern, folders: setup.folders, types: setup.types.filter(t => t.enabled).map(t => ({ code: t.code, enabled: true, folder: t.folder, firstNumber: 1 })) });
+    await this.sp.web.lists.getByTitle(LISTS.templates).items.add({ Title: clean, Description: description.trim(), Body: body });
+    await this.log('Saved template', '', `${clean} from ${setup.code}`);
+  }
+  /* Read a folder CSV and check it. Nothing is saved. */
+  previewFolderCsv(text: string): SU.CsvResult {
+    return SU.readFolderCsv(text);
   }
 
   async documents(project?: string): Promise<DocumentRow[]> {
@@ -128,7 +236,7 @@ export class Register {
   }): Promise<number> {
     const me = await this.whoAmI();
     const existing = await this.allDocumentNumbers();
-    const number = N.nextNumber({ pattern: input.project.numberPattern, project: input.project.code, type: input.type.code, existing });
+    const number = N.nextNumber({ pattern: input.project.numberPattern, project: input.project.code, type: input.type.code, existing, firstNumber: input.type.firstNumber });
     const title = input.title.trim();
     const errors: R.Errors = {};
     if (!title) errors.title = 'Give it a title.';

@@ -27,12 +27,12 @@ Status key: **Done** = built and tested. **Partial** = some of it built. **Missi
 | 6 | Certificates: renewal, expiry status | Done | Done | Required |
 | 7 | Remove and restore (renamed, not erased) | Done | Done | Required |
 | 8 | Activity log | Done | Done | Required |
-| 9 | Projects: add, edit, archive | Done | **Missing** | Required |
-| 10 | Numbering pattern per project, live example | Done | Partial (reads pattern, no editor) | Required |
-| 11 | Document types per project: on/off, folder, first number | Done | Read-only | Required |
-| 12 | Folder structure: add, remove (empty only), template | Done | **Missing** | Required |
-| 13 | Templates: built-in and saved | Done | **Missing** | Required |
-| 14 | Folder structure from CSV upload (with error list) | Done | **Missing** | Required |
+| 9 | Projects: add, edit, archive | Done | Done | Required |
+| 10 | Numbering pattern per project, live example | Done | Done | Required |
+| 11 | Document types per project: on/off, folder, first number | Done | Done | Required |
+| 12 | Folder structure: add, remove (empty only), template | Done | Done | Required |
+| 13 | Templates: built-in and saved | Done | Done | Required |
+| 14 | Folder structure from CSV upload (with error list) | Done | Done | Required |
 | 15 | Working drafts: private, check-out, submit | **Missing** | **Missing** | Required |
 | 16 | Download a file (with checksum) | Done | Link only | Required |
 | 17 | Import of an existing document list (rename, folder fix, conflicts, resume) | Missing (demo only) | Missing | Required |

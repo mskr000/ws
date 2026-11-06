@@ -48,15 +48,18 @@ Ensure-Field 'Projects' 'ProjectName' 'Text' 'Project name'
 Ensure-Field 'Projects' 'ProjectStatus' 'Text' 'Project status'
 Ensure-Field 'Projects' 'NumberPattern' 'Text' 'Numbering pattern'
 
-Ensure-List 'DocumentTypes' | Out-Null
-Ensure-Field 'DocumentTypes' 'TypeLabel' 'Text' 'Type name'
-Ensure-Field 'DocumentTypes' 'Kind' 'Text' 'Kind'
-Ensure-Field 'DocumentTypes' 'DefaultFolder' 'Text' 'Default folder'
-
 Ensure-List 'ProjectTypes' | Out-Null
 Ensure-Field 'ProjectTypes' 'ProjectCode' 'Text' 'Project code' -Indexed
 Ensure-Field 'ProjectTypes' 'TypeCode' 'Text' 'Type code' -Indexed
 Ensure-Field 'ProjectTypes' 'Folder' 'Text' 'Folder'
+Ensure-Field 'ProjectTypes' 'FirstNumber' 'Number' 'First number'
+
+Ensure-List 'ProjectFolders' | Out-Null
+Ensure-Field 'ProjectFolders' 'ProjectCode' 'Text' 'Project code' -Indexed
+
+Ensure-List 'Templates' | Out-Null
+Ensure-Field 'Templates' 'Description' 'Note' 'Description'
+Ensure-Field 'Templates' 'Body' 'Note' 'Template body'
 
 Ensure-List 'Documents' | Out-Null
 Ensure-Field 'Documents' 'DocNumber' 'Text' 'Document number' -Indexed
@@ -140,14 +143,14 @@ if (-not (Get-PnPRoleDefinition -Identity 'Register Add Only' -ErrorAction Silen
 
 # Stop the register lists and library inheriting access from the whole site.
 # Site owners keep access. Everyone else gets only what is set below.
-$secured = @('Projects','DocumentTypes','ProjectTypes','Documents','Revisions','PeriodEntries','CertificateVersions','AuditLog','Register Files')
+$secured = @('Projects','ProjectTypes','ProjectFolders','Templates','Documents','Revisions','PeriodEntries','CertificateVersions','AuditLog','Register Files')
 foreach ($l in $secured) {
   Set-PnPList -Identity $l -BreakRoleInheritance -CopyRoleAssignments:$false -ClearSubscopes | Out-Null
   Set-PnPListPermission -Identity $l -AddRole 'Full Control' -Group 'Register Records Lead' | Out-Null
 }
 
 # Reference lists: members can read, only the Records Lead changes them.
-foreach ($l in @('Projects','DocumentTypes','ProjectTypes')) {
+foreach ($l in @('Projects','ProjectTypes','ProjectFolders','Templates')) {
   Set-PnPListPermission -Identity $l -AddRole 'Read' -Group 'Register Members' | Out-Null
 }
 # Working lists: members add and update (checks, approvals, uploads).
