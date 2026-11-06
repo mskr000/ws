@@ -1,0 +1,56 @@
+# Document Register (app)
+
+A document register for EPC and operations documents. Three kinds of document:
+
+- **Controlled**: drawings and procedures. Upload, check, approve. One Current version.
+- **Recurring**: monthly reports and checks. Upload each month on time. No approval.
+- **Certificate**: certificates and permits with an expiry date. Renew before expiry.
+
+Rules are enforced on the server. Every write is in an append-only audit log.
+
+## Run it on your computer
+
+Needs Node.js 22.13 or later (https://nodejs.org). No other installs.
+
+```
+cd app
+node src/cli.js seed      # first time only: creates the database with demo content
+node src/cli.js           # starts the app
+```
+
+Open http://127.0.0.1:8787 in your browser.
+
+To start again from nothing: stop the app, delete the `data` folder, run `seed` again.
+For an empty register with no demo content: stop the app, delete `data`, run `node src/cli.js`.
+
+## Where the data is
+
+- `app/data/register.db`: the database (projects, documents, revisions, periods, audit log).
+- `app/data/files/`: the uploaded files, named by their checksum.
+
+**Backup:** stop the app, copy the whole `app/data` folder somewhere safe, start the app again.
+
+## Sign-in (development only)
+
+The "Signed in as" list is a stand-in. Anyone on this computer can pick any name. Company sign-in
+(Windows or Microsoft 365) replaces it before real documents are loaded. See `../BUILD_PLAN.md`.
+
+The server only listens on 127.0.0.1, so other computers on the network cannot reach it.
+
+## Tests
+
+```
+npm test
+```
+
+Runs the rules and the service checks. Both must pass before a change is accepted.
+
+## Layout
+
+- `src/rules.js`: business rules. No database. Easy to review.
+- `src/db.js`: schema. The audit table cannot be changed or deleted (database triggers).
+- `src/service.js`: every write, inside one transaction, with an audit entry.
+- `src/server.js`: HTTP routes and security headers.
+- `src/seed.js`: reference lists and demo content.
+- `public/`: the web page (plain HTML, CSS and JavaScript, no build step).
+- `test/`: automated checks.

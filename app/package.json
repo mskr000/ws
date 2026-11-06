@@ -1,0 +1,12 @@
+{
+  "name": "document-register",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Document register. Runs on one computer. Node 22 or later. No extra packages needed.",
+  "scripts": {
+    "seed": "node src/cli.js seed",
+    "start": "node src/cli.js",
+    "test": "node --test test/rules.test.js test/service.test.js"
+  },
+  "engines": { "node": ">=22.13" }
+}

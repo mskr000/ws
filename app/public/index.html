@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Document Register</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">Document Register <small id="env">Local</small></div>
+  <label class="who">Signed in as
+    <select id="who" aria-label="Signed in as"></select>
+  </label>
+</header>
+<nav class="tabs" role="tablist">
+  <button role="tab" data-tab="docs" aria-selected="true">Documents</button>
+  <button role="tab" data-tab="audit" aria-selected="false">Activity</button>
+</nav>
+<main id="main"></main>
+<div id="overlay" hidden></div>
+<div id="toast" role="status" hidden></div>
+<script src="/static/app.js"></script>
+</body>
+</html>
