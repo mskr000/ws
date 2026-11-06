@@ -1,0 +1,610 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>How To Use The Document Register</title>
+<style>
+:root{
+  --bg:#f3f1ec;--panel:#ffffff;--ink:#1c2631;--soft:#5d6874;--line:#e2ded5;--tint:#f4f2ee;
+  --navy:#1d3a52;--accent:#1f5f8b;--accent-soft:#e1ecf5;
+  --ok:#23734a;--ok-soft:#dff2e7;--warn:#8f5a00;--warn-soft:#fbefd6;--bad:#a02f2f;--bad-soft:#f8e2e2;--mute:#8a929b;--mute-soft:#eceae5;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#121518;--panel:#1a1f25;--ink:#e6e9ec;--soft:#9aa5b0;--line:#2b333c;--tint:#1e242b;
+    --navy:#0f2232;--accent:#7fb3dd;--accent-soft:#1c2c3b;
+    --ok:#7fd1a0;--ok-soft:#1b3326;--warn:#f0c270;--warn-soft:#3a2d13;--bad:#f09a9a;--bad-soft:#3b1f1f;--mute:#7d878f;--mute-soft:#262c33;color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121518;--panel:#1a1f25;--ink:#e6e9ec;--soft:#9aa5b0;--line:#2b333c;--tint:#1e242b;
+  --navy:#0f2232;--accent:#7fb3dd;--accent-soft:#1c2c3b;
+  --ok:#7fd1a0;--ok-soft:#1b3326;--warn:#f0c270;--warn-soft:#3a2d13;--bad:#f09a9a;--bad-soft:#3b1f1f;--mute:#7d878f;--mute-soft:#262c33;color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.55 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-bottom:64px}
+button,input,select,textarea{font:inherit;color:inherit}
+.wrap{max-width:1120px;margin:0 auto}
+.mono{font-family:ui-monospace,Consolas,"Courier New",monospace}
+
+/* Intro */
+.intro{padding:40px 0 22px}
+.eyebrow{font-size:13px;letter-spacing:.09em;text-transform:uppercase;color:var(--accent);font-weight:650}
+h1{font-size:clamp(30px,4.6vw,46px);line-height:1.12;margin:8px 0 12px;font-weight:650;letter-spacing:-.015em;text-wrap:balance}
+.lede{font-size:18px;color:var(--soft);max-width:60ch;margin:0}
+.jump{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
+.jump a{font-size:14px;text-decoration:none;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:6px 12px}
+.jump a:hover{border-color:var(--accent);color:var(--accent)}
+.jump a:focus-visible,a:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+/* Screen section */
+.screen{margin-top:44px}
+.shead{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:baseline;justify-content:space-between;margin-bottom:14px}
+.shead h2{font-size:26px;margin:0;font-weight:650;letter-spacing:-.01em}
+.num{font-size:13px;color:var(--soft);font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+.goal{color:var(--soft);margin:0 0 16px;max-width:70ch}
+.grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:900px){.grid{grid-template-columns:1fr}}
+
+/* Mock app window */
+.window{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.04),0 12px 30px -18px rgba(0,0,0,.25);position:relative}
+.chrome{height:32px;background:var(--tint);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:6px;padding:0 12px}
+.chrome i{width:10px;height:10px;border-radius:50%;background:var(--line);display:block}
+.chrome span{margin-left:10px;font-size:12px;color:var(--soft)}
+.appbar{background:var(--navy);color:#fff;height:50px;display:flex;align-items:center;gap:14px;padding:0 16px}
+.logo{font-weight:700;letter-spacing:.02em;font-size:15px;white-space:nowrap}
+.logo small{font-weight:500;opacity:.7;margin-left:4px}
+.fake-search{flex:1;max-width:340px;background:rgba(255,255,255,.12);border-radius:8px;padding:7px 12px;font-size:14px;color:rgba(255,255,255,.8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:8px 14px;font-size:14px;font-weight:600;cursor:default;white-space:nowrap;color:var(--ink)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+.btn.danger{background:var(--panel);border-color:var(--bad);color:var(--bad)}
+.btn.ghost{background:none;border-color:transparent;color:var(--accent);padding:6px 8px}
+.appbar .btn{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.25);color:#fff}
+.appbar .btn.primary{background:#fff;color:var(--navy);border-color:#fff}
+.avatar{width:30px;height:30px;border-radius:50%;background:#fff;color:var(--navy);display:grid;place-items:center;font-size:12px;font-weight:700;flex:0 0 auto}
+.cols2{display:grid;grid-template-columns:200px 1fr;min-height:360px}
+@media (max-width:760px){.cols2{grid-template-columns:1fr}.side{display:none}}
+.side{background:var(--tint);border-right:1px solid var(--line);padding:14px 10px;font-size:14px}
+.side h4{margin:12px 8px 6px;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--soft);font-weight:650}
+.side .it{display:flex;justify-content:space-between;padding:6px 8px;border-radius:7px;color:var(--ink)}
+.side .it.on{background:var(--accent-soft);color:var(--accent);font-weight:650}
+.side .it em{font-style:normal;color:var(--soft);font-size:12px}
+.main{padding:16px 18px;min-width:0}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px}
+.input{border:1px solid var(--line);border-radius:8px;padding:8px 12px;background:var(--panel);font-size:14px;color:var(--ink);min-width:0}
+.input.wide{flex:1;min-width:160px}
+.chip{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:4px 11px;font-size:13px;color:var(--soft);background:var(--panel)}
+.chip.on{border-color:var(--accent);color:var(--accent);background:var(--accent-soft);font-weight:600}
+.tbl{width:100%;border-collapse:collapse;font-size:14px}
+.tbl th{text-align:left;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--soft);font-weight:650;padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{padding:11px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+.tbl tr.hi td{background:var(--accent-soft)}
+.tbl .no{font-family:ui-monospace,Consolas,monospace;font-size:13px;color:var(--soft)}
+.tbl .t{font-weight:600}
+.pill{display:inline-block;font-size:12px;font-weight:650;padding:3px 10px;border-radius:999px;white-space:nowrap}
+.p-cur{background:var(--ok-soft);color:var(--ok)}
+.p-wait{background:var(--warn-soft);color:var(--warn)}
+.p-old{background:var(--mute-soft);color:var(--mute)}
+.p-bad{background:var(--bad-soft);color:var(--bad)}
+.p-new{background:var(--accent-soft);color:var(--accent)}
+.p-none{background:var(--mute-soft);color:var(--soft)}
+
+/* Hotspots (numbered markers that match the steps list) */
+.hs{position:absolute;width:28px;height:28px;border-radius:50%;background:#e0a100;color:#1b1400;font-weight:800;font-size:14px;display:grid;place-items:center;box-shadow:0 0 0 4px rgba(224,161,0,.25),0 2px 6px rgba(0,0,0,.25);z-index:5;transform:translate(-50%,-50%);font-family:system-ui,sans-serif}
+
+/* Steps beside the screen */
+.steps{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:6px 0}
+.st{display:grid;grid-template-columns:36px 1fr;gap:12px;padding:14px 20px;border-bottom:1px solid var(--line)}
+.st:last-child{border-bottom:0}
+.sn{width:28px;height:28px;border-radius:50%;background:#e0a100;color:#1b1400;font-weight:800;display:grid;place-items:center;font-size:14px;margin-top:1px}
+.st h3{margin:0 0 3px;font-size:16px;font-weight:650}
+.st p{margin:0;color:var(--soft);font-size:15px}
+.st .do{display:inline-block;margin-top:6px;font-size:13px;color:var(--accent);font-weight:600}
+.note{background:var(--accent-soft);border-radius:12px;padding:14px 18px;margin-top:14px;font-size:15px}
+.note b{color:var(--accent)}
+.note.warn{background:var(--warn-soft)}
+.note.warn b{color:var(--warn)}
+
+/* Stepper */
+.stepper{display:flex;gap:0;margin:0 0 14px;flex-wrap:wrap}
+.stp{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--soft);padding:8px 12px 8px 0;margin-right:14px}
+.stp b{width:24px;height:24px;border-radius:50%;border:1.5px solid var(--line);display:grid;place-items:center;font-size:12px;color:var(--soft)}
+.stp.done b{background:var(--ok);border-color:var(--ok);color:#fff}
+.stp.on{color:var(--ink);font-weight:650}
+.stp.on b{background:var(--accent);border-color:var(--accent);color:#fff}
+
+/* Banners and panels */
+.banner{display:flex;gap:12px;align-items:flex-start;padding:12px 16px;border-radius:10px;font-size:15px;margin-bottom:14px}
+.banner.wait{background:var(--warn-soft);color:var(--ink)}
+.banner.info{background:var(--accent-soft);color:var(--ink)}
+.banner b{color:var(--ink)}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:14px;font-weight:650;margin-bottom:5px}
+.field .req{color:var(--bad);font-weight:700}
+.field .help{font-size:13px;color:var(--soft);margin-top:4px}
+.field .input,.field .ta{width:100%}
+.ta{border:1px solid var(--line);border-radius:8px;padding:9px 12px;background:var(--panel);font-size:14px;width:100%;min-height:64px;resize:none;color:var(--ink)}
+.drop{border:2px dashed var(--accent);border-radius:12px;padding:16px;background:var(--accent-soft);display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.file{display:inline-flex;gap:8px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:14px}
+.ok-tick{color:var(--ok);font-weight:700}
+.counter{font-size:13px;color:var(--soft);float:right}
+.modal{background:var(--panel);border-radius:14px;border:1px solid var(--line);margin:0 auto;max-width:560px;padding:20px 22px;box-shadow:0 20px 40px -20px rgba(0,0,0,.35)}
+.modal h4{margin:0 0 14px;font-size:19px;font-weight:650}
+.foot{display:flex;justify-content:flex-end;gap:10px;margin-top:6px;flex-wrap:wrap}
+.scrim{background:rgba(20,28,36,.42);border-radius:14px;padding:26px 16px;position:relative}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:600px){.two{grid-template-columns:1fr}}
+.doc-head{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start;margin-bottom:12px}
+.doc-head .no{font-family:ui-monospace,Consolas,monospace;color:var(--soft);font-size:13px}
+.doc-head .name{font-size:21px;font-weight:650}
+.box{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:15px;background:var(--panel)}
+.box .lab{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--soft);font-weight:650;margin-bottom:4px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.quote{font-style:normal;color:var(--ink)}
+
+/* Revision timeline */
+.rev{display:grid;grid-template-columns:28px 1fr;gap:12px;position:relative;padding-bottom:18px}
+.rev:last-child{padding-bottom:0}
+.rev .dot{width:18px;height:18px;border-radius:50%;border:3px solid var(--mute);background:var(--panel);margin-top:4px;position:relative;z-index:1}
+.rev:not(:last-child)::after{content:"";position:absolute;left:12px;top:22px;bottom:0;width:2px;background:var(--line)}
+.rev.cur .dot{border-color:var(--ok);background:var(--ok)}
+.rev.new .dot{border-color:var(--warn)}
+.rev .rh{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.rev .rt{font-weight:650;font-size:16px}
+.rev .rm{font-size:13px;color:var(--soft);margin-top:2px}
+.rev .rs{font-size:15px;margin-top:6px;padding:10px 12px;border-radius:9px;background:var(--tint);border:1px solid var(--line)}
+.rc{display:inline-block;font-size:12px;border:1px solid var(--line);border-radius:6px;padding:1px 7px;color:var(--soft);margin-left:4px}
+
+/* Good and bad examples */
+.ex{display:grid;gap:10px}
+.ex div{border-radius:10px;padding:12px 14px;font-size:15px;display:flex;gap:10px;align-items:flex-start}
+.ex .g{background:var(--ok-soft)}
+.ex .b{background:var(--bad-soft)}
+.ex .m{font-weight:800;font-size:16px;line-height:1.3}
+.ex .g .m{color:var(--ok)}
+.ex .b .m{color:var(--bad)}
+
+/* Activity table */
+.act td{font-size:14px}
+.act .when{color:var(--soft);white-space:nowrap}
+
+/* Quick checklist */
+.checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:10px}
+.check{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+.check h3{margin:0 0 8px;font-size:17px;font-weight:650}
+.check ul{margin:0;padding-left:0;list-style:none}
+.check li{padding:5px 0 5px 26px;position:relative;color:var(--soft);font-size:15px}
+.check li::before{content:"";position:absolute;left:2px;top:11px;width:12px;height:12px;border:1.5px solid var(--ok);border-radius:3px}
+.check.no li::before{border-color:var(--bad)}
+
+footer{margin-top:56px;color:var(--soft);font-size:14px;border-top:1px solid var(--line);padding-top:16px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <section class="intro">
+    <div class="eyebrow">Document Register · Practical guide</div>
+    <h1>How to use it, screen by screen</h1>
+    <p class="lede">Each picture is the actual screen. Numbers on the picture match the steps beside it. Read the steps, then try it.</p>
+    <nav class="jump" aria-label="Screens">
+      <a href="#s1">1 Find a document</a>
+      <a href="#s2">2 Bring in old files</a>
+      <a href="#s3">3 Add a new document</a>
+      <a href="#s4">4 Check it</a>
+      <a href="#s5">5 Approve it</a>
+      <a href="#s6">6 Read the history</a>
+      <a href="#s7">7 Remove a document</a>
+      <a href="#s8">8 See who did what</a>
+    </nav>
+  </section>
+
+  <!-- 1 FIND -->
+  <section class="screen" id="s1">
+    <div class="shead"><h2>Find a document</h2><span class="num">Screen 1 of 8</span></div>
+    <p class="goal">Start here. Every document lives in one list. You search it, filter it, then open the one you need.</p>
+    <div class="grid">
+      <div class="window">
+        <div class="chrome"><i></i><i></i><i></i><span>Document Register</span></div>
+        <div class="appbar">
+          <div class="logo">Document Register<small>· Unit 100</small></div>
+          <div class="fake-search">🔍&nbsp; pump</div>
+          <span style="flex:1"></span>
+          <button class="btn primary" type="button">+ Add document</button>
+          <div class="avatar">MC</div>
+        </div>
+        <div class="cols2">
+          <aside class="side">
+            <h4>Projects</h4>
+            <div class="it on">Unit 100 Refinery <em>1,000</em></div>
+            <div class="it">Tank Farm TF-7 <em>1,000</em></div>
+            <div class="it">Substation SS-3 <em>1,000</em></div>
+            <h4>Status</h4>
+            <div class="it">Current <em>612</em></div>
+            <div class="it">Waiting for sign-off <em>48</em></div>
+            <div class="it">Draft <em>96</em></div>
+          </aside>
+          <div class="main">
+            <div class="toolbar">
+              <span class="chip on">Pump ×</span>
+              <span class="chip">All statuses</span>
+              <span class="chip">Owner: anyone</span>
+              <span style="flex:1"></span>
+              <span style="font-size:13px;color:var(--soft)">3 results</span>
+            </div>
+            <table class="tbl">
+              <thead><tr><th>Number</th><th>Title</th><th>Current</th><th>Latest</th><th>Updated</th></tr></thead>
+              <tbody>
+                <tr class="hi"><td class="no">U100-PID-1001</td><td class="t">Pump layout, Unit 100</td><td><span class="pill p-cur">Rev 1</span></td><td><span class="pill p-wait">Rev 2 · waiting</span></td><td>06 Nov</td></tr>
+                <tr><td class="no">U100-PID-1002</td><td class="t">Pump P-101 datasheet</td><td><span class="pill p-cur">Rev 0</span></td><td><span class="pill p-cur">Rev 0</span></td><td>04 Nov</td></tr>
+                <tr><td class="no">U100-MAN-0007</td><td class="t">Pump maintenance manual</td><td><span class="pill p-cur">Rev 2</span></td><td><span class="pill p-cur">Rev 2</span></td><td>28 Oct</td></tr>
+              </tbody>
+            </table>
+            <div class="hs" style="top:32px;left:89%">1</div>
+            <div class="hs" style="top:12%;left:50%">2</div>
+            <div class="hs" style="top:52%;left:19%">3</div>
+            <div class="hs" style="top:50%;left:92%">4</div>
+          </div>
+        </div>
+      </div>
+      <div class="steps">
+        <div class="st"><div class="sn">1</div><div><h3>Add document</h3><p>Starts a new document. Use it when a file is new to the register.</p><span class="do">Used in Screen 3</span></div></div>
+        <div class="st"><div class="sn">2</div><div><h3>Search box</h3><p>Type a number or a word. The list updates as you type. Try “pump”.</p></div></div>
+        <div class="st"><div class="sn">3</div><div><h3>Filters on the left</h3><p>Pick one project. Pick one status. Click again to clear.</p></div></div>
+        <div class="st"><div class="sn">4</div><div><h3>Click a row</h3><p>Opens the document. You see its files, history and next step.</p></div></div>
+        <div class="st"><div class="sn">✓</div><div><h3>Read the colour</h3><p><b style="color:var(--ok)">Green</b> is the approved version in use. <b style="color:var(--warn)">Amber</b> is waiting for someone. <b style="color:var(--soft)">Grey</b> is old.</p></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 ONBOARD -->
+  <section class="screen" id="s2">
+    <div class="shead"><h2>Bring in old files</h2><span class="num">Screen 2 of 8</span></div>
+    <p class="goal">You have a spreadsheet of existing documents. Load it. The system checks every line. You fix what it flags. Nothing is saved until you press Start.</p>
+    <div class="grid">
+      <div class="window">
+        <div class="chrome"><i></i><i></i><i></i><span>Import · Review</span></div>
+        <div class="main" style="padding:18px 20px">
+          <div class="stepper">
+            <span class="stp done"><b>✓</b>Upload</span>
+            <span class="stp on"><b>2</b>Review and fix</span>
+            <span class="stp"><b>3</b>Import</span>
+            <span class="stp"><b>4</b>Done</span>
+          </div>
+          <div class="two" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
+            <div class="box" style="margin:0;text-align:center"><div class="lab">Rows</div><div style="font-size:24px;font-weight:700">120</div></div>
+            <div class="box" style="margin:0;text-align:center"><div class="lab">Ready</div><div style="font-size:24px;font-weight:700;color:var(--ok)">112</div></div>
+            <div class="box" style="margin:0;text-align:center"><div class="lab">Need a fix</div><div style="font-size:24px;font-weight:700;color:var(--warn)">5</div></div>
+            <div class="box" style="margin:0;text-align:center"><div class="lab">Skipped</div><div style="font-size:24px;font-weight:700;color:var(--soft)">3</div></div>
+          </div>
+          <table class="tbl">
+            <thead><tr><th>Line</th><th>Number</th><th>Folder</th><th>Check</th><th>Include</th></tr></thead>
+            <tbody>
+              <tr><td>2</td><td><span class="no">U100-PID-9001</span><br><span style="font-size:12px;color:var(--soft)">was “u100 pid 9001”</span></td><td>Process</td><td><span class="pill p-new">Renamed for you</span></td><td>Yes</td></tr>
+              <tr class="hi"><td>3</td><td><span class="no">TF7-PIP-9002</span></td><td><span style="border:1.5px solid var(--warn);border-radius:6px;padding:2px 8px">Piping ▾</span> <span class="pill p-wait" style="margin-left:6px">Changed</span></td><td><span class="pill p-wait">Folder differs</span></td><td>Yes</td></tr>
+              <tr><td>5</td><td><span class="no">U100-PID-0001</span></td><td>Process</td><td><span class="pill p-old">Already on file</span></td><td><span style="border:1px solid var(--line);border-radius:6px;padding:2px 8px">Skip ▾</span></td></tr>
+              <tr><td>9</td><td><span class="no">XYZ-PID-9005</span></td><td>—</td><td><span class="pill p-bad">Project code unknown</span></td><td>Skip</td></tr>
+            </tbody>
+          </table>
+          <div class="row" style="justify-content:space-between;margin-top:14px">
+            <span style="font-size:13px;color:var(--soft)">Blocked lines must be fixed or skipped</span>
+            <button class="btn primary" type="button">Start import (112)</button>
+          </div>
+          <div class="hs" style="top:14px;left:95%">1</div>
+          <div class="hs" style="top:40%;left:98%">2</div>
+          <div class="hs" style="top:60%;left:19%">3</div>
+          <div class="hs" style="top:76%;left:82%">4</div>
+          <div class="hs" style="top:90%;left:86%">5</div>
+        </div>
+      </div>
+      <div class="steps">
+        <div class="st"><div class="sn">1</div><div><h3>Load your list</h3><p>Upload a spreadsheet. Each line is one version of one document. Nothing is written yet.</p><span class="do">Click “Choose file” on the upload step</span></div></div>
+        <div class="st"><div class="sn">2</div><div><h3>Read the check column</h3><p>Green lines are ready. Amber lines need a look. Red lines cannot be imported as they are.</p></div></div>
+        <div class="st"><div class="sn">3</div><div><h3>Folder differs</h3><p>The system suggests the right folder from the document number. Pick a different one if you know better.</p></div></div>
+        <div class="st"><div class="sn">4</div><div><h3>Already on file</h3><p>That version exists. Choose <b>Skip</b>. The file is not overwritten.</p></div></div>
+        <div class="st"><div class="sn">5</div><div><h3>Start import</h3><p>Rows are written in batches. Press <b>Pause</b> at any time. If the page closes, reopen it and it carries on.</p></div></div>
+      </div>
+    </div>
+    <div class="note"><b>Missing versions are shown, not invented.</b> If Rev 1 is missing from your list, the system marks it “Not on file”. You can upload the real Rev 1 into that gap later.</div>
+  </section>
+
+  <!-- 3 ADD -->
+  <section class="screen" id="s3">
+    <div class="shead"><h2>Add a new document</h2><span class="num">Screen 3 of 8</span></div>
+    <p class="goal">Use this for a file that is not in the register yet. You fill in the form, pick two people, and send it. The form stops you if something is missing.</p>
+    <div class="grid">
+      <div class="window">
+        <div class="chrome"><i></i><i></i><i></i><span>Document Register · Add document</span></div>
+        <div class="scrim">
+          <div class="modal">
+            <h4>Add a new document</h4>
+            <div class="field">
+              <label>File <span class="req">*</span></label>
+              <div class="drop">
+                <span class="file">📄 pump-layout-r2.pdf <span style="color:var(--soft)">2.1 MB</span></span>
+                <button class="btn ghost" type="button">Replace</button>
+              </div>
+              <div class="help">PDF, Word, Excel, DWG or ZIP. Up to 50 MB.</div>
+            </div>
+            <div class="two">
+              <div class="field"><label>Document number <span class="req">*</span></label><input class="input" style="width:100%" value="U100-PID-1001"><div class="help"><span class="ok-tick">✓</span> Free to use</div></div>
+              <div class="field"><label>Reason <span class="req">*</span></label><select class="input" style="width:100%"><option>Design change</option></select></div>
+            </div>
+            <div class="field"><label>Title <span class="req">*</span></label><input class="input" style="width:100%" value="Pump layout, Unit 100"></div>
+            <div class="field">
+              <label>One-line summary <span class="req">*</span> <span class="counter">42 of 280</span></label>
+              <textarea class="ta" readonly>Moved pump 300 mm north after the site survey.</textarea>
+              <div class="help">Say what changed and why. Anyone should understand it from this line alone.</div>
+            </div>
+            <div class="field">
+              <label>Note for the checker <span class="req">*</span></label>
+              <textarea class="ta" readonly style="min-height:44px">Check the foundation dimensions against the survey.</textarea>
+            </div>
+            <div class="two">
+              <div class="field"><label>Checker <span class="req">*</span></label><select class="input" style="width:100%"><option>D. Park</option></select></div>
+              <div class="field"><label>Approver <span class="req">*</span></label><select class="input" style="width:100%"><option>K. Sato</option></select><div class="help">Must be a different person from you and the checker.</div></div>
+            </div>
+            <div class="foot">
+              <button class="btn" type="button">Cancel</button>
+              <button class="btn primary" type="button">Send for check</button>
+            </div>
+          </div>
+        </div>
+        <div class="hs" style="top:22%;left:94%">1</div>
+        <div class="hs" style="top:47%;left:97%">2</div>
+        <div class="hs" style="top:57%;left:97%">3</div>
+        <div class="hs" style="top:70%;left:97%">4</div>
+        <div class="hs" style="top:83%;left:97%">5</div>
+        <div class="hs" style="top:94%;left:97%">6</div>
+      </div>
+      <div class="steps">
+        <div class="st"><div class="sn">1</div><div><h3>Attach the file</h3><p>Drag it in, or click and choose it. The name and size show so you can check it is the right one.</p></div></div>
+        <div class="st"><div class="sn">2</div><div><h3>Number and title</h3><p>The number is checked as you type. A tick means it is free. A red message means it is already used.</p></div></div>
+        <div class="st"><div class="sn">3</div><div><h3>Pick a reason</h3><p>Choose the closest match from the list: design change, client comment, vendor data, and so on.</p></div></div>
+        <div class="st"><div class="sn">4</div><div><h3>Write the summary line</h3><p>One line. What changed, and why. Keep it under 280 characters. See Screen 6 for good examples.</p></div></div>
+        <div class="st"><div class="sn">5</div><div><h3>Pick the checker and approver</h3><p>Two different people. Neither can be you. The checker reads the file. The approver signs it off.</p></div></div>
+        <div class="st"><div class="sn">6</div><div><h3>Send for check</h3><p>The file is now waiting for the checker. It is not current yet. It becomes current only after approval.</p></div></div>
+      </div>
+    </div>
+    <div class="note warn"><b>The form will stop you.</b> A red message under a field tells you what is missing. For example: “Summary needs 20+ characters” or “Approver must be different from the checker.”</div>
+  </section>
+
+  <!-- 4 CHECK -->
+  <section class="screen" id="s4">
+    <div class="shead"><h2>Check a document</h2><span class="num">Screen 4 of 8</span></div>
+    <p class="goal">You are the named checker. You open the file and decide. You either pass it on, or send it back with a reason.</p>
+    <div class="grid">
+      <div class="window">
+        <div class="chrome"><i></i><i></i><i></i><span>Document · U100-PID-1001</span></div>
+        <div class="main" style="padding:18px 20px">
+          <div class="banner wait"><span style="font-size:18px">⏳</span><div><b>Waiting for your check.</b> You are the checker for Rev 2. Added by A. Rahman, 6 Nov.</div></div>
+          <div class="doc-head">
+            <div><div class="no">U100-PID-1001</div><div class="name">Pump layout, Unit 100</div></div>
+            <span class="pill p-wait">Waiting for check</span>
+          </div>
+          <div class="box"><div class="lab">Summary line</div><div class="quote">“Moved pump 300 mm north after the site survey.”</div></div>
+          <div class="box"><div class="lab">File</div><div class="row" style="justify-content:space-between"><span>📄 pump-layout-r2.pdf · 2.1 MB</span><button class="btn" type="button">Open file</button></div></div>
+          <div class="box"><div class="lab">Note from uploader</div><div>Check the foundation dimensions against the survey.</div></div>
+          <div class="row" style="margin-top:6px">
+            <button class="btn ok" type="button">✓ Check passed</button>
+            <button class="btn danger" type="button">Return with reason</button>
+          </div>
+          <div class="box" style="margin-top:12px;border-style:dashed"><div class="lab">If returning, say what must change (10+ characters)</div><div style="color:var(--soft);font-size:14px">Example: “Foundation width on sheet 2 does not match survey.”</div></div>
+          <div class="hs" style="top:31%;left:96%">1</div>
+          <div class="hs" style="top:56%;left:95%">2</div>
+          <div class="hs" style="top:72%;left:95%">3</div>
+        </div>
+      </div>
+      <div class="steps">
+        <div class="st"><div class="sn">1</div><div><h3>Open the file and read it</h3><p>Use <b>Open file</b>. It opens in SharePoint. Compare it with the summary line.</p></div></div>
+        <div class="st"><div class="sn">2</div><div><h3>Happy? Press “Check passed”</h3><p>The revision moves on to the approver. Your name is recorded with the time.</p></div></div>
+        <div class="st"><div class="sn">3</div><div><h3>Not right? Return it</h3><p>Write what must change. The uploader gets it back with your reason. They upload a new revision.</p></div></div>
+        <div class="st"><div class="sn">!</div><div><h3>You will not see the approve button</h3><p>That is normal. Only the named approver can approve, after your check.</p></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 APPROVE -->
+  <section class="screen" id="s5">
+    <div class="shead"><h2>Approve a document</h2><span class="num">Screen 5 of 8</span></div>
+    <p class="goal">You are the named approver. The checker has already passed it. Your approval makes it the current version people use.</p>
+    <div class="grid">
+      <div class="window">
+        <div class="chrome"><i></i><i></i><i></i><span>Document · U100-PID-1001</span></div>
+        <div class="main" style="padding:18px 20px">
+          <div class="banner info"><span style="font-size:18px">✍️</span><div><b>Waiting for your approval.</b> Checked by D. Park on 7 Nov. The check passed.</div></div>
+          <div class="doc-head">
+            <div><div class="no">U100-PID-1001</div><div class="name">Pump layout, Unit 100</div></div>
+            <span class="pill p-new">Checked</span>
+          </div>
+          <div class="box"><div class="lab">Checker's note</div><div>“Layout matches the survey.”</div></div>
+          <div class="two" style="margin-bottom:12px">
+            <div class="box" style="margin:0"><div class="lab">Right now (Current)</div><div style="font-weight:650">Rev 1 · in use</div><div style="font-size:13px;color:var(--soft)">Stays current until you approve</div></div>
+            <div class="box" style="margin:0;border-color:var(--ok)"><div class="lab">After you approve</div><div style="font-weight:650;color:var(--ok)">Rev 2 · Current</div><div style="font-size:13px;color:var(--soft)">Rev 1 becomes Replaced, kept on record</div></div>
+          </div>
+          <div class="row"><button class="btn ok" type="button">✓ Approve</button><button class="btn danger" type="button">Return with reason</button></div>
+          <div class="hs" style="top:35%;left:95%">1</div>
+          <div class="hs" style="top:55%;left:75%">2</div>
+          <div class="hs" style="top:87%;left:30%">3</div>
+        </div>
+      </div>
+      <div class="steps">
+        <div class="st"><div class="sn">1</div><div><h3>Read the checker's note</h3><p>It tells you what they checked. If something worries you, return it with a reason.</p></div></div>
+        <div class="st"><div class="sn">2</div><div><h3>Compare the two boxes</h3><p>Left is what people use today. Right is what they will use after you approve.</p></div></div>
+        <div class="st"><div class="sn">3</div><div><h3>Press Approve</h3><p>The new revision becomes Current. The old one becomes Replaced. Nothing is deleted.</p></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6 HISTORY -->
+  <section class="screen" id="s6">
+    <div class="shead"><h2>Read the history and summary lines</h2><span class="num">Screen 6 of 8</span></div>
+    <p class="goal">Every revision keeps its own summary line. Read down the list to see how the document changed over time, and why.</p>
+    <div class="grid">
+      <div class="window">
+        <div class="chrome"><i></i><i></i><i></i><span>Document · U100-PID-1001 · History</span></div>
+        <div class="main" style="padding:18px 20px">
+          <div class="doc-head" style="margin-bottom:16px">
+            <div><div class="no">U100-PID-1001</div><div class="name">Pump layout, Unit 100</div></div>
+            <span class="pill p-cur">Current: Rev 1</span>
+          </div>
+          <div class="rev new">
+            <div class="dot"></div>
+            <div>
+              <div class="rh"><span class="rt">Rev 2</span><span class="pill p-wait">Waiting for approval</span><span class="rc">Design change</span></div>
+              <div class="rm">6 Nov · A. Rahman · Checked by D. Park</div>
+              <div class="rs">Moved pump 300 mm north after the site survey.</div>
+            </div>
+          </div>
+          <div class="rev cur">
+            <div class="dot"></div>
+            <div>
+              <div class="rh"><span class="rt">Rev 1</span><span class="pill p-cur">Current</span><span class="rc">Client comment</span></div>
+              <div class="rm">10 Apr · A. Rahman · Approved by K. Sato</div>
+              <div class="rs">Added foundation pad details requested by client.</div>
+            </div>
+          </div>
+          <div class="rev">
+            <div class="dot"></div>
+            <div>
+              <div class="rh"><span class="rt">Rev 0</span><span class="pill p-old">Replaced</span><span class="rc">Historical import</span></div>
+              <div class="rm">3 Feb · J. Okafor · Approved by R. Diaz</div>
+              <div class="rs">First issue for internal review.</div>
+            </div>
+          </div>
+          <div class="hs" style="top:15%;left:99%">1</div>
+          <div class="hs" style="top:37%;left:98%">2</div>
+          <div class="hs" style="top:60%;left:98%">3</div>
+          <div class="hs" style="top:88%;left:94%">4</div>
+        </div>
+      </div>
+      <div class="steps">
+        <div class="st"><div class="sn">1</div><div><h3>Status tags</h3><p><b>Current</b> is in use. <b>Waiting</b> is not yet approved. <b>Replaced</b> is kept for the record.</p></div></div>
+        <div class="st"><div class="sn">2</div><div><h3>The summary line</h3><p>This is the most useful line. It says what changed, in plain words.</p></div></div>
+        <div class="st"><div class="sn">3</div><div><h3>Who and when</h3><p>Who added it, who checked and approved it, and the date.</p></div></div>
+        <div class="st"><div class="sn">4</div><div><h3>Reason</h3><p>Why it changed. Pick a reason code when you add it. It helps later searches.</p></div></div>
+      </div>
+    </div>
+    <div class="note" style="margin-top:18px">
+      <b>Writing a good summary line</b>
+      <div class="ex" style="margin-top:10px">
+        <div class="g"><span class="m">✓</span><span>“Moved pump 300 mm north after the site survey.” Says what changed and why.</span></div>
+        <div class="b"><span class="m">✗</span><span>“Updated.” Says nothing. Nobody can tell what changed.</span></div>
+        <div class="b"><span class="m">✗</span><span>“Fixes as discussed.” Says nothing specific. Discussed where?</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 REMOVE -->
+  <section class="screen" id="s7">
+    <div class="shead"><h2>Remove a document</h2><span class="num">Screen 7 of 8</span></div>
+    <p class="goal">Removing is never erasing. The document is marked removed and its file is renamed in SharePoint. The contents stay. You can restore it.</p>
+    <div class="grid">
+      <div class="window">
+        <div class="chrome"><i></i><i></i><i></i><span>Remove document</span></div>
+        <div class="scrim">
+          <div class="modal">
+            <h4>Mark U100-PID-1001 as removed?</h4>
+            <div class="field"><label>Reason <span class="req">*</span></label><select class="input" style="width:100%"><option>Duplicate of another record</option></select></div>
+            <div class="field"><label>Why, in your own words <span class="req">*</span></label><textarea class="ta" readonly>Created in error. Same drawing as U100-PID-1002.</textarea></div>
+            <div class="box" style="background:var(--warn-soft);border-color:transparent">
+              <div class="lab" style="color:var(--warn)">What happens</div>
+              <div>• Hidden from the normal list</div>
+              <div>• File renamed to <span class="mono" style="font-size:13px">DELETED_20261106_U100-PID-1001.pdf</span></div>
+              <div>• Contents are not erased</div>
+              <div>• You can restore it at any time within retention</div>
+            </div>
+            <div class="foot"><button class="btn" type="button">Cancel</button><button class="btn danger" type="button">Mark as removed</button></div>
+          </div>
+        </div>
+        <div class="hs" style="top:33%;left:88%">1</div>
+        <div class="hs" style="top:50%;left:88%">2</div>
+        <div class="hs" style="top:74%;left:92%">3</div>
+      </div>
+      <div class="steps">
+        <div class="st"><div class="sn">1</div><div><h3>Choose a reason</h3><p>Required. This is what you will see later when you search for removed items.</p></div></div>
+        <div class="st"><div class="sn">2</div><div><h3>Explain in a sentence</h3><p>At least 20 characters. Write it as if a stranger will read it in two years.</p></div></div>
+        <div class="st"><div class="sn">3</div><div><h3>Read “What happens”</h3><p>It always says the same: hidden, renamed, nothing erased. Then press Mark as removed.</p></div></div>
+        <div class="st"><div class="sn">↺</div><div><h3>Changed your mind?</h3><p>Tick “Show removed” in the list, open the document, press <b>Restore</b>. The original name comes back.</p></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8 ACTIVITY -->
+  <section class="screen" id="s8">
+    <div class="shead"><h2>See who did what</h2><span class="num">Screen 8 of 8</span></div>
+    <p class="goal">Every action is recorded: who did it, when, and why. Nobody can edit or delete these lines. Use this page to answer “who changed this?”</p>
+    <div class="grid">
+      <div class="window">
+        <div class="chrome"><i></i><i></i><i></i><span>Activity</span></div>
+        <div class="main" style="padding:14px 18px">
+          <div class="toolbar"><span class="chip on">All</span><span class="chip">Approved</span><span class="chip">Removed</span><span class="chip">Imported</span><span style="flex:1"></span><span style="font-size:13px;color:var(--soft)">Kept 7 years · read only</span></div>
+          <table class="tbl act">
+            <thead><tr><th>When</th><th>Who</th><th>What</th><th>Document</th></tr></thead>
+            <tbody id="actBody"></tbody>
+          </table>
+          <div class="hs" style="top:22%;left:97%">1</div>
+          <div class="hs" style="top:50%;left:97%">2</div>
+          <div class="hs" style="top:78%;left:97%">3</div>
+        </div>
+      </div>
+      <div class="steps">
+        <div class="st"><div class="sn">1</div><div><h3>Each line is one action</h3><p>Who, when, what, and the document it touched.</p></div></div>
+        <div class="st"><div class="sn">2</div><div><h3>Filter by type</h3><p>Show only approvals, only removals, or only imports.</p></div></div>
+        <div class="st"><div class="sn">3</div><div><h3>Open a document's activity</h3><p>Inside any document, the Activity tab shows only its own history.</p></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="screen" id="s9">
+    <div class="shead"><h2>Quick checklist</h2></div>
+    <div class="checks">
+      <div class="check">
+        <h3>Before you add a file</h3>
+        <ul>
+          <li>I have the file and its final number</li>
+          <li>I know what changed, in one line</li>
+          <li>I have picked a checker and approver</li>
+          <li>Neither of them is me</li>
+        </ul>
+      </div>
+      <div class="check">
+        <h3>When you check</h3>
+        <ul>
+          <li>I opened the file, not only the summary</li>
+          <li>The summary matches what I see</li>
+          <li>If wrong, I returned it with a reason</li>
+        </ul>
+      </div>
+      <div class="check no">
+        <h3>Never</h3>
+        <ul>
+          <li>Approve your own file</li>
+          <li>Write “updated” as a summary</li>
+          <li>Try to erase a file. Remove it instead</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <footer>Practical guide. The screens show the intended design. Final layout may change during build.</footer>
+</div>
+
+<script>
+const ROWS=[
+  {when:'06 Nov · 09:14',who:'A. Rahman',what:'Added Rev 2, waiting for check',doc:'U100-PID-1001'},
+  {when:'06 Nov · 09:02',who:'D. Park',what:'Checked Rev 1 of ICA-410-003',doc:'ICA-410-003'},
+  {when:'05 Nov · 16:40',who:'K. Sato',what:'Approved Rev 1, now Current',doc:'U100-PID-1002'},
+  {when:'05 Nov · 11:21',who:'M. Chen',what:'Removed (duplicate), renamed in SharePoint',doc:'U100-PID-0088'},
+  {when:'04 Nov · 15:08',who:'Import',what:'Imported 118 rows from legacy-list.csv',doc:'Batch 14'}
+];
+document.getElementById('actBody').innerHTML=ROWS.map(r=>`<tr>
+  <td class="when">${r.when}</td><td>${r.who}</td><td>${r.what}</td><td class="no">${r.doc}</td></tr>`).join('');
+</script>
+</body>
+</html>
