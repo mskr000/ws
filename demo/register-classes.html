@@ -1,0 +1,823 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Document Register: Classes Demo</title>
+<style>
+:root{--bg:#f3f1ec;--panel:#fff;--ink:#1c2631;--soft:#5d6874;--line:#e2ded5;--tint:#f4f2ee;--navy:#1d3a52;--accent:#1f5f8b;--accent-soft:#e1ecf5;--ok:#23734a;--ok-soft:#dff2e7;--warn:#8f5a00;--warn-soft:#fbefd6;--bad:#a02f2f;--bad-soft:#f8e2e2;--mute:#7d8790;--mute-soft:#eceae5;color-scheme:light}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#121518;--panel:#1a1f25;--ink:#e6e9ec;--soft:#9aa5b0;--line:#2b333c;--tint:#1e242b;--navy:#0f2232;--accent:#7fb3dd;--accent-soft:#1c2c3b;--ok:#7fd1a0;--ok-soft:#1b3326;--warn:#f0c270;--warn-soft:#3a2d13;--bad:#f09a9a;--bad-soft:#3b1f1f;--mute:#7d878f;--mute-soft:#262c33;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#121518;--panel:#1a1f25;--ink:#e6e9ec;--soft:#9aa5b0;--line:#2b333c;--tint:#1e242b;--navy:#0f2232;--accent:#7fb3dd;--accent-soft:#1c2c3b;--ok:#7fd1a0;--ok-soft:#1b3326;--warn:#f0c270;--warn-soft:#3a2d13;--bad:#f09a9a;--bad-soft:#3b1f1f;--mute:#7d878f;--mute-soft:#262c33;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif;min-height:100vh}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.top{background:var(--navy);color:#fff;display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;padding:12px 18px}
+.brand{font-weight:700;font-size:16px;margin-right:auto}
+.brand small{display:block;font-weight:500;opacity:.75;font-size:12px}
+.who{display:flex;gap:8px;align-items:center;font-size:13px}
+.who select{background:#2c4f6b;color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:8px;padding:6px 8px}
+.who select option{color:#111}
+.who .role{opacity:.8;font-size:12px}
+.topbtn{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:13px}
+.shell{display:grid;grid-template-columns:210px minmax(0,1fr);min-height:calc(100vh - 62px)}
+@media (max-width:760px){.shell{grid-template-columns:1fr}.nav{display:flex;flex-wrap:wrap;border-right:0;border-bottom:1px solid var(--line)}.nav h4{width:100%}}
+.nav{background:var(--panel);border-right:1px solid var(--line);padding:14px 10px}
+.nav button{display:flex;width:100%;text-align:left;background:none;border:0;padding:9px 12px;border-radius:8px;cursor:pointer;color:var(--ink);white-space:nowrap}
+.nav button:hover{background:var(--tint)}
+.nav button[aria-current="page"]{background:var(--accent-soft);color:var(--accent);font-weight:650}
+.nav h4{margin:14px 12px 6px;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--soft)}
+main{padding:22px clamp(14px,3vw,30px) 60px;min-width:0}
+h1{font-size:24px;margin:0 0 4px;font-weight:650}
+h2{font-size:17px;margin:24px 0 10px;font-weight:650}
+h3{font-size:15px;margin:0 0 6px;font-weight:650}
+.sub{color:var(--soft);margin:0 0 16px;max-width:75ch}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.grow{flex:1}
+.muted{color:var(--soft)}
+.small{font-size:13px}
+.no{font-family:ui-monospace,Consolas,monospace;font-size:13px;color:var(--soft)}
+.strong{font-weight:650}
+.crumb{font-size:13px;color:var(--soft)}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:8px 14px;cursor:pointer;font-weight:600;font-size:14px;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+.btn.danger{border-color:var(--bad);color:var(--bad)}
+.btn.link{border-color:transparent;background:none;color:var(--accent);padding:6px 4px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+input.t,select.t,textarea.t{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--panel);width:100%;font-size:14px}
+input.t[readonly]{background:var(--tint);font-family:ui-monospace,Consolas,monospace;font-weight:600}
+textarea.t{min-height:64px;resize:vertical}
+.field{display:grid;gap:4px;margin-bottom:12px;min-width:0}
+.field label{font-size:13px;font-weight:650}
+.field .help{font-size:12.5px;color:var(--soft)}
+.req{color:var(--bad)}
+.err{color:var(--bad);font-size:13px}
+.errbox{background:var(--bad-soft);color:var(--bad);border-radius:10px;padding:10px 12px;margin:0 0 12px;font-size:14px}
+.infobox{background:var(--accent-soft);border-radius:10px;padding:10px 12px;margin:0 0 12px;font-size:14px}
+.warnbox{background:var(--warn-soft);border-radius:10px;padding:10px 12px;margin:8px 0 0;font-size:14px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.three{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.four{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+@media (max-width:760px){.two,.three,.four{grid-template-columns:1fr 1fr}}
+@media (max-width:460px){.two,.three,.four{grid-template-columns:1fr}}
+.pill{display:inline-block;font-size:12px;font-weight:650;padding:2px 9px;border-radius:999px;white-space:nowrap}
+.p-wait{background:var(--warn-soft);color:var(--warn)}
+.p-check{background:var(--accent-soft);color:var(--accent)}
+.p-ok{background:var(--ok-soft);color:var(--ok)}
+.p-bad{background:var(--bad-soft);color:var(--bad)}
+.p-old{background:var(--mute-soft);color:var(--mute)}
+.p-none{background:var(--mute-soft);color:var(--soft)}
+.cls{display:inline-block;font-size:11.5px;border-radius:6px;padding:1px 7px;font-weight:650;background:var(--tint);color:var(--soft);border:1px solid var(--line)}
+.cls.controlled{color:var(--accent);border-color:var(--accent)}
+.cls.periodic{color:var(--ok);border-color:var(--ok)}
+.cls.record{color:var(--warn);border-color:var(--warn)}
+.tag{display:inline-block;font-size:11.5px;border:1px solid var(--line);border-radius:6px;padding:0 6px;color:var(--soft);margin-left:4px}
+.tag.cur{border-color:var(--ok);color:var(--ok);font-weight:650}
+.tag.lat{border-color:var(--accent);color:var(--accent);font-weight:650}
+.tw{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px}
+table{width:100%;border-collapse:collapse;min-width:640px}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--soft);text-align:left;padding:10px 10px;border-bottom:1px solid var(--line);font-weight:650;white-space:nowrap}
+td{padding:10px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+tr.click{cursor:pointer}
+tr.click:hover td{background:var(--tint)}
+tr:last-child td{border-bottom:0}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.kpi b{display:block;font-size:26px;font-weight:700;font-variant-numeric:tabular-nums}
+.kpi span{font-size:13px;color:var(--soft)}
+.kpi.bad b{color:var(--bad)}.kpi.warn b{color:var(--warn)}.kpi.ok b{color:var(--ok)}
+.bar{height:8px;background:var(--mute-soft);border-radius:999px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--ok)}
+/* Calendar cells for periodic series */
+.cal td{padding:6px 4px;text-align:center}
+.cell{width:100%;min-width:40px;border:0;border-radius:7px;padding:7px 0;font-size:12px;font-weight:650;cursor:pointer}
+.cell:disabled{cursor:default}
+.c-uploaded{background:var(--ok-soft);color:var(--ok)}
+.c-late{background:var(--warn-soft);color:var(--warn)}
+.c-missing{background:var(--bad-soft);color:var(--bad)}
+.c-open{background:var(--accent-soft);color:var(--accent);outline:2px solid var(--accent);outline-offset:-2px}
+.c-na{background:var(--mute-soft);color:var(--mute)}
+.c-upcoming{background:transparent;color:var(--mute);border:1px dashed var(--line)}
+.legend{display:flex;flex-wrap:wrap;gap:8px 14px;font-size:13px;color:var(--soft);margin:10px 0}
+.legend span::before{content:"";display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.lg-uploaded::before{background:var(--ok-soft);outline:1px solid var(--ok)}
+.lg-late::before{background:var(--warn-soft);outline:1px solid var(--warn)}
+.lg-missing::before{background:var(--bad-soft);outline:1px solid var(--bad)}
+.lg-open::before{background:var(--accent-soft);outline:2px solid var(--accent)}
+.lg-na::before{background:var(--mute-soft)}
+.lg-upcoming::before{background:transparent;outline:1px dashed var(--mute)}
+/* Revisions */
+.rev{display:grid;grid-template-columns:22px minmax(0,1fr);gap:12px;position:relative;padding-bottom:16px}
+.rev:last-child{padding-bottom:0}
+.rev .dot{width:14px;height:14px;border-radius:50%;border:3px solid var(--mute);background:var(--panel);margin-top:5px}
+.rev.cur .dot{background:var(--ok);border-color:var(--ok)}
+.rev.lat .dot{border-color:var(--accent)}
+.rev .rt{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.rev .rm{font-size:13px;color:var(--soft);margin-top:2px}
+.rev .rs{margin-top:6px;background:var(--tint);border:1px solid var(--line);border-radius:9px;padding:9px 11px}
+.rev .ra{margin-top:8px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.tasks{display:grid;gap:8px}
+.task{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+.task .th{font-size:13px;color:var(--soft)}
+.item{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.item:last-child{border-bottom:0}
+.scrim{position:fixed;inset:0;background:rgba(15,22,30,.45);z-index:20;display:grid;place-items:center;padding:14px}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 22px;width:min(660px,100%);max-height:92vh;overflow:auto;box-shadow:0 24px 60px -24px rgba(0,0,0,.45)}
+.modal h3{font-size:19px;margin:0 0 6px}
+.stepline{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 14px;font-size:13px;color:var(--soft)}
+.stepline span{background:var(--tint);border-radius:999px;padding:3px 10px}
+.drop{border:2px dashed var(--accent);border-radius:12px;background:var(--accent-soft);padding:12px 14px;display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:11px 16px;border-radius:10px;z-index:30;max-width:calc(100% - 32px);font-size:14px;box-shadow:0 10px 24px -12px rgba(0,0,0,.5)}
+.log .l{display:grid;grid-template-columns:150px minmax(0,1fr);gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.log .l:last-child{border-bottom:0}
+.log .wt{color:var(--soft);font-size:13px}
+pre.out{white-space:pre-wrap;font:12.5px/1.5 ui-monospace,Consolas,monospace;background:var(--tint);border:1px solid var(--line);border-radius:10px;padding:12px;margin:8px 0 0;overflow:auto}
+footer{color:var(--soft);font-size:12.5px;margin-top:30px}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">Document Register<small>Classes demo. Nothing leaves this page.</small></div>
+  <div class="who">
+    <label for="me">Playing as</label>
+    <select id="me" aria-describedby="meRole"></select>
+    <span class="role" id="meRole"></span>
+  </div>
+  <button class="topbtn" data-a="reset">Start over</button>
+</header>
+
+<div class="shell">
+  <nav class="nav" aria-label="Sections">
+    <h4>Overview</h4>
+    <button data-a="nav" data-v="dash">Dashboard</button>
+    <h4>Documents</h4>
+    <button data-a="nav" data-v="docs">All documents</button>
+    <button data-a="nav" data-v="cal">Recurring (monthly)</button>
+    <button data-a="nav" data-v="recs">Certificates and permits</button>
+    <button data-a="nav" data-v="trans">Transmittal</button>
+    <h4>Record</h4>
+    <button data-a="nav" data-v="log">Activity</button>
+  </nav>
+  <main id="main"></main>
+</div>
+
+<div id="modalWrap"></div>
+<div id="toastWrap"></div>
+
+<script>
+/* ================= Reference data ================= */
+const KEY='dmsDemo.classes.v1';
+const PEOPLE=['Sam','Priya','Tom','Mia'];
+const ROLE={Sam:'Adds files',Priya:'Checker',Tom:'Approver',Mia:'Records lead (admin)'};
+const ADMIN='Mia';
+const REASONS=['Design change','Client comment','Vendor data','Error fix','Scope change','As-built'];
+const PROJECTS=[{code:'U100',name:'Unit 100 Refinery',stream:true},{code:'TF7',name:'Tank Farm TF-7',stream:true},{code:'NEW1',name:'New Substation SS-9',stream:false}];
+const LEAVES=['EPC/01 Project Management',
+ 'EPC/02 Engineering/02.1 Process','EPC/02 Engineering/02.2 Piping','EPC/02 Engineering/02.3 Electrical',
+ 'EPC/02 Engineering/02.4 Instrumentation & Control','EPC/02 Engineering/02.5 Civil & Structural',
+ 'EPC/03 Procurement/03.2 Purchase Orders','EPC/04 Construction/04.1 Method Statements',
+ 'Operations/01 Manuals','Operations/02 SOPs','Operations/03 Maintenance','Operations/04 Permits','Operations/05 Reports','Operations/06 Certificates'];
+/* Each type has exactly one class. The class decides the workflow. */
+const TYPES=[
+ {c:'PID',l:'P&ID',cls:'controlled',f:'EPC/02 Engineering/02.1 Process'},
+ {c:'ISO',l:'Piping isometric',cls:'controlled',f:'EPC/02 Engineering/02.2 Piping'},
+ {c:'SLD',l:'Single line diagram',cls:'controlled',f:'EPC/02 Engineering/02.3 Electrical'},
+ {c:'MS',l:'Method statement',cls:'controlled',f:'EPC/04 Construction/04.1 Method Statements'},
+ {c:'SOP',l:'Startup procedure',cls:'controlled',f:'Operations/02 SOPs'},
+ {c:'MAN',l:'Operations manual',cls:'controlled',f:'Operations/01 Manuals'},
+ {c:'MNT',l:'Monthly maintenance check',cls:'periodic',f:'Operations/03 Maintenance'},
+ {c:'RPT',l:'Monthly operations report',cls:'periodic',f:'Operations/05 Reports'},
+ {c:'CERT',l:'Certificate or inspection',cls:'record',f:'Operations/06 Certificates'},
+ {c:'PTW',l:'Permit to work template',cls:'record',f:'Operations/04 Permits'}];
+const TYPE=c=>TYPES.find(t=>t.c===c);
+const PATH=f=>f.split('/').join(' › ');
+const GROUP=f=>f.split('/')[0];
+const CLS_LABEL={controlled:'Controlled (approved)',periodic:'Recurring (monthly)',record:'Certificate (expiry)'};
+const CLS_HELP={controlled:'Upload, check and approve. Revisions. One Current version.',periodic:'Upload each period on time. No approval. Shows Late or Missing.',record:'Upload with an expiry date. Renew before it expires. No approval.'};
+const DAY=()=>new Date().toISOString().slice(0,10);
+const NOW_KEY=()=>DAY().slice(0,7);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $=s=>document.querySelector(s);
+const fmtT=t=>new Date(t).toLocaleString(undefined,{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+const rev=o=>Object.assign({status:'Approved',date:'2026-02-03',by:'Sam',reason:'Design change',summary:'',checker:'',approver:'',checkedBy:'',approvedBy:'',returnNote:'',file:''},o);
+const gapRev=()=>({status:'Not on file',date:'',by:'',reason:'',summary:'',checker:'',approver:'',checkedBy:'',approvedBy:'',returnNote:'',file:''});
+const addMonths=(key,n)=>{const [y,m]=key.split('-').map(Number);const d=new Date(Date.UTC(y,m-1+n,1));return d.toISOString().slice(0,7);};
+const dueOf=(key,dueDay)=>{const nk=addMonths(key,1);return nk+'-'+String(dueDay).padStart(2,'0');};
+const monthsBetween=(a,b)=>{const [y1,m1]=a.split('-').map(Number),[y2,m2]=b.split('-').map(Number);return (y2-y1)*12+(m2-m1);};
+const daysUntil=iso=>Math.round((Date.parse(iso)-Date.parse(DAY()))/864e5);
+
+/* ================= Seed ================= */
+function seed(){
+  const docs=[
+    {id:'d1',p:'U100',type:'PID',title:'Pump layout, Unit 100',deleted:false,revs:[
+      rev({date:'2026-02-03',summary:'First issue for internal review.',file:'U100-PID-1001_r0.pdf'}),
+      rev({date:'2026-04-10',reason:'Client comment',summary:'Moved pump 300 mm north after the site survey.',file:'U100-PID-1001_r1.pdf',checker:'Priya',approver:'Tom',checkedBy:'Priya',approvedBy:'Tom'}),
+      rev({status:'Submitted',date:DAY(),by:'Sam',reason:'Design change',summary:'Added a bypass valve on the cooling line.',file:'U100-PID-1001_r2.pdf',checker:'Priya',approver:'Tom'})]},
+    {id:'d2',p:'U100',type:'SOP',title:'Unit 100 startup procedure',deleted:false,revs:[
+      rev({date:'2026-04-22',summary:'First issue.',file:'U100-SOP-0014_r0.pdf',checker:'Priya',approver:'Tom',checkedBy:'Priya',approvedBy:'Tom'})]},
+    {id:'d3',p:'U100',type:'MNT',title:'Monthly pump vibration check',deleted:false,owner:'Mia',dueDay:5,start:'2026-01',periods:{
+      '2026-01':{by:'Mia',uploadedAt:'2026-02-03',file:'U100-MNT-0001_2026-01.pdf',summary:'All pumps within limits.'},
+      '2026-02':{by:'Mia',uploadedAt:'2026-03-04',file:'U100-MNT-0001_2026-02.pdf',summary:'P-101 bearing noise noted, within limits.'},
+      '2026-03':{by:'Mia',uploadedAt:'2026-04-05',file:'U100-MNT-0001_2026-03.pdf',summary:'All pumps within limits.'},
+      '2026-04':{by:'Mia',uploadedAt:'2026-05-05',file:'U100-MNT-0001_2026-04.pdf',summary:'All pumps within limits.'},
+      '2026-05':{by:'Mia',uploadedAt:'2026-06-05',file:'U100-MNT-0001_2026-05.pdf',summary:'P-102 seal replaced.'},
+      '2026-06':{by:'Mia',uploadedAt:'2026-07-05',file:'U100-MNT-0001_2026-06.pdf',summary:'All pumps within limits.'},
+      '2026-07':{by:'Mia',uploadedAt:'2026-08-05',file:'U100-MNT-0001_2026-07.pdf',summary:'All pumps within limits.'},
+      '2026-08':{by:'Mia',uploadedAt:'2026-09-09',file:'U100-MNT-0001_2026-08.pdf',summary:'Uploaded late. Pump P-103 checked.'}}},
+    {id:'d4',p:'U100',type:'RPT',title:'Monthly operations report',deleted:false,owner:'Priya',dueDay:5,start:'2026-01',periods:{
+      '2026-01':{by:'Priya',uploadedAt:'2026-02-04',file:'U100-RPT-0001_2026-01.pdf',summary:'January output and downtime summary.'},
+      '2026-02':{by:'Priya',uploadedAt:'2026-03-03',file:'U100-RPT-0001_2026-02.pdf',summary:'February output and downtime summary.'},
+      '2026-03':{by:'Priya',uploadedAt:'2026-04-02',file:'U100-RPT-0001_2026-03.pdf',summary:'March output and downtime summary.'},
+      '2026-04':{by:'Priya',uploadedAt:'2026-05-12',file:'U100-RPT-0001_2026-04.pdf',summary:'April summary. Uploaded late after the audit.'},
+      '2026-05':{by:'Priya',uploadedAt:'2026-06-03',file:'U100-RPT-0001_2026-05.pdf',summary:'May output and downtime summary.'},
+      '2026-06':{by:'Priya',uploadedAt:'2026-07-03',file:'U100-RPT-0001_2026-06.pdf',summary:'June output and downtime summary.'},
+      '2026-07':{by:'Priya',uploadedAt:'2026-08-04',file:'U100-RPT-0001_2026-07.pdf',summary:'July output and downtime summary.'},
+      '2026-08':{by:'Priya',uploadedAt:'2026-09-03',file:'U100-RPT-0001_2026-08.pdf',summary:'August output and downtime summary.'},
+      '2026-09':{by:'Priya',uploadedAt:'2026-10-02',file:'U100-RPT-0001_2026-09.pdf',summary:'September output and downtime summary.'},
+      '2026-10':{by:'Priya',uploadedAt:'2026-11-04',file:'U100-RPT-0001_2026-10.pdf',summary:'October output and downtime summary.'}}},
+    {id:'d5',p:'U100',type:'CERT',title:'Pressure vessel V-101 certificate',deleted:false,owner:'Mia',versions:[
+      {n:0,by:'Mia',date:'2025-11-28',file:'U100-CERT-0001_v0.pdf',summary:'Certificate issued by inspector.',expiresOn:'2026-11-28'}]},
+    {id:'d6',p:'U100',type:'CERT',title:'Fire extinguisher inspection',deleted:false,owner:'Sam',versions:[
+      {n:0,by:'Sam',date:'2025-10-30',file:'U100-CERT-0002_v0.pdf',summary:'Annual inspection record.',expiresOn:'2026-10-30'}]},
+    {id:'d7',p:'U100',type:'PTW',title:'Hot work permit template',deleted:false,owner:'Sam',versions:[
+      {n:0,by:'Sam',date:'2026-03-01',file:'U100-PTW-0001_v0.pdf',summary:'Site permit template, revised for Unit 100.',expiresOn:'2027-06-01'}]},
+    {id:'d8',p:'TF7',type:'PID',title:'Tank 7 P&ID',deleted:false,revs:[
+      rev({date:'2026-05-12',summary:'Tank 7 issued for review.',file:'TF7-PID-0001_r0.pdf',checker:'Priya',approver:'Tom',checkedBy:'Priya',approvedBy:'Tom'})]}
+  ];
+  const nums={};
+  docs.forEach(d=>{
+    const k=d.p+'-'+d.type;nums[k]=(nums[k]||0)+1;
+    d.no=`${d.p}-${d.type}-${String(nums[k]).padStart(4,'0')}`;
+    d.folder=TYPE(d.type).f;d.orig=d.no+'.pdf';d.name=d.orig;d.cls=TYPE(d.type).cls;
+    if(d.cls==='controlled'&&!d.revs)d.revs=[];
+    if(d.cls==='periodic'&&!d.periods)d.periods={};
+  });
+  /* Fix seeded numbers to match the demo references. */
+  const byId=id=>docs.find(d=>d.id===id);
+  byId('d1').no='U100-PID-1001';byId('d2').no='U100-SOP-0014';byId('d3').no='U100-MNT-0001';byId('d4').no='U100-RPT-0001';
+  byId('d5').no='U100-CERT-0001';byId('d6').no='U100-CERT-0002';byId('d7').no='U100-PTW-0001';byId('d8').no='TF7-PID-0001';
+  docs.forEach(d=>{d.orig=d.no+'.pdf';d.name=d.orig;});
+  return {me:'Sam',docs,projects:PROJECTS.map(p=>({...p})),progress:{},log:[
+    {t:Date.parse('2026-02-03T09:00'),who:'Sam',text:'Added U100-PID-1001 rev 0'},
+    {t:Date.parse('2026-09-09T16:10'),who:'Mia',text:'Uploaded U100-MNT-0001 period 2026-08 (late)'},
+    {t:Date.parse('2026-11-04T08:30'),who:'Priya',text:'Uploaded U100-RPT-0001 period 2026-10'}]};
+}
+function load(){try{const v=JSON.parse(localStorage.getItem(KEY)||'null');if(v&&v.docs&&v.projects)return v;}catch(e){}return seed();}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(D));}catch(e){}}
+let D=load();
+const S={view:'dash',open:null,q:'',cls:'',proj:'',showRemoved:false,sel:[],modal:null,draft:{},errs:{},tried:false,
+  pdraft:{},perr:{},ptried:false,rdraft:{},rerrs:{},rtried:false,revOpen:false,retText:{},remReason:'',remText:'',remOpen:false,
+  trans:{to:'',purpose:'For information',date:DAY(),notes:''},toast:'',toastT:null,mark:null};
+
+/* ================= Helpers and rules ================= */
+const who=()=>D.me;
+const docById=id=>D.docs.find(d=>d.id===id);
+const projOf=c=>D.projects.find(p=>p.code===c);
+const log=text=>D.log.unshift({t:Date.now(),who:D.me,text});
+function prog(k){D.progress[k]=true;}
+function toast(m){clearTimeout(S.toastT);S.toast=m;$('#toastWrap').innerHTML=`<div class="toast" role="status">${esc(m)}</div>`;S.toastT=setTimeout(()=>{$('#toastWrap').innerHTML='';},4200);}
+const curIdx=d=>{let c=-1;d.revs.forEach((r,i)=>{if(r.status==='Approved')c=i;});return c;};
+const lastIdx=d=>d.revs.length-1;
+const isAdmin=()=>who()===ADMIN;
+const canUploadSeries=d=>who()===d.owner||isAdmin();
+
+function statusPill(s){
+  const map={'Submitted':['p-wait','Waiting for check'],'Checked':['p-check','Waiting for approval'],'Approved':['p-ok','Approved'],'Returned':['p-bad','Sent back'],'Not on file':['p-none','Not on file']};
+  const [c,t]=map[s]||['p-none',s];return `<span class="pill ${c}">${t}</span>`;
+}
+/* Periodic: state of one period, computed from dates. */
+function periodState(d,key){
+  const pr=d.periods[key];
+  const due=dueOf(key,d.dueDay),today=DAY();
+  if(pr&&pr.na)return 'na';
+  if(pr)return pr.uploadedAt>due?'late':'uploaded';
+  if(key>NOW_KEY())return 'upcoming';
+  if(today<=due)return 'open';
+  return 'missing';
+}
+const PSTATE={uploaded:['c-uploaded','Uploaded'],late:['c-late','Late'],missing:['c-missing','Missing'],open:['c-open','Open'],na:['c-na','Not needed'],upcoming:['c-upcoming','']};
+/* Record: status from expiry date. */
+function recordState(d){
+  const v=d.versions[d.versions.length-1];
+  if(!v)return {k:'none',days:null};
+  const days=daysUntil(v.expiresOn);
+  if(days<0)return {k:'expired',days};
+  if(days<=30)return {k:'expiring',days};
+  return {k:'valid',days};
+}
+const RSTATE={valid:['p-ok','Valid'],expiring:['p-wait','Expiring soon'],expired:['p-bad','Expired'],none:['p-none','No certificate']};
+function periodsThisYear(d){
+  const y=NOW_KEY().slice(0,4);const out=[];
+  for(let m=1;m<=12;m++){const k=`${y}-${String(m).padStart(2,'0')}`;if(k>=d.start&&k<=NOW_KEY())out.push(k);}
+  return out;
+}
+
+/* Controlled rules (same as the structured demo). */
+function canCheck(d,i){const r=d.revs[i];if(r.status!=='Submitted')return 'This file is not waiting for a check.';if(who()===r.by)return 'You added this file, so you cannot check it.';if(who()!==r.checker)return `Only ${r.checker} can check this file.`;return null;}
+function canApprove(d,i){const r=d.revs[i];if(r.status!=='Checked')return 'This file is not waiting for approval.';if(who()===r.by||who()===r.checker)return 'The approver must be a different person from the uploader and the checker.';if(who()!==r.approver)return `Only ${r.approver} can approve this file.`;return null;}
+function canReturn(d,i){const r=d.revs[i];if(!['Submitted','Checked'].includes(r.status))return 'This file is not waiting.';if(![r.checker,r.approver].includes(who()))return 'Only the checker or approver can send a file back.';return null;}
+
+/* ================= Validation ================= */
+function fileErrors(f,cls){
+  const e={};
+  if(!f.file)e.file='Choose a file.';
+  else if(!/\.(pdf|docx|xlsx|dwg|zip)$/i.test(f.file.name))e.file='This file type is not allowed. Use PDF, Word, Excel, DWG or ZIP.';
+  if(!String(f.summary||'').trim()||String(f.summary).trim().length<20)e.summary=`Write at least 20 characters (${String(f.summary||'').trim().length} now).`;
+  if(cls==='controlled'){
+    if(!f.reason)e.reason='Choose a reason.';
+    if((f.note||'').trim().length<10)e.note='Write at least 10 characters for the checker.';
+    if(!f.checker)e.checker='Choose a checker.';
+    if(!f.approver)e.approver='Choose an approver.';
+    if(f.checker&&f.approver&&f.checker===f.approver)e.approver='Approver must be different from the checker.';
+    if(f.checker===who())e.checker='You cannot check your own file.';
+    if(f.approver===who())e.approver='You cannot approve your own file.';
+  }
+  if(cls==='record'){
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(f.expiresOn||'')||Date.parse(f.expiresOn)<=Date.parse(DAY()))e.expiresOn='Enter the expiry date (after today).';
+  }
+  return e;
+}
+
+/* ================= Actions ================= */
+function nextNumber(pcode,tc){
+  const prefix=`${pcode}-${tc}-`;let max=0;
+  D.docs.forEach(d=>{if(d.p===pcode&&d.type===tc&&d.no.startsWith(prefix)){const n=+d.no.slice(prefix.length);if(n>max)max=n;}});
+  return prefix+String(max+1).padStart(4,'0');
+}
+function saveNewDoc(){
+  const f=S.draft,t=f.type?TYPE(f.type):null,e={};
+  if(!f.project)e.project='Choose a project.';
+  if(!t)e.type='Choose a document type.';
+  if(!(f.title||'').trim())e.title='Give it a title.';
+  let no='';
+  if(f.project&&t){
+    const p=projOf(f.project);
+    if(p.stream)no=nextNumber(f.project,t.c);
+    else{no=(f.no||'').trim().toUpperCase();if(!new RegExp(`^${f.project}-${t.c}-\\d{4}$`).test(no))e.no=`Use the form ${f.project}-${t.c}-0001.`;}
+    if(no&&D.docs.some(d=>d.no===no))e.no=`${no} already exists.`;
+  }
+  if(t&&t.cls==='periodic'){
+    if(!f.owner)e.owner='Choose an owner.';
+    const dd=+f.dueDay;if(!(dd>=1&&dd<=28))e.dueDay='Choose a due day between 1 and 28.';
+    if(!/^\d{4}-\d{2}$/.test(f.start||'')||f.start>NOW_KEY())e.start='Start month cannot be in the future.';
+  } else if(t){
+    Object.assign(e,fileErrors(f,t.cls));
+    if(t.cls==='controlled'&&!f.owner)e.owner='Choose an owner.';
+  }
+  S.errs=e;S.tried=true;
+  if(Object.keys(e).length)return;
+  const p=projOf(f.project);const wasStream=p.stream;p.stream=true;
+  const d={id:'d'+Date.now().toString(36),p:f.project,type:t.c,cls:t.cls,no,title:f.title.trim(),folder:t.f,deleted:false,owner:f.owner,orig:no+'.pdf',name:no+'.pdf'};
+  if(t.cls==='controlled'){
+    d.revs=[];
+    D.docs.push(d);
+    d.revs.push(rev({status:'Submitted',date:DAY(),by:who(),reason:f.reason,summary:f.summary.trim(),file:f.file.name,checker:f.checker,approver:f.approver}));
+    log(`Created ${no} · ${d.title} · waiting for ${f.checker}`);
+  } else if(t.cls==='periodic'){
+    d.dueDay=+f.dueDay;d.start=f.start;d.periods={};
+    D.docs.push(d);
+    log(`Set up recurring series ${no} · due on day ${d.dueDay} each month · starts ${d.start}`);
+  } else {
+    d.versions=[{n:0,by:who(),date:DAY(),file:f.file.name,summary:f.summary.trim(),expiresOn:f.expiresOn}];
+    D.docs.push(d);
+    log(`Added certificate ${no} · expires ${f.expiresOn}`);
+  }
+  if(!wasStream)log(`Started numbering stream ${f.project}-${t.c}`);
+  prog('added');save();
+  S.modal=null;S.draft={};S.errs={};S.tried=false;S.view='docs';S.open=d.id;
+  toast(t.cls==='periodic'?`${no} set up. Upload each month from the Recurring view.`:(t.cls==='record'?`${no} added. It shows its expiry date.`:`${no} sent for check.`));
+}
+function savePeriod(d){
+  const f=S.pdraft,key=S.mark;
+  const e={};
+  const st=periodState(d,key);
+  if(!canUploadSeries(d))e.who=`Only ${d.owner} or ${ADMIN} can upload to this series.`;
+  if(st==='upcoming')e.who='This period has not started yet.';
+  if(f.mode==='na'){
+    if(!(f.naReason||'').trim()||f.naReason.trim().length<10)e.naReason='Give a reason of at least 10 characters.';
+  } else {
+    if(!f.file)e.file='Choose a file.';
+    if(!String(f.summary||'').trim()||String(f.summary).trim().length<20)e.summary='Write at least 20 characters.';
+    if(d.periods[key]&&!(f.replaceReason||'').trim())e.replaceReason='Say why you are replacing it (10+ characters).';
+  }
+  S.perr=e;S.ptried=true;
+  if(Object.keys(e).length)return;
+  const already=!!d.periods[key];
+  if(f.mode==='na'){
+    d.periods[key]={na:true,naReason:f.naReason.trim(),by:who(),uploadedAt:DAY()};
+    log(`Marked ${d.no} ${key} not needed: ${f.naReason.trim()}`);
+  } else {
+    d.periods[key]={file:f.file.name,summary:f.summary.trim(),by:who(),uploadedAt:DAY(),
+      replaces:already?[...(d.periods[key].replaces||[]),{file:d.periods[key].file,by:d.periods[key].by,summary:d.periods[key].summary,replacedOn:DAY(),reason:f.replaceReason.trim()}]:[]};
+    const late=DAY()>dueOf(key,d.dueDay);
+    log(`${already?'Replaced':'Uploaded'} ${d.no} ${key}${late?' (late)':''}: ${f.summary.trim()}`);
+  }
+  prog('period');save();
+  S.modal=null;S.pdraft={};S.perr={};S.ptried=false;S.mark=null;
+  toast(`${d.no} ${key} saved.`);
+}
+function saveRenew(d){
+  const f=S.rdraft;const e=fileErrors(Object.assign({},f),'record');
+  S.rerrs=e;S.rtried=true;
+  if(!canUploadSeries(d))return toast('Only the owner or the records lead can renew this certificate.');
+  if(Object.keys(e).length)return;
+  const n=d.versions.length;
+  d.versions.push({n,by:who(),date:DAY(),file:f.file.name,summary:f.summary.trim(),expiresOn:f.expiresOn});
+  log(`Renewed ${d.no} (version ${n}) · expires ${f.expiresOn}`);prog('renewed');save();
+  S.rdraft={};S.rerrs={};S.rtried=false;S.revOpen=false;toast(`${d.no} renewed. New expiry ${f.expiresOn}.`);
+}
+function addRevision(d,f){
+  const idx=d.revs.length;
+  d.revs.push(rev({status:'Submitted',date:DAY(),by:who(),reason:f.reason,summary:f.summary.trim(),file:f.file.name,checker:f.checker,approver:f.approver}));
+  log(`Added ${d.no} rev ${idx} (waiting for check by ${f.checker})`);return idx;
+}
+function saveRev(d){
+  const f=S.rdraft,e=fileErrors(f,'controlled');
+  S.rerrs=e;S.rtried=true;
+  if(Object.keys(e).length)return;
+  const idx=addRevision(d,f);
+  S.rdraft={};S.rerrs={};S.rtried=false;S.revOpen=false;save();toast(`Rev ${idx} sent for check.`);
+}
+function doCheck(d,i){const m=canCheck(d,i);if(m){toast(m);return;}d.revs[i].status='Checked';d.revs[i].checkedBy=who();log(`Checked ${d.no} rev ${i}`);prog('checked');save();toast('Checked. Waiting for the approver.');}
+function doApprove(d,i){const m=canApprove(d,i);if(m){toast(m);return;}d.revs[i].status='Approved';d.revs[i].approvedBy=who();log(`Approved ${d.no} rev ${i} (now current)`);prog('approved');save();toast(`${d.no} rev ${i} is now current.`);}
+function doReturn(d,i){const m=canReturn(d,i),t=(S.retText[i]||'').trim();if(m){toast(m);return;}if(t.length<10){toast('Write at least 10 characters to say what must change.');return;}d.revs[i].status='Returned';d.revs[i].returnNote=t;log(`Sent back ${d.no} rev ${i}: ${t}`);S.retText[i]='';save();toast('Sent back with your note.');}
+function doRemove(d){
+  if(!isAdmin())return toast(`Only the records lead (${ADMIN}) can remove a document.`);
+  if(!S.remReason)return toast('Choose a reason.');
+  if(S.remText.trim().length<20)return toast('Write at least 20 characters to say why.');
+  d.deleted=true;d.name='DELETED_'+DAY().replace(/-/g,'')+'_'+d.orig;
+  log(`Removed ${d.no} (${S.remReason}): ${S.remText.trim()}. Renamed to ${d.name}`);save();
+  S.remOpen=false;S.remReason='';S.remText='';toast(`${d.no} removed. Renamed, not erased.`);
+}
+function doRestore(d){
+  if(!isAdmin())return toast(`Only the records lead (${ADMIN}) can restore a document.`);
+  d.deleted=false;d.name=d.orig;log(`Restored ${d.no}`);save();toast(`${d.no} restored.`);
+}
+function transmittalText(){
+  const docs=S.sel.map(id=>docById(id)).filter(Boolean);
+  const head=[`TRANSMITTAL`,`To: ${S.trans.to||'(not set)'}`,`Date: ${S.trans.date}`,`Purpose: ${S.trans.purpose}`,S.trans.notes?`Notes: ${S.trans.notes}`:'',''];
+  const lines=docs.map(d=>{
+    let state='';
+    if(d.cls==='controlled'){const c=curIdx(d);state=c>=0?`Rev ${c} (current)`:'No approved revision';}
+    if(d.cls==='periodic'){const k=NOW_KEY();state=`Latest period ${k}: ${periodState(d,k)}`;}
+    if(d.cls==='record'){const r=recordState(d);state=`Expires ${d.versions.at(-1).expiresOn}`;}
+    return `${d.no}\t${d.title}\t${state}`;
+  });
+  return [...head,'Number\tTitle\tStatus',...lines].join('\n');
+}
+function renderNav(){
+  document.querySelectorAll('.nav button[data-v]').forEach(b=>b.setAttribute('aria-current',(S.view===b.dataset.v)?'page':'false'));
+  $('#me').innerHTML=PEOPLE.map(p=>`<option ${p===D.me?'selected':''}>${p}</option>`).join('');
+  $('#meRole').textContent=ROLE[D.me];
+}
+
+/* ================= Views ================= */
+function renderDash(){
+  const ctrl=D.docs.filter(d=>d.cls==='controlled'&&!d.deleted);
+  const waitingMe=ctrl.filter(d=>d.revs.some((r,i)=>(r.status==='Submitted'&&r.checker===who())||(r.status==='Checked'&&r.approver===who())));
+  const per=D.docs.filter(d=>d.cls==='periodic'&&!d.deleted);
+  let missing=0,late=0;
+  per.forEach(d=>periodsThisYear(d).forEach(k=>{const s=periodState(d,k);if(s==='missing')missing++;if(s==='late')late++;}));
+  const recs=D.docs.filter(d=>d.cls==='record'&&!d.deleted).map(d=>({d,st:recordState(d)}));
+  const expiring=recs.filter(x=>x.st.k==='expiring').length,expired=recs.filter(x=>x.st.k==='expired').length;
+  const needs=[];
+  waitingMe.forEach(d=>needs.push({t:`${d.no} is waiting for you`,sub:d.title,go:d.id}));
+  per.filter(d=>d.owner===who()||isAdmin()).forEach(d=>periodsThisYear(d).forEach(k=>{if(periodState(d,k)==='missing')needs.push({t:`${d.no}: ${k} is missing`,sub:`${d.title} · due ${dueOf(k,d.dueDay)}`,cal:true});}));
+  recs.filter(x=>(x.d.owner===who()||isAdmin())&&['expiring','expired'].includes(x.st.k)).forEach(x=>needs.push({t:`${x.d.no} ${x.st.k==='expired'?'has expired':'expires in '+x.st.days+' days'}`,sub:x.d.title,go:x.d.id}));
+  const prog=D.projects.filter(p=>p.stream).map(p=>{
+    const cd=ctrl.filter(d=>d.p===p.code);const appr=cd.filter(d=>curIdx(d)>=0).length;
+    let due=0,ontime=0;per.filter(d=>d.p===p.code).forEach(d=>periodsThisYear(d).forEach(k=>{due++;const s=periodState(d,k);if(s==='uploaded'||s==='na')ontime++;}));
+    return {p,ctl:cd.length?Math.round(appr/cd.length*100):0,per:due?Math.round(ontime/due*100):0,cd:cd.length,due};
+  });
+  return `<h1>Dashboard</h1>
+    <p class="sub">What needs attention, across all projects. Playing as <b>${esc(D.me)}</b> (${ROLE[D.me]}).</p>
+    <div class="four" style="margin-bottom:16px">
+      <div class="kpi ${waitingMe.length?'warn':''}"><b>${waitingMe.length}</b><span>Controlled files waiting for you</span></div>
+      <div class="kpi ${missing?'bad':'ok'}"><b>${missing}</b><span>Monthly items missing this year</span></div>
+      <div class="kpi ${late?'warn':'ok'}"><b>${late}</b><span>Monthly items uploaded late</span></div>
+      <div class="kpi ${expiring+expired?'bad':'ok'}"><b>${expiring} · ${expired}</b><span>Certificates expiring soon · expired</span></div>
+    </div>
+    <h2>Needs you now</h2>
+    <div class="card">${needs.length?needs.map(n=>`<div class="item"><div><div class="strong">${esc(n.t)}</div><div class="small muted">${esc(n.sub)}</div></div>
+      ${n.go?`<button class="btn" data-a="open" data-id="${n.go}">Open</button>`:`<button class="btn" data-a="nav" data-v="cal">Open calendar</button>`}</div>`).join(''):'<div class="muted">Nothing needs you right now.</div>'}</div>
+    <h2>Progress by project</h2>
+    <div class="card">${prog.map(x=>`<div style="margin-bottom:14px"><div class="row"><span class="strong grow">${esc(x.p.name)}</span><span class="small muted">Controlled approved ${x.ctl}% (${x.cd} files)</span></div><div class="bar" style="margin:4px 0 8px"><i style="width:${x.ctl}%"></i></div>
+      <div class="row"><span class="small grow muted">Monthly items on time this year</span><span class="small muted">${x.per}% of ${x.due}</span></div><div class="bar" style="margin-top:4px"><i style="width:${x.per}%"></i></div></div>`).join('')}</div>
+    <p class="small muted" style="margin-top:14px">Three kinds of document, three rules. Controlled files are approved. Monthly items are only uploaded on time. Certificates are renewed before expiry.</p>`;
+}
+function renderDocs(){
+  const q=S.q.trim().toLowerCase();
+  const rows=D.docs.filter(d=>(S.showRemoved||!d.deleted)&&(!S.cls||d.cls===S.cls)&&(!S.proj||d.p===S.proj)&&(!q||(d.no+' '+d.title+' '+TYPE(d.type).l).toLowerCase().includes(q)));
+  return `<h1>All documents</h1>
+    <p class="sub">Every document, whatever its kind. The kind decides how it is handled. Tick documents to build a transmittal.</p>
+    <div class="row" style="margin-bottom:12px">
+      <input id="q" class="t" type="search" placeholder="Search number or title" value="${esc(S.q)}" style="max-width:300px;flex:1" aria-label="Search">
+      <select id="cl" class="t" style="width:auto" aria-label="Kind"><option value="">All kinds</option>${Object.keys(CLS_LABEL).map(k=>`<option value="${k}" ${S.cls===k?'selected':''}>${CLS_LABEL[k]}</option>`).join('')}</select>
+      <select id="pj" class="t" style="width:auto" aria-label="Project"><option value="">All projects</option>${D.projects.map(p=>`<option value="${p.code}" ${S.proj===p.code?'selected':''}>${esc(p.name)}</option>`).join('')}</select>
+      <label class="small"><input type="checkbox" data-a="show-removed" ${S.showRemoved?'checked':''}> Show removed</label>
+      <span class="grow"></span>
+      <button class="btn" data-a="trans-go" ${S.sel.length?'':'disabled'}>Make transmittal (${S.sel.length})</button>
+      <button class="btn primary" data-a="add-open">+ Add</button>
+    </div>
+    <div class="tw"><table><thead><tr><th></th><th>Number</th><th>Title</th><th>Kind</th><th>Where it is filed</th><th>Where it stands</th></tr></thead><tbody>
+    ${rows.length?rows.map(d=>`<tr class="click" data-a="open" data-id="${d.id}">
+      <td data-stop="1"><input type="checkbox" data-a="sel" data-id="${d.id}" ${S.sel.includes(d.id)?'checked':''} aria-label="Select ${esc(d.no)}"></td>
+      <td class="no">${esc(d.no)}${d.deleted?' <span class="pill p-bad">Removed</span>':''}</td>
+      <td class="strong">${esc(d.title)}<div class="small muted">${esc(TYPE(d.type).l)}</div></td>
+      <td><span class="cls ${d.cls}">${esc(d.cls==='controlled'?'Controlled':d.cls==='periodic'?'Recurring':'Certificate')}</span></td>
+      <td class="small muted">${esc(PATH(d.folder))}</td>
+      <td>${standsLabel(d)}</td></tr>`).join(''):'<tr><td colspan="6" class="muted" style="padding:24px;text-align:center">No documents match.</td></tr>'}
+    </tbody></table></div>`;
+}
+function standsLabel(d){
+  if(d.cls==='controlled'){const c=curIdx(d),l=lastIdx(d);return `${c>=0?`Current: Rev ${c}`:'<span class="muted">No approved version</span>'} · ${statusPill(d.revs[l].status)}`;}
+  if(d.cls==='periodic'){const k=NOW_KEY();const s=periodState(d,k);return `This month: ${PSTATE[s][1]||'Not yet due'}`;}
+  const r=recordState(d);return `${RSTATE[r.k][1]}${r.days!==null?' · '+r.days+' days left':''}`;
+}
+function renderCal(){
+  const y=NOW_KEY().slice(0,4);
+  const ser=D.docs.filter(d=>d.cls==='periodic'&&!d.deleted);
+  const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const rows=ser.map(d=>{
+    const cells=months.map((mn,i)=>{
+      const k=`${y}-${String(i+1).padStart(2,'0')}`;
+      const st=k<d.start?'none':periodState(d,k);
+      if(st==='none')return '<td><span class="muted small">–</span></td>';
+      const [cls,label]=PSTATE[st];
+      const disabled=st==='upcoming';
+      return `<td><button class="cell ${cls}" ${disabled?'disabled':''} data-a="period" data-id="${d.id}" data-k="${k}" aria-label="${esc(d.no)} ${k} ${label||'not due yet'}">${label||mn}</button></td>`;
+    }).join('');
+    return `<tr><td><div class="no">${esc(d.no)}</div><div class="strong">${esc(d.title)}</div><div class="small muted">Owner ${esc(d.owner)} · due on day ${d.dueDay}</div></td>${cells}</tr>`;
+  }).join('');
+  return `<h1>Recurring (monthly)</h1>
+    <p class="sub">Monthly items are uploaded each month. No approval. Click a month to upload it, or mark it not needed with a reason. A month shows Missing once its due date has passed.</p>
+    <div class="row" style="margin-bottom:10px"><button class="btn primary" data-a="add-open">+ Set up a monthly series</button><span class="small muted">Year ${y}</span></div>
+    <div class="legend"><span class="lg-uploaded">Uploaded on time</span><span class="lg-late">Uploaded late</span><span class="lg-missing">Missing</span><span class="lg-open">Open this month</span><span class="lg-na">Not needed</span><span class="lg-upcoming">Not yet due</span></div>
+    <div class="tw"><table class="cal" style="min-width:980px"><thead><tr><th style="min-width:230px">Series</th>${months.map(m=>`<th style="text-align:center">${m}</th>`).join('')}</tr></thead><tbody>
+      ${rows||'<tr><td colspan="13" class="muted" style="padding:20px">No monthly series yet.</td></tr>'}</tbody></table></div>
+    <p class="small muted" style="margin-top:12px">Due date is the day shown on each series, in the following month. Owners and the records lead can upload.</p>`;
+}
+function renderRecs(){
+  const recs=D.docs.filter(d=>d.cls==='record'&&!d.deleted);
+  return `<h1>Certificates and permits</h1>
+    <p class="sub">These have an expiry date. Renew them before they expire. Each renewal keeps the old version on record.</p>
+    <div class="legend"><span class="lg-uploaded">Valid</span><span class="lg-late">Expiring within 30 days</span><span class="lg-missing">Expired</span></div>
+    <div class="tw"><table><thead><tr><th>Number</th><th>Title</th><th>Expires</th><th>Status</th><th>Owner</th></tr></thead><tbody>
+    ${recs.length?recs.map(d=>{const r=recordState(d);const v=d.versions.at(-1);
+      return `<tr class="click" data-a="open" data-id="${d.id}"><td class="no">${esc(d.no)}</td><td class="strong">${esc(d.title)}</td><td>${v?esc(v.expiresOn):'—'}</td>
+        <td><span class="pill ${RSTATE[r.k][0]}">${RSTATE[r.k][1]}</span> <span class="small muted">${r.days!==null?(r.days<0?Math.abs(r.days)+' days ago':r.days+' days'):''}</span></td><td>${esc(d.owner)}</td></tr>`;}).join(''):'<tr><td colspan="5" class="muted" style="padding:20px">No certificates yet.</td></tr>'}
+    </tbody></table></div>`;
+}
+function renderDoc(){
+  const d=docById(S.open);
+  if(!d){S.view='docs';return renderDocs();}
+  let body='';
+  if(d.cls==='controlled'){
+    const c=curIdx(d),l=lastIdx(d);let revs='';
+    for(let i=l;i>=0;i--){
+      const r=d.revs[i];
+      if(r.status==='Not on file'){revs+=`<div class="rev"><div class="dot"></div><div><span class="strong">Rev ${i}</span> ${statusPill(r.status)}</div></div>`;continue;}
+      const cls=i===c?'cur':(i===l?'lat':'');
+      let acts='';
+      if(r.status==='Submitted')acts+=`<button class="btn ok" data-a="check" data-i="${i}">Check</button>`;
+      if(r.status==='Checked')acts+=`<button class="btn ok" data-a="approve" data-i="${i}">Approve</button>`;
+      if(['Submitted','Checked'].includes(r.status))acts+=`<button class="btn danger" data-a="return" data-i="${i}">Send back</button><input class="t" style="max-width:320px;flex:1" data-retext="${i}" placeholder="Why? (10+ characters)" value="${esc(S.retText[i]||'')}">`;
+      revs+=`<div class="rev ${cls}"><div class="dot"></div><div>
+        <div class="rt"><span class="strong">Rev ${i}</span>${statusPill(r.status)}${i===c?'<span class="tag cur">Current</span>':''}${i===l?'<span class="tag lat">Latest</span>':''}</div>
+        <div class="rm">${r.date} · ${esc(r.by)}${r.reason?' · '+esc(r.reason):''}</div>
+        <div class="rs">${esc(r.summary)}</div>
+        ${r.checker?`<div class="rm">Checker ${esc(r.checker)}${r.checkedBy?' (done)':''} · Approver ${esc(r.approver)}${r.approvedBy?' (done)':''}</div>`:''}
+        ${r.returnNote?`<div class="warnbox">Sent back: ${esc(r.returnNote)}</div>`:''}
+        ${acts?`<div class="ra">${acts}</div>`:''}</div></div>`;
+    }
+    body=`<h2>Revisions (approval needed)</h2><div class="card">${revs||'<span class="muted">None yet.</span>'}</div>
+      <h2>Add a revision</h2>${S.revOpen?renderRevForm():'<button class="btn" data-a="rev-open">+ Add a new revision</button>'}`;
+  } else if(d.cls==='periodic'){
+    const ys=periodsThisYear(d).slice().reverse();
+    body=`<h2>Periods</h2><div class="tw"><table><thead><tr><th>Period</th><th>Due</th><th>Status</th><th>Uploaded by</th><th>Summary</th></tr></thead><tbody>
+      ${ys.map(k=>{const s=periodState(d,k);const pr=d.periods[k];
+        return `<tr class="click" data-a="period" data-id="${d.id}" data-k="${k}"><td class="no">${k}</td><td>${dueOf(k,d.dueDay)}</td><td><span class="pill ${s==='missing'?'p-bad':s==='late'?'p-wait':s==='uploaded'?'p-ok':s==='na'?'p-old':'p-check'}">${PSTATE[s][1]}</span></td>
+          <td>${pr?esc(pr.by):'—'}</td><td class="small">${pr?esc(pr.summary):(s==='na'?'Not needed: '+esc(d.periods[k].naReason):'')}${pr&&pr.replaces&&pr.replaces.length?`<div class="small muted">Replaced ${pr.replaces.length} time(s)</div>`:''}</td></tr>`;}).join('')}
+      </tbody></table></div>
+      <p class="small muted">Click a row to upload, replace or mark not needed.</p>`;
+  } else {
+    const v=d.versions.at(-1),r=recordState(d);
+    body=`<h2>Current certificate</h2><div class="card"><span class="pill ${RSTATE[r.k][0]}">${RSTATE[r.k][1]}</span>
+      <div style="margin-top:8px"><b>Expires</b> ${esc(v.expiresOn)} · ${r.days<0?'expired':r.days+' days left'}</div><div class="rm">${esc(v.file)} · uploaded ${esc(v.date)} by ${esc(v.by)}</div><div style="margin-top:6px">${esc(v.summary)}</div></div>
+      <h2>Renew</h2>${S.revOpen?renderRenewForm():'<button class="btn primary" data-a="rev-open">Upload renewal</button>'}
+      <h2>Earlier versions</h2><div class="card">${d.versions.slice(0,-1).reverse().map(x=>`<div class="item"><div><b>Version ${x.n}</b> · expired ${esc(x.expiresOn)}<div class="small muted">${esc(x.summary)} · ${esc(x.by)}</div></div></div>`).join('')||'<span class="muted">None.</span>'}</div>`;
+  }
+  const remove=d.deleted
+    ?`<div class="warnbox">Removed. The file is renamed to <span class="no">${esc(d.name)}</span>. Nothing was erased.</div><div class="row" style="margin-top:8px"><button class="btn ok" data-a="restore">Restore</button></div>`
+    :(S.remOpen?renderRemoveForm(d):`<button class="btn danger" data-a="rem-open">Remove document</button> <span class="small muted">Records lead only</span>`);
+  const logs=D.log.filter(e=>e.text.includes(d.no)).slice(0,6);
+  return `<button class="btn link" data-a="nav" data-v="docs" style="padding-left:0">← All documents</button>
+    <h1 style="margin-top:6px">${esc(d.title)}</h1>
+    <div class="crumb" style="margin:4px 0 12px"><span class="cls ${d.cls}">${esc(CLS_LABEL[d.cls])}</span> · ${esc(projOf(d.p).name)} · <b>${esc(PATH(d.folder))}</b></div>
+    <p class="sub"><span class="no">${esc(d.no)}</span> · ${esc(CLS_HELP[d.cls])} ${d.owner?`Owner: ${esc(d.owner)}.`:''}</p>
+    ${body}
+    <h2>Remove</h2><div>${remove}</div>
+    <h2>Recent activity</h2><div class="card log">${logs.length?logs.map(e=>`<div class="l"><span class="wt">${fmtT(e.t)} · ${esc(e.who)}</span><span>${esc(e.text)}</span></div>`).join(''):'<span class="muted">Nothing yet.</span>'}</div>`;
+}
+function renderRevForm(){
+  const e=S.rerrs||{};
+  return `<section class="card">${S.rtried&&Object.keys(e).length?'<div class="errbox">Fix the items marked in red.</div>':''}
+    ${fileBlock(S.rdraft,e,'controlled','rev')}
+    <div class="row"><button class="btn primary" data-a="rev-save">Send for check</button><button class="btn link" data-a="rev-close">Cancel</button></div></section>`;
+}
+function renderRenewForm(){
+  const e=S.rerrs||{};
+  return `<section class="card">${S.rtried&&Object.keys(e).length?'<div class="errbox">Fix the items marked in red.</div>':''}
+    ${fileBlock(S.rdraft,e,'record','rev')}
+    <div class="row"><button class="btn primary" data-a="renew-save">Save renewal</button><button class="btn link" data-a="rev-close">Cancel</button></div></section>`;
+}
+function renderRemoveForm(d){
+  return `<section class="card"><div class="warnbox" style="margin-top:0">The document is hidden. Its file is renamed to <span class="no">DELETED_…_${esc(d.orig)}</span>. Nothing is erased.</div>
+    <div class="two" style="margin-top:12px"><div class="field"><label for="remR">Reason <span class="req">*</span></label><select class="t" id="remR"><option value="">Choose…</option>${['Duplicate of another record','Created in error','No longer needed','Replaced by another document'].map(x=>`<option ${S.remReason===x?'selected':''}>${x}</option>`).join('')}</select></div>
+    <div class="field"><label for="remT">Why, in a sentence <span class="req">*</span></label><input class="t" id="remT" value="${esc(S.remText)}" placeholder="At least 20 characters"></div></div>
+    <div class="row"><button class="btn danger" data-a="rem-go">Remove document</button><button class="btn link" data-a="rem-close">Cancel</button></div></section>`;
+}
+/* File, summary and (for controlled) reason, checker, approver and note. */
+function fileBlock(f,e,cls,scope){
+  const err=k=>(scope==='rev'?S.rtried:S.ptried)&&e[k]?`<div class="err">${esc(e[k])}</div>`:'';
+  const people=k=>PEOPLE.map(p=>`<option ${f[k]===p?'selected':''}>${p}</option>`).join('');
+  return `<div class="field"><label>File <span class="req">*</span></label>
+      <div class="drop"><span>${f.file?`📄 ${esc(f.file.name)}`:'<span class="muted">No file chosen yet</span>'}</span><input type="file" data-file="1" accept=".pdf,.docx,.xlsx,.dwg,.zip" aria-label="Choose file"></div>${err('file')}</div>
+    ${cls==='record'?`<div class="field"><label for="ex">New expiry date <span class="req">*</span></label><input id="ex" type="date" class="t" data-s="rdraft" data-f="expiresOn" value="${esc(f.expiresOn||'')}">${err('expiresOn')}</div>`:''}
+    ${cls==='controlled'?`<div class="two">
+      <div class="field"><label for="rs">Reason <span class="req">*</span></label><select id="rs" class="t" data-s="rdraft" data-f="reason"><option value="">Choose…</option>${REASONS.map(x=>`<option ${f.reason===x?'selected':''}>${x}</option>`).join('')}</select>${err('reason')}</div>
+      <div class="field"><label for="ck">Checker <span class="req">*</span></label><select id="ck" class="t" data-s="rdraft" data-f="checker"><option value="">Choose…</option>${people('checker')}</select>${err('checker')}</div></div>
+      <div class="field"><label for="ap">Approver <span class="req">*</span></label><select id="ap" class="t" data-s="rdraft" data-f="approver"><option value="">Choose…</option>${people('approver')}</select>${err('approver')}</div>` :''}
+    <div class="field"><label for="sm">One-line summary <span class="req">*</span></label><input id="sm" class="t" data-s="${scope==='rev'?'rdraft':'pdraft'}" data-f="summary" value="${esc(f.summary||'')}" placeholder="What changed, and why?">${err('summary')}</div>
+    ${cls==='controlled'?`<div class="field"><label for="nt">Note for the checker <span class="req">*</span></label><textarea id="nt" class="t" data-s="rdraft" data-f="note">${esc(f.note||'')}</textarea>${err('note')}</div>`:''}`;
+}
+function renderPeriodModal(){
+  const d=docById(S.open),k=S.mark;if(!d||!k)return '';
+  const e=S.perr,f=S.pdraft;
+  const st=periodState(d,k);const existing=d.periods[k];
+  const mode=f.mode||'upload';
+  return `<div class="scrim" data-a="modal-close"><div class="modal" role="dialog" aria-modal="true" aria-label="Monthly period" data-stop="1">
+    <h3>${esc(d.no)} · ${k}</h3>
+    <p class="sub" style="margin-bottom:10px">Due ${dueOf(k,d.dueDay)}. Status now: <b>${PSTATE[st][1]||'not yet due'}</b>.${existing?` Already uploaded by ${esc(existing.by)}.`:''}</p>
+    ${S.ptried&&Object.keys(e).length?`<div class="errbox">${esc(Object.values(e)[0])}</div>`:''}
+    <div class="row" style="margin-bottom:12px"><button class="btn ${mode==='upload'?'primary':''}" data-a="pmode" data-m="upload">${existing?'Replace the file':'Upload this month'}</button><button class="btn ${mode==='na'?'primary':''}" data-a="pmode" data-m="na">Mark not needed</button></div>
+    ${mode==='upload'?`<div class="field"><label>File <span class="req">*</span></label><div class="drop"><span>${f.file?esc(f.file.name):'<span class="muted">No file chosen yet</span>'}</span><input type="file" data-pfile="1" accept=".pdf,.docx,.xlsx,.dwg,.zip" aria-label="Choose file"></div></div>
+      <div class="field"><label for="ps">One-line summary <span class="req">*</span></label><input id="ps" class="t" data-s="pdraft" data-f="summary" value="${esc(f.summary||'')}" placeholder="What does this month show?"></div>
+      ${existing?`<div class="field"><label for="pr">Why replace it? <span class="req">*</span></label><input id="pr" class="t" data-s="pdraft" data-f="replaceReason" value="${esc(f.replaceReason||'')}" placeholder="For example: corrected figures"></div>`:''}`
+      :`<div class="field"><label for="pn">Why is it not needed? <span class="req">*</span></label><input id="pn" class="t" data-s="pdraft" data-f="naReason" value="${esc(f.naReason||'')}" placeholder="For example: plant shutdown all month"></div>`}
+    <div class="row" style="justify-content:flex-end"><button class="btn link" data-a="modal-close">Cancel</button><button class="btn primary" data-a="period-save">${mode==='na'?'Mark not needed':'Save'}</button></div>
+  </div></div>`;
+}
+function renderAddModal(){
+  const f=S.draft,e=S.errs||{};const t=f.type?TYPE(f.type):null;const p=f.project?projOf(f.project):null;
+  const err=k=>S.tried&&e[k]?`<div class="err">${esc(e[k])}</div>`:'';
+  let fields='';
+  const number=p&&t?(p.stream?nextNumber(f.project,t.c):(f.no||'')):'';
+  if(t&&t.cls==='periodic'){
+    fields=`<div class="two"><div class="field"><label for="a-own">Owner <span class="req">*</span></label><select id="a-own" class="t" data-s="add" data-f="owner"><option value="">Choose…</option>${PEOPLE.map(x=>`<option ${f.owner===x?'selected':''}>${x}</option>`).join('')}</select>${err('owner')}</div>
+      <div class="field"><label for="a-due">Due day each month <span class="req">*</span></label><input id="a-due" type="number" min="1" max="28" class="t" data-s="add" data-f="dueDay" value="${esc(f.dueDay||'')}">${err('dueDay')}<div class="help">Due on this day in the following month.</div></div></div>
+      <div class="field"><label for="a-st">First month <span class="req">*</span></label><input id="a-st" type="month" class="t" data-s="add" data-f="start" value="${esc(f.start||'')}">${err('start')}<div class="help">Months before this are not created.</div></div>
+      <div class="infobox">Monthly items have no approval. Each month is uploaded with a one-line summary.</div>`;
+  } else if(t){
+    fields=`<div class="field"><label for="a-own">Owner <span class="req">*</span></label><select id="a-own" class="t" data-s="add" data-f="owner"><option value="">Choose…</option>${PEOPLE.map(x=>`<option ${f.owner===x?'selected':''}>${x}</option>`).join('')}</select>${err('owner')}</div>
+      <div class="field"><label>File <span class="req">*</span></label><div class="drop"><span>${f.file?esc(f.file.name):'<span class="muted">No file chosen yet</span>'}</span><input type="file" data-file="1" data-s="add" accept=".pdf,.docx,.xlsx,.dwg,.zip" aria-label="Choose file"></div>${err('file')}</div>
+      <div class="field"><label for="a-sm">One-line summary <span class="req">*</span></label><input id="a-sm" class="t" data-s="add" data-f="summary" value="${esc(f.summary||'')}" placeholder="What changed, and why?">${err('summary')}</div>
+      ${t.cls==='record'?`<div class="field"><label for="a-ex">Expiry date <span class="req">*</span></label><input id="a-ex" type="date" class="t" data-s="add" data-f="expiresOn" value="${esc(f.expiresOn||'')}">${err('expiresOn')}</div>`:''}
+      ${t.cls==='controlled'?`<div class="two"><div class="field"><label for="a-rs">Reason <span class="req">*</span></label><select id="a-rs" class="t" data-s="add" data-f="reason"><option value="">Choose…</option>${REASONS.map(x=>`<option ${f.reason===x?'selected':''}>${x}</option>`).join('')}</select>${err('reason')}</div>
+        <div class="field"><label for="a-ck">Checker <span class="req">*</span></label><select id="a-ck" class="t" data-s="add" data-f="checker"><option value="">Choose…</option>${PEOPLE.map(x=>`<option ${f.checker===x?'selected':''}>${x}</option>`).join('')}</select>${err('checker')}</div></div>
+        <div class="field"><label for="a-ap">Approver <span class="req">*</span></label><select id="a-ap" class="t" data-s="add" data-f="approver"><option value="">Choose…</option>${PEOPLE.map(x=>`<option ${f.approver===x?'selected':''}>${x}</option>`).join('')}</select>${err('approver')}</div>
+        <div class="field"><label for="a-nt">Note for the checker <span class="req">*</span></label><textarea id="a-nt" class="t" data-s="add" data-f="note">${esc(f.note||'')}</textarea>${err('note')}</div>`:''}`;
+  }
+  return `<div class="scrim" data-a="modal-close"><div class="modal" role="dialog" aria-modal="true" aria-label="Add" data-stop="1">
+    <h3>Add a document</h3>
+    <div class="stepline"><span>1. Project and type</span><span>2. Number and folder</span><span>3. Details for that kind</span></div>
+    ${S.tried&&Object.keys(e).length?'<div class="errbox">Fix the items marked in red.</div>':''}
+    <div class="two">
+      <div class="field"><label for="a-p">Project <span class="req">*</span></label><select id="a-p" class="t" data-s="add" data-f="project"><option value="">Choose…</option>${D.projects.map(x=>`<option value="${x.code}" ${f.project===x.code?'selected':''}>${esc(x.name)}</option>`).join('')}</select>${err('project')}</div>
+      <div class="field"><label for="a-t">Document type <span class="req">*</span></label><select id="a-t" class="t" data-s="add" data-f="type"><option value="">Choose…</option>${TYPES.map(x=>`<option value="${x.c}" ${f.type===x.c?'selected':''}>${x.c} · ${esc(x.l)}</option>`).join('')}</select>${err('type')}</div>
+    </div>
+    ${t?`<div class="infobox"><b>${esc(CLS_LABEL[t.cls])}.</b> ${esc(CLS_HELP[t.cls])}</div>`:''}
+    <div class="two">
+      <div class="field"><label>Number</label>${t&&t.cls!=='periodic'||t?(p&&!p.stream?`<input class="t" id="a-no" data-s="add" data-f="no" value="${esc(f.no||'')}" placeholder="${esc(f.project||'XXX')}-${esc(f.type||'XXX')}-0001">`:`<input class="t" readonly value="${esc(number)}" placeholder="Choose a project and type">`):`<input class="t" readonly value="${esc(number)}">`}${err('no')}
+        <div class="help">${p&&!p.stream?'No numbering stream yet. This number starts it.':(p&&t?'Continues the project numbering stream.':'Filled in from the project stream.')}</div></div>
+      <div class="field"><label>Folder</label><input class="t" readonly value="${t?esc(PATH(t.f)):'Choose a type first'}"></div>
+    </div>
+    <div class="field"><label for="a-title">Title <span class="req">*</span></label><input id="a-title" class="t" data-s="add" data-f="title" value="${esc(f.title||'')}" placeholder="What is this?">${err('title')}</div>
+    ${fields}
+    <div class="row" style="justify-content:flex-end;margin-top:8px"><button class="btn link" data-a="modal-close">Cancel</button><button class="btn primary" data-a="add-save">${t&&t.cls==='periodic'?'Set up series':'Save'}</button></div>
+  </div></div>`;
+}
+function renderTrans(){
+  const docs=S.sel.map(id=>docById(id)).filter(Boolean);
+  const text=transmittalText();
+  return `<h1>Transmittal</h1>
+    <p class="sub">A cover list for a client or contractor. Choose documents on “All documents”, then come here.</p>
+    <section class="card">
+      <div class="two">
+        <div class="field"><label for="tt">To</label><input id="tt" class="t" data-tr="to" value="${esc(S.trans.to)}" placeholder="Client or contractor"></div>
+        <div class="field"><label for="td">Date</label><input id="td" type="date" class="t" data-tr="date" value="${esc(S.trans.date)}"></div>
+      </div>
+      <div class="two">
+        <div class="field"><label for="tp">Purpose</label><select id="tp" class="t" data-tr="purpose">${['For information','For review','For approval'].map(x=>`<option ${S.trans.purpose===x?'selected':''}>${x}</option>`).join('')}</select></div>
+        <div class="field"><label for="tn">Notes</label><input id="tn" class="t" data-tr="notes" value="${esc(S.trans.notes)}" placeholder="Optional"></div>
+      </div>
+      <h3>${docs.length} document${docs.length===1?'':'s'} on this list</h3>
+      ${docs.length?`<div class="tw"><table><thead><tr><th>Number</th><th>Title</th><th>Where it stands</th><th></th></tr></thead><tbody>
+        ${docs.map(d=>`<tr><td class="no">${esc(d.no)}</td><td>${esc(d.title)}</td><td class="small">${standsLabel(d)}</td><td><button class="btn link" data-a="sel" data-id="${d.id}">Remove</button></td></tr>`).join('')}</tbody></table></div>`:'<p class="muted">No documents selected. Go to All documents and tick some.</p>'}
+      <h3 style="margin-top:14px">Copy this list</h3>
+      <pre class="out" id="out">${esc(text)}</pre>
+      <div class="row" style="margin-top:8px"><button class="btn primary" data-a="copy">Copy list</button><span class="small muted">If copying is blocked, select the text above and copy it.</span></div>
+    </section>`;
+}
+function renderLog(){
+  return `<h1>Activity</h1><p class="sub">Every action, newest first. Nothing here can be edited.</p>
+    <div class="card log">${D.log.slice(0,200).map(e=>`<div class="l"><span class="wt">${fmtT(e.t)} · ${esc(e.who)}</span><span>${esc(e.text)}</span></div>`).join('')||'<span class="muted">Nothing yet.</span>'}</div>`;
+}
+function render(){
+  const focus=document.activeElement&&document.activeElement.id;
+  const caret=focus&&document.activeElement.selectionStart;
+  renderNav();
+  let html;
+  if(S.view==='dash')html=renderDash();
+  else if(S.view==='docs')html=renderDocs();
+  else if(S.view==='doc')html=renderDoc();
+  else if(S.view==='cal')html=renderCal();
+  else if(S.view==='recs')html=renderRecs();
+  else if(S.view==='trans')html=renderTrans();
+  else html=renderLog();
+  $('#main').innerHTML=html;
+  let modal='';
+  if(S.modal==='add')modal=renderAddModal();
+  if(S.modal==='period')modal=renderPeriodModal();
+  $('#modalWrap').innerHTML=modal;
+  if(focus&&document.getElementById(focus)){const el=document.getElementById(focus);el.focus();if(caret!=null&&el.setSelectionRange)try{el.setSelectionRange(caret,caret);}catch(e){}}
+}
+
+/* ================= Events ================= */
+const ACT={
+  nav:el=>{S.view=el.dataset.v;S.open=null;S.revOpen=false;S.remOpen=false;},
+  open:el=>{S.open=el.dataset.id;S.view='doc';S.revOpen=false;S.remOpen=false;S.retText={};},
+  'add-open':()=>{S.modal='add';S.draft={};S.errs={};S.tried=false;},
+  'modal-close':()=>{S.modal=null;S.mark=null;S.draft={};S.errs={};S.pdraft={};S.perr={};S.ptried=false;},
+  'add-save':()=>saveNewDoc(),
+  period:el=>{const d=docById(el.dataset.id);const k=el.dataset.k;
+    if(periodState(d,k)==='upcoming')return;
+    S.mark=k;S.modal='period';S.pdraft={mode:'upload'};S.perr={};S.ptried=false;if(S.view==='doc'||S.view==='cal'){} S.open=d.id;},
+  pmode:el=>{S.pdraft.mode=el.dataset.m;},
+  'period-save':()=>{const d=docById(S.open);if(d)savePeriod(d);},
+  'rev-open':()=>{S.revOpen=true;S.rdraft={};S.rerrs={};S.rtried=false;},
+  'rev-close':()=>{S.revOpen=false;S.rdraft={};S.rerrs={};S.rtried=false;},
+  'rev-save':()=>saveRev(docById(S.open)),
+  'renew-save':()=>saveRenew(docById(S.open)),
+  check:el=>doCheck(docById(S.open),+el.dataset.i),
+  approve:el=>doApprove(docById(S.open),+el.dataset.i),
+  return:el=>doReturn(docById(S.open),+el.dataset.i),
+  'rem-open':()=>{S.remOpen=true;},
+  'rem-close':()=>{S.remOpen=false;},
+  'rem-go':()=>{S.remReason=($('#remR')||{}).value||'';S.remText=($('#remT')||{}).value||'';doRemove(docById(S.open));},
+  restore:()=>doRestore(docById(S.open)),
+  sel:el=>{const id=el.dataset.id;const i=S.sel.indexOf(id);if(i>=0)S.sel.splice(i,1);else S.sel.push(id);},
+  'trans-go':()=>{S.view='trans';},
+  copy:()=>{const t=transmittalText();try{navigator.clipboard.writeText(t).then(()=>toast('Copied.'),()=>{selectOut();toast('Copy blocked. The text is selected. Press Ctrl+C.');});}catch(e){selectOut();toast('Copy blocked. The text is selected. Press Ctrl+C.');}},
+  reset:()=>{try{localStorage.removeItem(KEY);}catch(e){}D=seed();S.view='dash';S.open=null;S.modal=null;S.sel=[];save();toast('Demo reset.');}
+};
+function selectOut(){const el=$('#out');if(el){const r=document.createRange();r.selectNodeContents(el);const s=window.getSelection();s.removeAllRanges();s.addRange(r);}}
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-a]');
+  if(!el)return;
+  if(el.dataset.a==='modal-close'&&e.target.closest('[data-stop]')&&!e.target.closest('button'))return;
+  if(el.tagName==='INPUT'&&el.type==='checkbox'){ if(el.dataset.a==='sel'){ACT.sel(el);render();} return; }
+  if(el.dataset.a==='period'&&el.tagName==='TR'){/* row click */}
+  if(el.dataset.a==='open'&&e.target.closest('td[data-stop]'))return;
+  const fn=ACT[el.dataset.a];
+  if(fn){fn(el);render();}
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&S.modal){ACT['modal-close']();render();}});
+document.addEventListener('change',e=>{
+  const t=e.target;
+  if(t.id==='me'){D.me=t.value;S.errs={};save();render();return;}
+  if(t.id==='cl'){S.cls=t.value;render();return;}
+  if(t.id==='pj'){S.proj=t.value;render();return;}
+  if(t.dataset.a==='show-removed'){S.showRemoved=t.checked;render();return;}
+  if(t.dataset.pfile){S.pdraft.file=t.files[0]||null;render();return;}
+  if(t.dataset.file){const f=t.files[0]||null;if(S.modal==='add')S.draft.file=f;else S.rdraft.file=f;render();return;}
+  if(t.dataset.tr){S.trans[t.dataset.tr]=t.value;render();return;}
+  if(t.dataset.s&&t.dataset.f){const tgt=t.dataset.s==='add'?S.draft:(t.dataset.s==='pdraft'?S.pdraft:S.rdraft);tgt[t.dataset.f]=t.value;if(t.tagName==='SELECT'||t.type==='date'||t.type==='month')render();return;}
+});
+document.addEventListener('input',e=>{
+  const t=e.target;
+  if(t.type==='file')return;
+  if(t.dataset.tr){S.trans[t.dataset.tr]=t.value;return;}
+  if(t.dataset.s&&t.dataset.f){const tgt=t.dataset.s==='add'?S.draft:(t.dataset.s==='pdraft'?S.pdraft:S.rdraft);tgt[t.dataset.f]=t.value;return;}
+  if(t.dataset.retext!==undefined){S.retText[t.dataset.retext]=t.value;return;}
+  if(t.id==='q'){S.q=t.value;render();return;}
+  if(t.id==='remT'){S.remText=t.value;return;}
+});
+render();
+</script>
+</body>
+</html>
