@@ -45,3 +45,10 @@
 - Project kind (Standard or Internal) and owner are stored with each project.
 - Members get Edit on Projects, ProjectTypes and ProjectFolders in provisioning. The web part limits them to internal projects they own. See UPGRADING.md.
 - Tests: 40 + 12 automated checks.
+
+## 0.10.0 (2026-11-06)
+- Legal hold on a document. Placed or released by anyone with the remove permission, with a reason. Logged. Blocks removal.
+- Retention: a document cannot be removed until 7 years after its last activity (default, see RETENTION_OPTIONS.md).
+- Audit log export to CSV from the Activity tab.
+- Power Automate flows parked until licence is confirmed (AUTOMATION_PARKED.md).
+- Tests: 45 + 12 automated checks.
