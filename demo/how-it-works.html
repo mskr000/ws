@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>How Documents Get Added</title>
+<style>
+:root{--bg:#f6f5f1;--panel:#fff;--fg:#1d2228;--muted:#636b76;--line:#dedbd3;--chip:#ebe9e2;--accent:#1f5f8b;--ok:#2b7048;--warn:#9a5b00;--bad:#8a3030;color-scheme:light}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#13161a;--panel:#1b1f25;--fg:#e7e9ec;--muted:#98a1ac;--line:#2b3139;--chip:#252b33;--accent:#86b9e2;--ok:#72cc96;--warn:#eeb85f;--bad:#ef9090;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#13161a;--panel:#1b1f25;--fg:#e7e9ec;--muted:#98a1ac;--line:#2b3139;--chip:#252b33;--accent:#86b9e2;--ok:#72cc96;--warn:#eeb85f;--bad:#ef9090;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-bottom:48px}
+.wrap{max-width:880px;margin:0 auto}
+header{padding:32px 0 8px}
+.kicker{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+h1{font-size:30px;line-height:1.2;margin:6px 0 8px;font-weight:650}
+.lede{margin:0;color:var(--muted);max-width:60ch}
+h2{font-size:20px;margin:36px 0 10px;font-weight:650}
+.note{display:inline-block;margin-top:12px;font-size:13px;color:var(--warn);border:1px solid var(--warn);border-radius:999px;padding:2px 10px}
+/* Choice buttons */
+.choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:8px}
+.choice{text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;cursor:pointer;color:inherit;font:inherit}
+.choice b{display:block;font-size:16px;margin-bottom:2px}
+.choice span{color:var(--muted);font-size:14px}
+.choice[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.choice:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* Story */
+.story{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px;margin-top:16px}
+.track{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:18px}
+.state{padding:6px 12px;border-radius:999px;border:1px solid var(--line);color:var(--muted);font-size:14px;background:var(--panel)}
+.state.on{border-color:var(--accent);color:var(--accent);font-weight:600}
+.state.done{color:var(--ok);border-color:var(--ok)}
+.state.bad{color:var(--bad);border-color:var(--bad)}
+.arrow{color:var(--muted)}
+.stepno{font-size:13px;color:var(--muted)}
+.steptitle{font-size:22px;font-weight:650;margin:4px 0 8px}
+.steptext{margin:0 0 14px;max-width:62ch}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;background:var(--chip);border-radius:8px;padding:12px 14px;font-size:15px;margin:0 0 14px}
+.facts dt{color:var(--muted)}
+.facts dd{margin:0}
+.screen{border:1px dashed var(--line);border-radius:8px;padding:12px 14px;font-size:15px;margin:0 0 14px}
+.screen .label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+.nav{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:6px}
+.dots{display:flex;gap:6px}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--line);border:0;padding:0;cursor:pointer}
+.dot[aria-current="step"]{background:var(--accent)}
+.btn{padding:10px 18px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:inherit;font:inherit;cursor:pointer;min-width:110px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn:disabled{opacity:.4;cursor:default}
+/* Rules and table */
+.rules{display:grid;gap:10px;margin:0;padding:0;list-style:none}
+.rules li{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.rules b{display:block;margin-bottom:2px}
+.rules span{color:var(--muted);font-size:15px}
+table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;display:block;overflow-x:auto}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top;font-size:15px}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+tr:last-child td{border-bottom:0}
+footer{margin-top:40px;color:var(--muted);font-size:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="kicker">Document system · How it works</div>
+  <h1>What happens when a document is added</h1>
+  <p class="lede">Pick what you want to see. Step through it one click at a time. Nothing here is real. It shows the process only.</p>
+  <span class="note">Example only. No real files.</span>
+</header>
+
+<h2>What do you want to see?</h2>
+<div class="choices" id="choices" role="group" aria-label="Choose a scenario"></div>
+
+<section class="story" id="story" aria-live="polite"></section>
+
+<h2>Rules that always apply</h2>
+<ul class="rules">
+  <li><b>Nobody checks or approves their own file.</b><span>The person who adds a file cannot be its checker or approver.</span></li>
+  <li><b>Checker and approver are two different people.</b><span>Two sign-offs, by two people, before a file counts as current.</span></li>
+  <li><b>Every step needs a reason.</b><span>Adding, changing, removing or moving a file asks why, in writing.</span></li>
+  <li><b>Nothing is erased.</b><span>Removing a file marks it deleted and renames it. It can be restored.</span></li>
+  <li><b>Every action is written down.</b><span>Who did what, when, and why. The record cannot be edited.</span></li>
+  <li><b>Old versions stay on record.</b><span>When a new version is approved, the old one is kept, marked as replaced.</span></li>
+</ul>
+
+<h2>Quick words</h2>
+<table>
+  <thead><tr><th>Word</th><th>Meaning</th></tr></thead>
+  <tbody>
+    <tr><td>Current</td><td>The approved version people should use.</td></tr>
+    <tr><td>Latest</td><td>The newest version, even if not yet approved.</td></tr>
+    <tr><td>Replaced</td><td>An older version. Kept on record. Not for use.</td></tr>
+    <tr><td>Checker</td><td>Reads the file and confirms it is correct.</td></tr>
+    <tr><td>Approver</td><td>Signs off after the check. Makes the file current.</td></tr>
+    <tr><td>Revision</td><td>One version of a document. Numbered 0, 1, 2 and so on.</td></tr>
+  </tbody>
+</table>
+
+<footer>Prototype walkthrough. Real behaviour depends on the final system build.</footer>
+</div>
+
+<script>
+const SCENARIOS=[
+ {id:'add',name:'Add a new file',desc:'A brand-new document joins the register.',
+  track:['Uploaded','Waiting for check','Waiting for approval','Current'],
+  steps:[
+   {t:'You choose the file',x:'You pick the file from your computer. You also say what it is for.',
+    facts:[['Who','You (the person adding it)'],['Needs','A file, a reason, a short summary, a note for the checker, a checker, and an approver']],
+    screen:'Document number: U100-PID-1001 · File: pump-layout.pdf · Reason: Design change · Checker: D. Park · Approver: K. Sato',st:0,log:'Added by you'},
+   {t:'The system checks the basics',x:'It checks the file type and size. It checks the names you chose are different people.',
+    facts:[['Allowed types','PDF, Word, Excel, DWG, ZIP'],['Max size','50 MB'],['Blocked if','You are also the checker or approver']],
+    screen:'File type: OK · Size: 2.1 MB · Checker is not you: OK · Approver is different: OK',st:0,log:'Checks passed'},
+   {t:'The checker reads it',x:'The checker opens the file and checks it. They can approve the check, or send it back with a reason.',
+    facts:[['Who','The named checker'],['Outcome','Checked, or returned with a reason']],
+    screen:'D. Park: Checked. Note: “Layout matches the datasheet.”',st:1,log:'Checked by D. Park'},
+   {t:'The approver signs off',x:'The approver is a different person. They approve it. Only then does it count as current.',
+    facts:[['Who','The named approver'],['Outcome','Approved, or returned with a reason']],
+    screen:'K. Sato: Approved. This version is now Current.',st:2,log:'Approved by K. Sato'},
+   {t:'It is now current',x:'People can find it in the register. It shows as Current. Every step above is in the record.',
+    facts:[['Shows as','Current, Rev 0'],['Record','Upload, check and approval, each with a name and time']],
+    screen:'U100-PID-1001 · Rev 0 · Current · Approved by K. Sato',st:3,log:'Current'}
+  ]},
+ {id:'version',name:'Add a new version',desc:'An existing file gets a newer version.',
+  track:['Current (old)','New version waiting','Checked','Approved (new current)'],
+  steps:[
+   {t:'You add the new version',x:'Same steps as a new file. The file keeps its number. The version number goes up by one.',
+    facts:[['Old version','Stays Current until the new one is approved'],['New version','Rev 2, waiting for check']],
+    screen:'U100-PID-1001 · Rev 0 Current · Rev 1 Approved · Rev 2 Waiting for check',st:0,log:'Rev 2 added'},
+   {t:'Checker and approver sign off',x:'The same two sign-offs happen. Until the approver signs, the old version remains the one people use.',
+    facts:[['Old version','Still Current'],['Rule','A version becomes Current only after approval']],
+    screen:'Current: Rev 1 · Latest: Rev 2 (not yet approved)',st:1,log:'Waiting for approval'},
+   {t:'The new version becomes current',x:'After approval, the new version is Current. The old one is marked Replaced. Nothing is deleted.',
+    facts:[['Now Current','Rev 2'],['Replaced','Rev 0 and Rev 1 stay on record']],
+    screen:'Current: Rev 2 · Replaced: Rev 0, Rev 1',st:3,log:'Rev 2 is Current'}
+  ]},
+ {id:'gap',name:'A version is missing',desc:'The record has a gap. The right file is found later.',
+  track:['Gap on record','You upload the file','Checked','Approved'],
+  steps:[
+   {t:'The record shows a gap',x:'Sometimes an old version is missing from the old system. The gap is shown. It is not hidden or invented.',
+    facts:[['Shown as','“Not on file” for Rev 1'],['Can it be used?','No. A gap is never Current']],
+    screen:'Rev 0 · Approved   |   Rev 1 · Not on file   |   Rev 2 · Approved',st:0,log:'Gap found'},
+   {t:'You upload the missing file',x:'You choose “fill missing” for that version number. The same checks and sign-offs apply.',
+    facts:[['Action','Upload into the gap'],['Rule','No overwriting a version that is already there']],
+    screen:'Revision number: Rev 1 (fill missing) · File: pump-layout-r1.pdf',st:1,log:'Gap filled, waiting for check'},
+   {t:'The gap is closed',x:'After sign-off, the gap is filled and the record is complete. Each step is still logged.',
+    facts:[['Result','Rev 1 is Approved and on record'],['Log','Shows that the gap was filled, and by whom']],
+    screen:'Rev 0 · Approved   |   Rev 1 · Approved   |   Rev 2 · Approved',st:3,log:'Gap closed'}
+  ]},
+ {id:'remove',name:'Remove a file',desc:'A file is no longer needed. It is marked deleted, not erased.',
+  track:['Active','Marked deleted','Name changed in SharePoint','Restorable'],
+  steps:[
+   {t:'You ask to remove it',x:'You choose a reason from a list and write a short note. The reason is required.',
+    facts:[['Needs','A reason code and at least 20 characters of text'],['Who','Anyone with the right access to the project']],
+    screen:'Reason: Duplicate of another record · Note: “Created in error, same drawing as PID-1002.”',st:0,log:'Removal requested'},
+   {t:'The file is marked deleted',x:'It moves out of the normal list. It is not erased.',
+    facts:[['Shown as','Deleted, with the date'],['Hidden from','The normal list (visible when “Show deleted” is on)']],
+    screen:'U100-PID-1001 · Deleted 6 Nov · Show deleted: on',st:1,log:'Marked deleted'},
+   {t:'The name changes in SharePoint',x:'The file in SharePoint is renamed with DELETED and the date at the front. Its contents are not removed.',
+    facts:[['Old name','U100-PID-1001.pdf'],['New name','DELETED_20261106_U100-PID-1001.pdf']],
+    screen:'SharePoint: DELETED_20261106_U100-PID-1001.pdf · Contents: unchanged',st:2,log:'Renamed in SharePoint'},
+   {t:'It can be restored',x:'If it was removed by mistake, you restore it. The original name comes back. The restore is logged.',
+    facts:[['Restore','Brings the name and listing back'],['Keeping it','Kept for the set retention period, then cleared by a separate, logged process']],
+    screen:'Restore: available · Retention: 365 days from deletion',st:3,log:'Restorable'}
+  ]},
+ {id:'import',name:'Bring in old files',desc:'A list of existing documents is loaded in one go.',
+  track:['Spreadsheet loaded','Problems fixed','Importing','Finished'],
+  steps:[
+   {t:'You load a list',x:'You load a spreadsheet. Each row is one version of one document.',
+    facts:[['Each row','Document number, title, version, date, reason, who added it'],['Nothing is written yet','Yes. Checking comes first']],
+    screen:'12 rows loaded from legacy-list.csv',st:0,log:'List loaded'},
+   {t:'The system finds problems',x:'It checks every row. It flags wrong names, wrong folders, duplicates and anything already on record.',
+    facts:[['Renamed','Names with spaces or wrong format are fixed. You can change them back.'],['Folder','Wrong folders are flagged with the right one suggested'],['Already on record','Skipped unless you choose otherwise']],
+    screen:'Renamed: 1 · Folder fixes: 1 · Already on record: 1 · Blocked: 2',st:1,log:'Problems shown'},
+   {t:'You fix what is flagged',x:'You fix or skip each row. Nothing is written until you start the import.',
+    facts:[['Blocked rows','Must be fixed or skipped before you start'],['Edits','Saved as you go']],
+    screen:'Blocked: 0 · Ready: 10 · Start import',st:1,log:'Ready to import'},
+   {t:'It imports in small batches',x:'Rows are written in batches. You can pause at any point. Progress is saved.',
+    facts:[['Pause','Stops after the current batch'],['If the page closes','Reopen it and continue from the same row'],['Duplicates','Never written twice']],
+    screen:'Imported 40 of 120 · Paused · Resume',st:2,log:'Importing'},
+   {t:'It finishes and reports',x:'You get a summary: what was added, renamed, skipped and moved to a different folder.',
+    facts:[['Added','Every row that was ready'],['Skipped','Rows already on record, or you chose to skip'],['Record','Every change is in the log']],
+    screen:'Imported 118 · Skipped 2 · Renamed 1 · Folder fixes 1',st:3,log:'Finished'}
+  ]}
+];
+
+let cur=null,idx=0;
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function renderChoices(){
+  $('#choices').innerHTML=SCENARIOS.map(s=>`<button class="choice" aria-pressed="${cur&&cur.id===s.id}" data-id="${s.id}">
+    <b>${esc(s.name)}</b><span>${esc(s.desc)}</span></button>`).join('');
+}
+function renderStory(){
+  const sc=cur;
+  if(!sc){
+    $('#story').innerHTML=`<p class="steptext">Choose one of the options above to start.</p>`;
+    return;
+  }
+  const st=sc.steps[idx];
+  const track=sc.track.map((label,i)=>{
+    const cls=i===st.st?'on':(i<st.st?'done':'');
+    return `<span class="state ${cls}">${esc(label)}</span>`;
+  }).join('<span class="arrow" aria-hidden="true">→</span>');
+  const last=idx===sc.steps.length-1;
+  $('#story').innerHTML=`
+    <div class="track" aria-label="Document status">${track}</div>
+    <div class="stepno">Step ${idx+1} of ${sc.steps.length}</div>
+    <div class="steptitle">${esc(st.t)}</div>
+    <p class="steptext">${esc(st.x)}</p>
+    <dl class="facts">${st.facts.map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
+    <div class="screen"><div class="label">What the screen shows</div>${esc(st.screen)}</div>
+    <div class="nav">
+      <button class="btn" data-nav="back" ${idx===0?'disabled':''}>← Back</button>
+      <div class="dots">${sc.steps.map((_,i)=>`<button class="dot" data-go="${i}" aria-label="Go to step ${i+1}" ${i===idx?'aria-current="step"':''}></button>`).join('')}</div>
+      <button class="btn primary" data-nav="next">${last?'Start again':'Next →'}</button>
+    </div>`;
+}
+function pick(id){
+  cur=SCENARIOS.find(s=>s.id===id);idx=0;
+  renderChoices();renderStory();
+  $('#story').scrollIntoView({behavior:'smooth',block:'start'});
+}
+document.addEventListener('click',e=>{
+  const c=e.target.closest('[data-id]');if(c){pick(c.dataset.id);return;}
+  const n=e.target.closest('[data-nav]');
+  if(n&&cur){
+    if(n.dataset.nav==='next'){if(idx<cur.steps.length-1)idx++;else idx=0;}
+    else if(n.dataset.nav==='back'&&idx>0)idx--;
+    renderStory();return;
+  }
+  const d=e.target.closest('[data-go]');
+  if(d&&cur){idx=+d.dataset.go;renderStory();}
+});
+document.addEventListener('keydown',e=>{
+  if(!cur)return;
+  if(e.key==='ArrowRight'&&idx<cur.steps.length-1){idx++;renderStory();}
+  if(e.key==='ArrowLeft'&&idx>0){idx--;renderStory();}
+});
+renderChoices();renderStory();
+</script>
+</body>
+</html>
