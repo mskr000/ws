@@ -6,6 +6,8 @@ const crypto = require('node:crypto');
 const R = require('./rules');
 const { tx } = require('./db');
 const TEMPLATE = require('./template').TEMPLATE;
+const { BUILT_IN_TEMPLATES } = require('./template');
+const { parseFolderCsv } = require('./csv');
 
 class AppError extends Error {
   constructor(status, message, fields) {
@@ -133,11 +135,65 @@ function createService({ db, filesDir, now = () => new Date() }) {
       code: t.code, label: t.label, cls: t.cls, enabled: !!t.folder, folder: t.folder, firstNumber: t.first_number || 1,
       documents: db.prepare('SELECT COUNT(*) n FROM documents WHERE project = ? AND type = ?').get(code, t.code).n }));
     const anyDocs = db.prepare('SELECT COUNT(*) n FROM documents WHERE project = ?').get(code).n;
-    return { code: p.code, name: p.name, status: p.status, locked: anyDocs > 0,
+    return { code: p.code, name: p.name, status: p.status, locked: anyDocs > 0, numberPattern: p.number_pattern,
+      numberExample: R.patternExample(p.number_pattern, 1),
       folders: folders.map(path => ({ path, documents: docsIn(path) })), types };
   }
   function standardTemplate() {
     return { folders: TEMPLATE.folders, types: TEMPLATE.types.map(t => ({ ...t, enabled: true, firstNumber: 1 })) };
+  }
+  /* ---------- Templates ---------- */
+  function listTemplates() {
+    const custom = db.prepare('SELECT id, name, description, created_by, created_at FROM project_templates ORDER BY name').all()
+      .map(t => ({ id: `custom-${t.id}`, name: t.name, description: t.description, builtIn: false, createdBy: t.created_by }));
+    return [...BUILT_IN_TEMPLATES.map(t => ({ id: t.id, name: t.name, description: t.description, builtIn: true })), ...custom];
+  }
+  function getTemplate(id) {
+    const builtIn = BUILT_IN_TEMPLATES.find(t => t.id === id);
+    if (builtIn) return { id, name: builtIn.name, description: builtIn.description, numberPattern: builtIn.numberPattern, folders: builtIn.folders, types: builtIn.types };
+    const m = /^custom-(\d+)$/.exec(id);
+    if (m) {
+      const row = db.prepare('SELECT * FROM project_templates WHERE id = ?').get(Number(m[1]));
+      if (row) return { id, name: row.name, description: row.description, ...JSON.parse(row.body) };
+    }
+    throw notFound('Template');
+  }
+  /* Save a project's setup as a reusable template. Records lead only. */
+  function saveTemplate(actor, b) {
+    const role = actorRole(actor);
+    if (role !== 'admin') throw forbid('Only the records lead can save a template.');
+    const name = String(b.name || '').trim();
+    if (!name) throw bad('Give the template a name.', { name: 'Give the template a name.' });
+    if (BUILT_IN_TEMPLATES.some(t => t.name === name) || db.prepare('SELECT 1 FROM project_templates WHERE name = ?').get(name)) {
+      throw bad('A template with this name already exists.', { name: 'A template with this name already exists.' });
+    }
+    const p = getProject(String(b.code || ''));
+    const body = { numberPattern: p.numberPattern,
+      folders: p.folders.map(f => f.path),
+      types: p.types.filter(t => t.enabled).map(t => ({ code: t.code, enabled: true, folder: t.folder, firstNumber: 1 })) };
+    const id = Number(db.prepare('INSERT INTO project_templates (name, description, body, created_at, created_by) VALUES (?,?,?,?,?)')
+      .run(name, String(b.description || '').trim(), JSON.stringify(body), nowIso(), actor).lastInsertRowid);
+    audit(actor, 'Saved template', null, `${name} from ${p.code}`);
+    return `custom-${id}`;
+  }
+  /* Read a folder CSV and check it against the document types. Nothing is saved. */
+  function previewFolderCsv(text) {
+    const parsed = parseFolderCsv(text);
+    const errors = [...parsed.errors];
+    const types = [];
+    const known = new Set(db.prepare('SELECT code FROM types').all().map(r => r.code));
+    for (const t of parsed.types) {
+      if (!known.has(t.code)) errors.push({ line: t.line, message: `Type ${t.code} is not in the document type list.` });
+      else types.push({ code: t.code, enabled: true, folder: t.folder, firstNumber: 1 });
+    }
+    let usedDefaults = false;
+    if (!parsed.anyTypes && parsed.folders.length) {
+      usedDefaults = true;
+      for (const row of db.prepare('SELECT code, folder FROM types').all()) {
+        if (parsed.folders.includes(row.folder)) types.push({ code: row.code, enabled: true, folder: row.folder, firstNumber: 1 });
+      }
+    }
+    return { folders: parsed.folders, types, usedDefaults, errors };
   }
   /* Create a project with its folders and document types. Admin only. Everything is checked first. */
   function createProject(actor, b) {
@@ -148,13 +204,16 @@ function createService({ db, filesDir, now = () => new Date() }) {
       const name = String(b.name || '').trim();
       const folders = (b.folders || []).map(f => String(f).trim());
       const types = (b.types || []).map(t => ({ code: t.code, enabled: !!t.enabled, folder: t.folder, firstNumber: Number(t.firstNumber || 1) }));
+      const numberPattern = String(b.numberPattern || R.DEFAULT_PATTERN).trim();
       const existingCodes = db.prepare('SELECT code FROM projects').all().map(r => r.code);
       const errors = R.projectSetupErrors({ code, name, folders, types, isNew: true, existingCodes });
       for (const t of types.filter(x => x.enabled)) {
         if (!db.prepare('SELECT 1 FROM types WHERE code = ?').get(t.code)) errors[`type:${t.code}`] = 'Unknown document type.';
       }
+      const pe = R.patternErrors(numberPattern);
+      if (pe) errors.numberPattern = pe;
       if (Object.keys(errors).length) throw bad('Please fix the highlighted fields.', errors);
-      db.prepare('INSERT INTO projects (code, name, status, created_at, created_by) VALUES (?,?,?,?,?)').run(code, name, 'active', nowIso(), actor);
+      db.prepare('INSERT INTO projects (code, name, status, created_at, created_by, number_pattern) VALUES (?,?,?,?,?,?)').run(code, name, 'active', nowIso(), actor, numberPattern);
       for (const f of folders) db.prepare('INSERT INTO project_folders (project, path) VALUES (?,?)').run(code, f);
       for (const t of types.filter(x => x.enabled)) {
         db.prepare('INSERT INTO project_types (project, type, folder, first_number) VALUES (?,?,?,?)').run(code, t.code, t.folder, t.firstNumber);
@@ -194,7 +253,14 @@ function createService({ db, filesDir, now = () => new Date() }) {
         if (!db.prepare('SELECT 1 FROM types WHERE code = ?').get(t.code)) errors[`type:${t.code}`] = 'Unknown document type.';
       }
       if (Object.keys(errors).length) throw bad('Please fix the highlighted fields.', errors);
+      const numberPattern = String(b.numberPattern || cur.number_pattern).trim();
+      const pe = R.patternErrors(numberPattern);
+      if (pe) errors.numberPattern = pe;
+      const anyDocsNow = db.prepare('SELECT COUNT(*) n FROM documents WHERE project = ?').get(code).n;
+      if (numberPattern !== cur.number_pattern && anyDocsNow > 0) errors.numberPattern = 'Numbering has started. The pattern cannot change now.';
+      if (Object.keys(errors).length) throw bad('Please fix the highlighted fields.', errors);
       const changes = [];
+      if (numberPattern !== cur.number_pattern) changes.push(`numbering ${cur.number_pattern} → ${numberPattern}`);
       if (name !== cur.name) changes.push(`name "${cur.name}" → "${name}"`);
       if (status !== cur.status) changes.push(`status ${cur.status} → ${status}`);
       const addedF = folders.filter(f => !curFolders.includes(f)), removedF = curFolders.filter(f => !folders.includes(f));
@@ -206,7 +272,7 @@ function createService({ db, filesDir, now = () => new Date() }) {
       if (turnedOff.length) changes.push(`types off: ${turnedOff.join(', ')}`);
       const remapped = types.filter(t => t.enabled && curTypes.find(x => x.type === t.code && x.folder !== t.folder)).map(t => `${t.code} → ${t.folder}`);
       if (remapped.length) changes.push(`filed to new folder (existing documents keep theirs): ${remapped.join('; ')}`);
-      db.prepare('UPDATE projects SET name = ?, status = ? WHERE code = ?').run(name, status, code);
+      db.prepare('UPDATE projects SET name = ?, status = ?, number_pattern = ? WHERE code = ?').run(name, status, numberPattern, code);
       db.prepare('DELETE FROM project_folders WHERE project = ?').run(code);
       for (const f of folders) db.prepare('INSERT INTO project_folders (project, path) VALUES (?,?)').run(code, f);
       db.prepare('DELETE FROM project_types WHERE project = ?').run(code);
@@ -250,7 +316,7 @@ function createService({ db, filesDir, now = () => new Date() }) {
       if (project.status !== 'active') throw bad('This project is archived. Nothing new can be added.');
       const pt = db.prepare('SELECT * FROM project_types WHERE project = ? AND type = ?').get(b.project, b.type);
       if (!pt) throw bad('This document type is not turned on for this project.', { type: 'Not used on this project.' });
-      const number = R.nextNumber(b.project, b.type, allNumbers(), pt.first_number);
+      const number = R.nextNumber({ pattern: project.number_pattern, project: b.project, type: b.type, existingNumbers: allNumbers(), firstNumber: pt.first_number });
       if (t.cls === 'periodic') {
         const dd = Number(b.dueDay);
         if (!(Number.isInteger(dd) && dd >= 1 && dd <= 28)) fields.dueDay = 'Due day must be 1 to 28.';
@@ -414,7 +480,7 @@ function createService({ db, filesDir, now = () => new Date() }) {
   }
 
   return {
-    listDocuments, getDocument, listProjects, getProject, standardTemplate, createProject, updateProject, listTypes, listUsers, listAudit, fileForSha,
+    listDocuments, getDocument, listProjects, getProject, standardTemplate, listTemplates, getTemplate, saveTemplate, previewFolderCsv, createProject, updateProject, listTypes, listUsers, listAudit, fileForSha,
     createDocument, submitRevision, checkRevision, approveRevision, returnRevision,
     uploadPeriod, renewCertificate, removeDocument, restoreDocument, actorRole,
   };

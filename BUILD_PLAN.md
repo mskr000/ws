@@ -13,8 +13,9 @@ Date: 2026-11-06. Branch: `scope/dms-v1`.
 - Remove and restore: records lead only. Renamed, never erased.
 - Downloads with checksums. Every file stored by its SHA-256.
 - Audit log that the database itself refuses to edit or delete.
-- Tests: 30 automated checks. Browser test of the real page: all steps pass.
+- Tests: 39 automated checks. Browser test of the real page: all steps pass.
 - Project setup: code, folders, document types, first number. Records lead only. Changes logged.
+- Numbering pattern per project. Templates (built-in and saved). Folder structure from CSV.
 
 ## Still to build
 

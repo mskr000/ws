@@ -301,20 +301,27 @@
     if (add) add.onclick = () => openProjectForm(null);
     document.querySelectorAll('[data-editproj]').forEach(b => b.onclick = () => openProjectForm(b.dataset.editproj));
   }
+  function numExample(pattern) {
+    const sample = { PROJ: 'U100', TYPE: 'PID', YYYY: String(new Date().getUTCFullYear()) };
+    if (!/\{SEQ(?::\d)?\}/.test(pattern || '')) return 'needs one {SEQ} token';
+    return (pattern || '').replace(/\{(PROJ|TYPE|YYYY)\}/g, (_, k) => sample[k]).replace(/\{SEQ(?::(\d))?\}/, (_, w) => '457'.padStart(Number(w || 4), '0'));
+  }
   async function openProjectForm(code) {
+    S.templates = await api('GET', '/api/templates').catch(() => []);
+    S.allTypes = await api('GET', '/api/template').then(t => t.types).catch(() => []);
     let pf;
     if (!code) {
       const tpl = await api('GET', '/api/template');
-      pf = { mode: 'new', code: '', name: '', status: 'active', folders: tpl.folders.slice(),
+      pf = { mode: 'new', code: '', name: '', status: 'active', numberPattern: '{PROJ}-{TYPE}-{SEQ:4}', folders: tpl.folders.slice(),
         types: tpl.types.map(t => ({ code: t.code, label: t.label, cls: t.cls, enabled: true, folder: t.folder, firstNumber: 1, documents: 0 })) };
     } else {
       const p = await api('GET', '/api/projects/' + encodeURIComponent(code));
-      pf = { mode: 'edit', code: p.code, name: p.name, status: p.status, locked: p.locked,
+      pf = { mode: 'edit', code: p.code, name: p.name, status: p.status, locked: p.locked, numberPattern: p.numberPattern,
         folders: p.folders.map(f => f.path), folderDocs: Object.fromEntries(p.folders.map(f => [f.path, f.documents])),
         types: p.types.map(t => ({ ...t })) };
       pf.typeDocs = Object.fromEntries(p.types.map(t => [t.code, t.documents]));
     }
-    S.pf = pf; S.pfErr = {}; S.pfNewFolder = '';
+    S.pf = pf; S.pfErr = {}; S.pfNewFolder = ''; S.pfTpl = ''; S.pfTplName = '';
     drawProjectForm();
   }
   function drawProjectForm() {
@@ -334,7 +341,19 @@
       </div>
       ${pf.mode === 'edit' ? `<div class="field"><label for="pstat">Status</label><select class="t" id="pstat" ${ro ? 'disabled' : ''} style="max-width:240px"><option value="active" ${pf.status === 'active' ? 'selected' : ''}>Active</option><option value="archived" ${pf.status === 'archived' ? 'selected' : ''}>Archived (no new documents)</option></select></div>` : ''}
 
+      ${pf.mode === 'new' ? `<h2 style="margin-top:0">0. Start from a template</h2>
+      <div class="row" style="margin-bottom:6px"><select class="t" id="tplsel" style="max-width:360px"><option value="">Blank: start from the standard structure</option>${(S.templates || []).map(t => `<option value="${esc(t.id)}" ${S.pfTpl === t.id ? 'selected' : ''}>${esc(t.name)}${t.builtIn ? '' : ' (saved)'}</option>`).join('')}</select>
+        <button class="btn" id="tplload" ${ro ? 'disabled' : ''}>Load template</button></div>
+      <div class="help">Loading fills in the folders, numbering and document types below. You can still change them.</div>` : ''}
+      <h2>1b. Numbering</h2>
+      <div class="field"><label for="numpat">Numbering pattern</label>
+        <input class="t" id="numpat" value="${esc(pf.numberPattern)}" ${ro || pf.locked ? 'disabled' : ''} style="max-width:360px;font-family:ui-monospace,Consolas,monospace">
+        <div class="help">Tokens: <b>{PROJ}</b> project code · <b>{TYPE}</b> document type · <b>{SEQ:4}</b> running number, 4 digits (required, once) · <b>{YYYY}</b> year. Other characters: letters, digits, - . _ /</div>
+        <div class="help">Example: <b id="numex">${esc(numExample(pf.numberPattern))}</b>${pf.locked ? ' · <b>locked: documents exist</b>' : ''}</div></div>
+
       <h2>2. Folders</h2>
+      <div class="row" style="margin-bottom:8px">${ro ? '' : `<label class="small">Or upload a CSV: <input type="file" id="csvfile" accept=".csv,text/csv"></label>`}<span class="help">Columns: folder, types (optional, separated by ;). See the template in the help.</span></div>
+      ${S.pfCsvMsg ? `<div class="${S.pfCsvErr ? 'errbox' : 'note'}">${S.pfCsvMsg}</div>` : ''}
       <p class="help" style="margin:0 0 8px">Every document is filed in one folder. Start from the standard structure, then add or remove. A folder that holds documents cannot be removed.</p>
       <div class="tw" style="max-height:260px;overflow:auto"><table style="min-width:0"><tbody>
         ${pf.folders.map(f => {
@@ -360,6 +379,7 @@
             <td><input class="t" type="number" min="1" max="9999" data-tfirst="${i}" value="${esc(t.firstNumber)}" style="width:90px" ${ro || locked ? 'disabled' : ''}></td></tr>`;
         }).join('')}
       </tbody></table></div>
+      ${pf.mode === 'edit' && !ro ? `<div class="row" style="margin-top:12px"><span class="small muted">Save this setup as a template:</span><input class="t" id="tplname" placeholder="Template name" style="max-width:240px"><button class="btn" id="tplsave">Save as template</button></div>` : ''}
       <div class="row" style="justify-content:flex-end;margin-top:14px"><span class="small muted grow">${enabled.length} document types on · ${pf.folders.length} folders</span>
         <button class="btn link" id="pcancel">Cancel</button>${ro ? '' : `<button class="btn primary" id="psave">${pf.mode === 'new' ? 'Create project' : 'Save changes'}</button>`}</div>
     </div></div>`;
@@ -372,6 +392,39 @@
     if (name) name.oninput = e => { pf.name = e.target.value; };
     if (code) code.oninput = e => { pf.code = e.target.value.toUpperCase(); };
     const st = $('#pstat'); if (st) st.onchange = e => { pf.status = e.target.value; };
+    const np = $('#numpat'); if (np) np.oninput = e => { pf.numberPattern = e.target.value; const ex = $('#numex'); if (ex) ex.textContent = numExample(pf.numberPattern); };
+    const tl = $('#tplload');
+    if (tl) tl.onclick = async () => {
+      const id = $('#tplsel').value;
+      S.pfTpl = id;
+      if (!id) { const tpl = await api('GET', '/api/template'); pf.folders = tpl.folders.slice(); pf.types = tpl.types.map(t => ({ code: t.code, label: t.label, cls: t.cls, enabled: true, folder: t.folder, firstNumber: 1, documents: 0 })); pf.numberPattern = '{PROJ}-{TYPE}-{SEQ:4}'; }
+      else {
+        const tpl = await api('GET', '/api/templates/' + encodeURIComponent(id));
+        const std = await api('GET', '/api/template');
+        pf.folders = tpl.folders.slice();
+        pf.numberPattern = tpl.numberPattern;
+        pf.types = std.types.map(t => { const use = tpl.types.find(x => x.code === t.code); return { code: t.code, label: t.label, cls: t.cls, enabled: !!use, folder: use ? use.folder : t.folder, firstNumber: use ? use.firstNumber : 1, documents: 0 }; });
+      }
+      S.pfErr = {}; drawProjectForm();
+    };
+    const cf = $('#csvfile');
+    if (cf) cf.onchange = async () => {
+      const f = cf.files[0]; if (!f) return;
+      const text = await f.text();
+      const r = await api('POST', '/api/folders/preview', { text });
+      if (r.errors.length) { S.pfCsvErr = true; S.pfCsvMsg = 'The file has problems. Nothing was changed:<br>' + r.errors.map(e => `Line ${e.line}: ${esc(e.message)}`).join('<br>'); return drawProjectForm(); }
+      S.pfCsvErr = false;
+      S.pfCsvMsg = `Loaded ${r.folders.length} folders and ${r.types.length} document types from the file${r.usedDefaults ? ' (types matched to folders by standard filing)' : ''}.`;
+      pf.folders = r.folders.slice();
+      pf.types = (S.allTypes || []).map(t => { const use = r.types.find(x => x.code === t.code); return { code: t.code, label: t.label, cls: t.cls, enabled: !!use, folder: use ? use.folder : (pf.folders.includes(t.folder) ? t.folder : (pf.folders[0] || '')), firstNumber: 1, documents: 0 }; });
+      drawProjectForm();
+    };
+    const ts = $('#tplsave');
+    if (ts) ts.onclick = async () => {
+      const name = $('#tplname').value.trim();
+      try { await api('POST', '/api/templates', { name, code: pf.code, description: 'Saved from ' + pf.code }); toast('Template saved.'); S.templates = await api('GET', '/api/templates'); }
+      catch (e) { S.pfErr = { template: e.message }; drawProjectForm(); }
+    };
     const nf = $('#newfolder'); if (nf) nf.oninput = e => { S.pfNewFolder = e.target.value; };
     const add = $('#addfolder');
     if (add) add.onclick = () => {
@@ -400,7 +453,8 @@
     if (save) save.onclick = async () => {
       if (name) pf.name = name.value;
       if (code) pf.code = code.value.toUpperCase();
-      const body = { code: pf.code, name: pf.name, status: pf.status, folders: pf.folders,
+      if (np) pf.numberPattern = np.value;
+      const body = { code: pf.code, name: pf.name, status: pf.status, folders: pf.folders, numberPattern: pf.numberPattern,
         types: pf.types.map(t => ({ code: t.code, enabled: t.enabled, folder: t.folder, firstNumber: t.firstNumber })) };
       try {
         if (pf.mode === 'new') await api('POST', '/api/projects', body);

@@ -17,6 +17,14 @@ CREATE TABLE IF NOT EXISTS projects (
   created_at TEXT NOT NULL DEFAULT '',
   created_by TEXT NOT NULL DEFAULT ''
 );
+CREATE TABLE IF NOT EXISTS project_templates (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE,
+  description TEXT NOT NULL DEFAULT '',
+  body TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  created_by TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS project_folders (
   project TEXT NOT NULL REFERENCES projects(code),
   path TEXT NOT NULL,
@@ -129,6 +137,7 @@ function migrate(db) {
   if (!cols.includes('status')) db.exec("ALTER TABLE projects ADD COLUMN status TEXT NOT NULL DEFAULT 'active'");
   if (!cols.includes('created_at')) db.exec("ALTER TABLE projects ADD COLUMN created_at TEXT NOT NULL DEFAULT ''");
   if (!cols.includes('created_by')) db.exec("ALTER TABLE projects ADD COLUMN created_by TEXT NOT NULL DEFAULT ''");
+  if (!cols.includes('number_pattern')) db.exec("ALTER TABLE projects ADD COLUMN number_pattern TEXT NOT NULL DEFAULT '{PROJ}-{TYPE}-{SEQ:4}'");
 }
 
 /* Run fn inside a transaction. Rolls back on any error. */

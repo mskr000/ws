@@ -68,6 +68,10 @@ function createServer({ service, devAuth = true }) {
       if (req.method === 'GET' && p === '/api/me') return send(res, 200, { name: who, role });
       if (req.method === 'GET' && p === '/api/projects') return send(res, 200, service.listProjects());
       if (req.method === 'GET' && p === '/api/template') return send(res, 200, service.standardTemplate());
+      if (req.method === 'GET' && p === '/api/templates') return send(res, 200, service.listTemplates());
+      if (req.method === 'POST' && p === '/api/templates') return send(res, 201, { id: service.saveTemplate(who, body) });
+      if (req.method === 'GET' && parts.length === 3 && parts[1] === 'templates') return send(res, 200, service.getTemplate(decodeURIComponent(parts[2])));
+      if (req.method === 'POST' && p === '/api/folders/preview') return send(res, 200, service.previewFolderCsv(String(body.text || '')));
       if (req.method === 'POST' && p === '/api/projects') return send(res, 201, { code: service.createProject(who, body) });
       if (parts.length === 3 && parts[1] === 'projects') {
         const code = decodeURIComponent(parts[2]);

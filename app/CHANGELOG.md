@@ -14,3 +14,12 @@
 - Project codes cannot change once documents exist. Numbering cannot restart once it has started.
 - Only the records lead can add or change a project. Every change is in the audit log.
 - Tests: 30 automated checks.
+
+## 0.3.0 (2026-11-06)
+- Numbering pattern per project, e.g. `{PROJ}-{TYPE}-{SEQ:4}` or `{PROJ}.{TYPE}.{YYYY}.{SEQ:3}`. Live example on the form.
+- Pattern is locked once numbering has started.
+- Built-in templates: EPC project (standard), Operations (plant running), Engineering drawings only.
+- Save any project setup as a named template (records lead).
+- Folder structure from a CSV file (`folder,types`). Errors are listed; nothing changes if the file has problems.
+- Full document type library (19 types) on the server.
+- Tests: 39 automated checks.

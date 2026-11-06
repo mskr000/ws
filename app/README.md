@@ -40,6 +40,31 @@ Projects tab → **Add a project**. Set:
 
 Only the records lead can add or change a project.
 
+### Numbering
+
+Each project has a numbering pattern. Tokens: `{PROJ}` project code, `{TYPE}` document type,
+`{SEQ:4}` running number padded to 4 digits (required, once), `{YYYY}` year.
+Examples: `{PROJ}-{TYPE}-{SEQ:4}` → U100-PID-0001. `{PROJ}.{TYPE}.{YYYY}.{SEQ:3}` → U100.PID.2026.001.
+The sequence continues across years. The pattern cannot change once numbering has started.
+
+### Folder structure from a CSV
+
+Columns: `folder`, `types` (optional, codes separated by `;`). Example:
+
+```
+folder,types
+EPC/02 Engineering/02.1 Process,PID;PFD
+EPC/02 Engineering/02.2 Piping,ISO
+Operations/03 Maintenance,MNT
+```
+
+If no row has types, standard filing is used: each type goes to its standard folder if that folder is in the file.
+
+### Templates
+
+Start a new project from a built-in template (EPC standard, Operations only, Engineering drawings only),
+or from a template you saved from an existing project.
+
 ## Sign-in (development only)
 
 The "Signed in as" list is a stand-in. Anyone on this computer can pick any name. Company sign-in

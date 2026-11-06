@@ -62,6 +62,6 @@ test('removal is admin only and needs a reason', () => {
 });
 
 test('next number continues the stream and never reuses', () => {
-  assert.equal(R.nextNumber('U100', 'PID', []), 'U100-PID-0001');
-  assert.equal(R.nextNumber('U100', 'PID', ['U100-PID-0007', 'U100-PID-0002', 'TF7-PID-0099']), 'U100-PID-0008');
+  assert.equal(R.nextNumber({ project: 'U100', type: 'PID', existingNumbers: [] }), 'U100-PID-0001');
+  assert.equal(R.nextNumber({ project: 'U100', type: 'PID', existingNumbers: ['U100-PID-0007', 'U100-PID-0002', 'TF7-PID-0099'] }), 'U100-PID-0008');
 });

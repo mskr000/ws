@@ -128,19 +128,75 @@ function removeErrors({ reason, text }) {
   return e;
 }
 
-/* Next number in a project's stream for one type. Continues from the highest number used, or from the
-   project's first number if that is higher. Removed documents count, so numbers are never reused. */
-function nextNumber(project, type, existingNumbers, firstNumber = 1) {
-  const prefix = `${project}-${type}-`;
+/* ---------- Numbering pattern ----------
+   Tokens: {PROJ} project code, {TYPE} document type code, {SEQ:n} sequence padded to n digits (required, once),
+           {YYYY} year. Other characters allowed: letters, digits, - . _ /
+   Example: {PROJ}-{TYPE}-{SEQ:4} gives U100-PID-0001. */
+const DEFAULT_PATTERN = '{PROJ}-{TYPE}-{SEQ:4}';
+const PATTERN_TOKEN_RE = /\{(PROJ|TYPE|YYYY|SEQ(?::(\d))?)\}/g;
+
+function patternErrors(pattern) {
+  const p = String(pattern || '');
+  if (!p) return 'Enter a numbering pattern.';
+  if (p.length > 40) return 'Pattern is too long (40 characters at most).';
+  const rest = p.replace(PATTERN_TOKEN_RE, '');
+  if (/[{}]/.test(rest)) return 'Unknown token. Use {PROJ}, {TYPE}, {SEQ:4} or {YYYY}.';
+  if (!/^[A-Za-z0-9\-._/]*$/.test(rest)) return 'Only letters, digits and - . _ / are allowed between tokens.';
+  const seqs = [...p.matchAll(PATTERN_TOKEN_RE)].filter(m => m[1].startsWith('SEQ'));
+  if (seqs.length !== 1) return 'The pattern needs exactly one {SEQ} token.';
+  const w = seqs[0][2] ? Number(seqs[0][2]) : 4;
+  if (w < 1 || w > 6) return 'Sequence width must be between 1 and 6 digits.';
+  return null;
+}
+
+const escRe = t => t.replace(/[.*+?^${}()|[\]\\\/]/g, '\\$&');
+function patternWidth(pattern) {
+  const m = [...pattern.matchAll(PATTERN_TOKEN_RE)].find(x => x[1].startsWith('SEQ'));
+  return m && m[2] ? Number(m[2]) : 4;
+}
+/* Fill a pattern for one project, type and sequence number. */
+function formatNumber(pattern, { project, type, seq, year }) {
+  return pattern.replace(PATTERN_TOKEN_RE, (_, tok, w) => {
+    if (tok === 'PROJ') return project;
+    if (tok === 'TYPE') return type;
+    if (tok === 'YYYY') return String(year);
+    return String(seq).padStart(Number(w || 4), '0');
+  });
+}
+/* A regular expression that matches numbers made from this pattern for one project and type. Captures the sequence. */
+function numberRegex(pattern, { project, type }) {
+  let out = '^';
+  let last = 0;
+  for (const m of pattern.matchAll(PATTERN_TOKEN_RE)) {
+    out += escRe(pattern.slice(last, m.index));
+    const tok = m[1];
+    if (tok === 'PROJ') out += escRe(project);
+    else if (tok === 'TYPE') out += escRe(type);
+    else if (tok === 'YYYY') out += '\\d{4}';
+    else out += `(\\d{${patternWidth(pattern)},})`;
+    last = m.index + m[0].length;
+  }
+  out += escRe(pattern.slice(last)) + '$';
+  return new RegExp(out);
+}
+/* Next number. Continues from the highest sequence used for this project and type, or from the first number. */
+function nextNumber({ pattern = DEFAULT_PATTERN, project, type, existingNumbers, firstNumber = 1, year = new Date().getUTCFullYear() }) {
+  const re = numberRegex(pattern, { project, type });
   let max = 0;
   for (const n of existingNumbers) {
-    if (n.startsWith(prefix)) {
-      const v = Number(n.slice(prefix.length));
+    const m = re.exec(n);
+    if (m) {
+      const v = Number(m[1]);
       if (Number.isInteger(v) && v > max) max = v;
     }
   }
-  const next = Math.max(max + 1, Number(firstNumber) || 1);
-  return prefix + String(next).padStart(4, '0');
+  const seq = Math.max(max + 1, Number(firstNumber) || 1);
+  return formatNumber(pattern, { project, type, seq, year });
+}
+/* Example for the page, using the first number and a sample project and type. */
+function patternExample(pattern, firstNumber = 1) {
+  if (patternErrors(pattern)) return null;
+  return formatNumber(pattern, { project: 'U100', type: 'PID', seq: firstNumber, year: new Date().getUTCFullYear() });
 }
 
 /* ---------- Project setup ---------- */
@@ -186,6 +242,7 @@ function projectSetupErrors({ code, name, folders, types, firstNumbers = {}, isN
 }
 
 module.exports = {
+  DEFAULT_PATTERN, patternErrors, formatNumber, numberRegex, patternExample,
   projectSetupErrors, folderPathErrors, CODE_RE,
   CLASSES, REASONS, ALLOWED_EXT, MAX_BYTES, EXPIRY_WARN_DAYS, STATUS,
   isoDay, monthKey, addMonths, dueDate, daysBetween,
