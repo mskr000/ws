@@ -34,3 +34,11 @@ Date: 2026-11-05. Branch: `scope/dms-v1`.
 - Checker and approver lists: source of truth is project membership (not built).
 - Purge job design and legal hold (not built).
 - Reason code list: confirm with QA.
+
+## Decisions taken 2026-11-06
+
+- **Internal projects open to members (agreed).** Any member creates and manages their own internal project. SharePoint cannot limit members to internal projects; the web part does. Accepted for the pilot, with the audit log as the check. Revisit before production.
+- **Email for transmittals (recommended).** Copy and paste for the pilot. Power Automate after IT and licence are confirmed.
+- **Uncontrolled documents.** Type "Working document (uncontrolled)". Lives in a project. Internal workspace template for personal or team use.
+- **Working drafts.** Visible to owner and editors only. Not revisions.
+- **Admin model.** Permission grants per person, project and folder. At least one admin always kept.

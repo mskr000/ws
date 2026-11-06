@@ -90,3 +90,21 @@ Items 24 and 27 are proposed for a later release. Confirm or move them into the 
 - Provisioning script run on a clean test site with no errors. Permissions checked by hand.
 - IT request sent and approved.
 - Security review of section 5 of `SHAREPOINT_PLAN.md`: the accepted risk is written down and signed off.
+
+## Status update 2026-11-06 (demo v0.9.0)
+
+Done in the demo and the code (tested in the browser and in the rules tests):
+9–14 projects, numbering, types, folders, templates, CSV · 15 working drafts (no check-out yet) · 16 download icon, checksum, bulk ZIP · 18 transmittal recorded, email text (copy only) · 19 dashboard (needs you, KPIs, progress) · internal projects · admin access · uncontrolled documents · O&M template.
+
+Not done, in suggested order:
+1. Import of an existing list, with resume (17).
+2. Calendar grid of 12 months per series (20) and master list (21).
+3. Audit export (25).
+4. Retention and legal hold (26). Needs a policy decision.
+5. Reminders and rule-breach alerts (22, 23). Needs a Power Automate licence decision.
+6. Check-out for drafts. Tests for the SharePoint layer (28). Needs a test site.
+7. Pilot with named people (29).
+
+Later release (proposed, not yet agreed): full-text search (24), access review report (27).
+
+Blocked on you: test site address, IT request sent, licence and retention decisions, pilot people.
