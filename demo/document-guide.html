@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Document Guide</title>
+<style>
+:root{
+  --bg:#f7f5f0;--panel:#ffffff;--ink:#1d252c;--soft:#5b6670;--line:#e3dfd6;--tint:#efece4;
+  --accent:#1f5f8b;--accent-soft:#dfeaf3;--ok:#2b7048;--ok-soft:#dcefe3;--warn:#8a5a00;--warn-soft:#f6ead2;--old:#8b8b8b;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#121518;--panel:#1a1f24;--ink:#e8eaed;--soft:#9aa4ae;--line:#2c343c;--tint:#1f252b;
+    --accent:#8fbfe6;--accent-soft:#1d2f3d;--ok:#7fd1a0;--ok-soft:#1c3327;--warn:#f0c270;--warn-soft:#3a2d13;--old:#7d858d;color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121518;--panel:#1a1f24;--ink:#e8eaed;--soft:#9aa4ae;--line:#2c343c;--tint:#1f252b;
+  --accent:#8fbfe6;--accent-soft:#1d2f3d;--ok:#7fd1a0;--ok-soft:#1c3327;--warn:#f0c270;--warn-soft:#3a2d13;--old:#7d858d;color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:17px/1.6 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif;
+  padding-left:max(18px,env(safe-area-inset-left,0px));padding-right:max(18px,env(safe-area-inset-right,0px));padding-bottom:64px}
+.wrap{max-width:980px;margin:0 auto}
+button{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--accent);outline-offset:3px;border-radius:6px}
+
+/* Top bar and page switch */
+.top{display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between;padding:22px 0 10px}
+.brand{font-weight:650;letter-spacing:.01em}
+.switch{display:inline-flex;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px}
+.switch button{border:0;background:none;padding:9px 18px;border-radius:999px;cursor:pointer;color:var(--soft);font-weight:550}
+.switch button[aria-selected="true"]{background:var(--accent);color:#fff}
+
+/* Hero */
+.hero{padding:44px 0 30px}
+.eyebrow{font-size:13px;letter-spacing:.09em;text-transform:uppercase;color:var(--accent);font-weight:650}
+h1{font-family:Georgia,"Iowan Old Style","Palatino Linotype",serif;font-weight:500;font-size:clamp(34px,5.2vw,52px);line-height:1.1;margin:10px 0 14px;text-wrap:balance;letter-spacing:-.01em}
+.lede{font-size:19px;color:var(--soft);max-width:58ch;margin:0}
+h2{font-family:Georgia,"Iowan Old Style",serif;font-weight:500;font-size:clamp(26px,3.4vw,34px);margin:56px 0 10px;letter-spacing:-.005em;text-wrap:balance}
+h3{font-size:19px;margin:0 0 6px;font-weight:650}
+p{margin:0 0 12px}
+.lead{color:var(--soft);max-width:62ch}
+
+/* Sections */
+.page{display:none}
+.page.on{display:block}
+
+/* Steps */
+.steps{display:grid;gap:14px;margin-top:22px;counter-reset:s}
+.step{display:grid;grid-template-columns:56px 1fr;gap:18px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px 22px}
+.badge{width:56px;height:56px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:700;font-size:20px}
+.step p{color:var(--soft);margin:0}
+.tag{display:inline-block;margin-top:10px;font-size:13px;padding:3px 11px;border-radius:999px;background:var(--tint);color:var(--soft)}
+
+/* Callout */
+.callout{background:var(--accent-soft);border-radius:16px;padding:22px 24px;margin-top:22px}
+.callout h3{color:var(--accent)}
+.callout p{margin:0;color:var(--ink)}
+
+/* Two columns */
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:20px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px}
+.card ul{margin:10px 0 0;padding-left:20px;color:var(--soft)}
+.card li{margin:4px 0}
+
+/* Document card */
+.docset{display:grid;grid-template-columns:1.1fr 1fr;gap:20px;align-items:start;margin-top:22px}
+.doc{background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.doc header{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}
+.doc .no{font-family:ui-monospace,Consolas,monospace;font-size:14px;color:var(--soft)}
+.doc .name{font-size:20px;font-weight:650;margin-top:2px}
+.pill{display:inline-block;font-size:13px;padding:4px 12px;border-radius:999px;font-weight:600;white-space:nowrap}
+.pill.cur{background:var(--ok-soft);color:var(--ok)}
+.pill.new{background:var(--warn-soft);color:var(--warn)}
+.pill.old{background:var(--tint);color:var(--old)}
+.pill.gap{background:var(--tint);color:var(--soft);border:1px dashed var(--line)}
+.doc .body{padding:18px 22px;display:grid;gap:12px}
+.kv{display:grid;grid-template-columns:120px 1fr;gap:6px 12px;font-size:15px}
+.kv dt{color:var(--soft)}
+.kv dd{margin:0}
+
+/* Timeline (revisions) */
+.timeline{position:relative;margin:24px 0 0;padding:0;list-style:none}
+.timeline::before{content:"";position:absolute;left:21px;top:10px;bottom:10px;width:2px;background:var(--line)}
+.rev{position:relative;padding:0 0 22px 60px;cursor:pointer;background:none;border:0;text-align:left;width:100%}
+.rev .dot{position:absolute;left:10px;top:4px;width:24px;height:24px;border-radius:50%;background:var(--panel);border:3px solid var(--old)}
+.rev.cur .dot{border-color:var(--ok);background:var(--ok)}
+.rev.new .dot{border-color:var(--warn)}
+.rev .rtitle{font-weight:650;font-size:18px}
+.rev .rmeta{color:var(--soft);font-size:14px}
+.rev .rsum{margin-top:6px;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:none}
+.rev[aria-expanded="true"] .rsum{display:block}
+.rev:hover .rtitle{color:var(--accent)}
+
+/* Summary line examples */
+.summaries{display:grid;gap:12px;margin-top:20px}
+.sline{background:var(--panel);border:1px solid var(--line);border-left:5px solid var(--accent);border-radius:12px;padding:14px 18px;display:grid;gap:4px}
+.sline b{font-size:17px}
+.sline span{color:var(--soft);font-size:15px}
+.sline .who{font-size:14px;color:var(--soft)}
+
+/* Roles */
+.roles{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-top:20px}
+.role{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px}
+.role .icon{width:44px;height:44px;border-radius:12px;background:var(--tint);display:grid;place-items:center;margin-bottom:14px}
+.role ol{margin:10px 0 0;padding-left:20px;color:var(--soft)}
+.role li{margin:5px 0}
+
+/* Table */
+.tablewrap{overflow-x:auto;margin-top:18px;border:1px solid var(--line);border-radius:16px;background:var(--panel)}
+table{width:100%;border-collapse:collapse;min-width:520px}
+th,td{padding:14px 16px;text-align:left;border-bottom:1px solid var(--line);font-size:15px;vertical-align:top}
+th{color:var(--soft);font-weight:600;font-size:13px;letter-spacing:.04em;text-transform:uppercase}
+tr:last-child td{border-bottom:0}
+td:first-child{font-weight:600}
+
+/* Try it */
+.try{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px;margin-top:20px}
+.try select,.try input{font:inherit;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);width:100%;margin-top:6px}
+.try label{font-size:14px;color:var(--soft);display:block;margin-top:12px}
+.try .out{margin-top:16px;padding:14px 16px;border-radius:12px;background:var(--tint);font-size:15px;min-height:52px}
+
+footer{margin-top:64px;color:var(--soft);font-size:14px;border-top:1px solid var(--line);padding-top:18px}
+
+@media (max-width:760px){
+  .cols,.docset{grid-template-columns:1fr}
+  .step{grid-template-columns:1fr;gap:10px}
+  .badge{width:44px;height:44px;font-size:17px}
+  .hero{padding-top:28px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top">
+    <div class="brand">Document Guide</div>
+    <div class="switch" role="tablist" aria-label="Pages">
+      <button role="tab" aria-selected="true" data-page="p1" id="t1">1. Getting documents in</button>
+      <button role="tab" aria-selected="false" data-page="p2" id="t2">2. Keeping track of changes</button>
+    </div>
+  </div>
+
+  <!-- PAGE 1 -->
+  <main class="page on" id="p1" role="tabpanel" aria-labelledby="t1">
+    <section class="hero">
+      <div class="eyebrow">Page 1 of 2</div>
+      <h1>Getting documents into the system</h1>
+      <p class="lede">Bring in the documents you already have. Add new ones as they are made. Every document has one clear home, one clear owner, and one clear approved version.</p>
+    </section>
+
+    <h2>Part A: Bringing in what you already have</h2>
+    <p class="lead">Most teams start with a spreadsheet or a shared drive full of files. The system reads your list first and shows you what needs fixing. Nothing is saved until you say go.</p>
+
+    <div class="steps">
+      <div class="step"><div class="badge">1</div><div>
+        <h3>Load your list</h3>
+        <p>Upload a spreadsheet. Each line is one version of one document.</p>
+        <span class="tag">Takes about 2 minutes</span>
+      </div></div>
+      <div class="step"><div class="badge">2</div><div>
+        <h3>The system checks every line</h3>
+        <p>It looks for wrong names, documents in the wrong folder, and duplicates. It also finds any missing versions.</p>
+      </div></div>
+      <div class="step"><div class="badge">3</div><div>
+        <h3>You fix or skip what it flags</h3>
+        <p>Names can be corrected in place. Folders can be changed with one click. Anything you do not want can be skipped.</p>
+      </div></div>
+      <div class="step"><div class="badge">4</div><div>
+        <h3>Press start and watch it run</h3>
+        <p>Documents arrive in small batches. You can pause at any time. If the page closes, reopen it and it carries on from the same line.</p>
+      </div></div>
+    </div>
+
+    <div class="callout">
+      <h3>Missing versions are shown, never invented</h3>
+      <p>If version 1 is missing from your old list but version 2 is there, the system marks version 1 as “Not on file”. It will not guess. You can upload the real file into that gap later.</p>
+    </div>
+
+    <h2>Part B: Adding a new document</h2>
+    <p class="lead">A new document follows the same path every time. Two different people sign it off before it becomes the approved version.</p>
+
+    <div class="docset">
+      <div class="steps" style="margin-top:0">
+        <div class="step"><div class="badge">1</div><div>
+          <h3>Choose the file and say what it is</h3>
+          <p>Pick the file. Give it a short title and a reason for adding it.</p>
+        </div></div>
+        <div class="step"><div class="badge">2</div><div>
+          <h3>Pick a checker and an approver</h3>
+          <p>The checker reads it. The approver signs it off. They must be two different people, and neither can be you.</p>
+        </div></div>
+        <div class="step"><div class="badge">3</div><div>
+          <h3>Write a one-line summary</h3>
+          <p>Say what the file is and why it exists. This line stays with the document for good.</p>
+        </div></div>
+        <div class="step"><div class="badge">4</div><div>
+          <h3>Send it</h3>
+          <p>The checker is told. Once they check it and the approver signs, it becomes the approved version.</p>
+        </div></div>
+      </div>
+
+      <div class="doc" aria-label="Example document">
+        <header>
+          <div>
+            <div class="no">U100-PID-1001</div>
+            <div class="name">Pump layout, Unit 100</div>
+          </div>
+          <span class="pill cur">Approved</span>
+        </header>
+        <div class="body">
+          <dl class="kv">
+            <dt>Folder</dt><dd>Engineering / Process</dd>
+            <dt>Added by</dt><dd>You</dd>
+            <dt>Checked by</dt><dd>D. Park</dd>
+            <dt>Approved by</dt><dd>K. Sato</dd>
+            <dt>Summary</dt><dd>Pump layout for Unit 100 feed. Issued for construction.</dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <h3>You cannot approve your own work</h3>
+      <p>The system will not let the person who added a file also check or approve it. This keeps every document honest, and it is the first thing auditors look for.</p>
+    </div>
+
+    <footer>Page 1 of 2. Press “2. Keeping track of changes” above to continue.</footer>
+  </main>
+
+  <!-- PAGE 2 -->
+  <main class="page" id="p2" role="tabpanel" aria-labelledby="t2">
+    <section class="hero">
+      <div class="eyebrow">Page 2 of 2</div>
+      <h1>Keeping track of changes</h1>
+      <p class="lede">Documents change. Revisions keep a record of every change. Short summary lines tell anyone, in seconds, what changed and why.</p>
+    </section>
+
+    <h2>What is a revision?</h2>
+    <p class="lead">A revision is one version of a document. Think of it like saving a new copy of a file, except each copy has a number, a reason, and a sign-off. Nothing is written over. Old copies stay on record.</p>
+
+    <div class="cols">
+      <div class="card">
+        <h3>Current</h3>
+        <p style="color:var(--soft)">The approved version. This is the one people should use. Only one revision is current at a time.</p>
+      </div>
+      <div class="card">
+        <h3>Latest</h3>
+        <p style="color:var(--soft)">The newest revision, even if nobody has approved it yet. It may not be ready to use.</p>
+      </div>
+    </div>
+
+    <h2>Try it: a revision history</h2>
+    <p class="lead">Click any revision to read its summary line.</p>
+
+    <div class="docset" style="grid-template-columns:1fr 1.1fr">
+      <div>
+        <ul class="timeline" id="timeline" aria-label="Revision history"></ul>
+      </div>
+      <div class="doc">
+        <header>
+          <div>
+            <div class="no">U100-PID-1001</div>
+            <div class="name">Pump layout, Unit 100</div>
+          </div>
+          <span class="pill cur">Current: Rev 1</span>
+        </header>
+        <div class="body" id="detail"></div>
+      </div>
+    </div>
+
+    <h2>Summary lines: why they matter</h2>
+    <p class="lead">Every revision needs one short line. It answers two questions: what changed, and why. Here are examples from real work.</p>
+
+    <div class="summaries">
+      <div class="sline"><b>Rev 0 · Pump layout issued for review</b><span>First issue for internal review after the layout meeting.</span><span class="who">Added by J. Okafor · 3 Feb</span></div>
+      <div class="sline"><b>Rev 1 · Moved pump 300 mm north after site survey</b><span>Survey found the foundation pad was offset. Layout updated to match.</span><span class="who">Added by A. Rahman · 10 Apr</span></div>
+      <div class="sline"><b>Rev 2 · Added bypass valve on the cooling line</b><span>Hazard review asked for a bypass. Waiting for check.</span><span class="who">Added by M. Chen · 28 Oct</span></div>
+    </div>
+
+    <div class="callout">
+      <h3>Rule of thumb</h3>
+      <p>If someone can read just the summary line and understand the change, the line is good enough.</p>
+    </div>
+
+    <h2>Who does what</h2>
+    <p class="lead">Four kinds of people use the system. Most people are only ever in one or two of these roles.</p>
+
+    <div class="roles">
+      <div class="role">
+        <div class="icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        </div>
+        <h3>Adds a revision</h3>
+        <ol>
+          <li>Chooses the file.</li>
+          <li>Writes the summary line and the reason.</li>
+          <li>Names a checker and an approver.</li>
+        </ol>
+      </div>
+      <div class="role">
+        <div class="icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+        </div>
+        <h3>Checks a revision</h3>
+        <ol>
+          <li>Opens the file and reads the summary.</li>
+          <li>Checks it is right.</li>
+          <li>Passes it on, or returns it with a reason.</li>
+        </ol>
+      </div>
+      <div class="role">
+        <div class="icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8.2-7 9.5C8 19.2 5 15.5 5 11V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg>
+        </div>
+        <h3>Approves a revision</h3>
+        <ol>
+          <li>Reads the check.</li>
+          <li>Signs off, or returns it with a reason.</li>
+          <li>A signed revision becomes Current.</li>
+        </ol>
+      </div>
+      <div class="role">
+        <div class="icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/></svg>
+        </div>
+        <h3>Everyone else</h3>
+        <ol>
+          <li>Searches for the document.</li>
+          <li>Reads the Current version.</li>
+          <li>Reads the history and summaries.</li>
+        </ol>
+      </div>
+    </div>
+
+    <h2>What the table looks like</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Version</th><th>What it is</th><th>Can I use it?</th></tr></thead>
+        <tbody>
+          <tr><td>Rev 2</td><td>Newest. Waiting for sign-off.</td><td>Not yet. Wait for approval.</td></tr>
+          <tr><td>Rev 1</td><td>Current. Signed off and in use.</td><td>Yes. This is the one.</td></tr>
+          <tr><td>Rev 0</td><td>Replaced by Rev 1. Kept for the record.</td><td>No. For reference only.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <footer>Page 2 of 2. Press “1. Getting documents in” above to go back.</footer>
+  </main>
+
+</div>
+
+<script>
+const REVS=[
+  {n:0,label:'Rev 0',state:'old',pill:'Replaced',date:'3 Feb 2026',by:'J. Okafor',sum:'First issue for internal review after the layout meeting. Pump, tanks and piping shown in plan view.'},
+  {n:1,label:'Rev 1',state:'cur',pill:'Current',date:'10 Apr 2026',by:'A. Rahman',sum:'Moved pump 300 mm north after the site survey found the foundation pad was offset. Layout updated to match.'},
+  {n:2,label:'Rev 2',state:'new',pill:'Waiting for sign-off',date:'28 Oct 2026',by:'M. Chen',sum:'Added a bypass valve on the cooling line, as asked by the hazard review. Waiting for the checker.'}
+];
+const tl=document.getElementById('timeline');
+const detail=document.getElementById('detail');
+function show(i){
+  const r=REVS[i];
+  const pillCls=r.state==='cur'?'cur':(r.state==='new'?'new':'old');
+  detail.innerHTML=`
+    <dl class="kv">
+      <dt>Revision</dt><dd>${r.label}</dd>
+      <dt>Status</dt><dd><span class="pill ${pillCls}">${r.pill}</span></dd>
+      <dt>Added</dt><dd>${r.date} by ${r.by}</dd>
+    </dl>
+    <div class="card" style="padding:16px 18px">
+      <div style="font-size:13px;color:var(--soft);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Summary line</div>
+      <div style="font-size:16px">${r.sum}</div>
+    </div>`;
+  [...tl.children].forEach((li,j)=>li.querySelector('button').setAttribute('aria-expanded',j===i));
+}
+tl.innerHTML=REVS.slice().reverse().map(r=>`
+  <li><button class="rev ${r.state}" aria-expanded="false" data-i="${r.n}">
+    <span class="dot" aria-hidden="true"></span>
+    <div class="rtitle">${r.label} · ${r.pill}</div>
+    <div class="rmeta">${r.date} · ${r.by}</div>
+  </button></li>`).join('');
+tl.addEventListener('click',e=>{
+  const b=e.target.closest('button[data-i]');if(!b)return;show(+b.dataset.i);
+});
+show(1);
+
+/* Page switch */
+const tabs=[...document.querySelectorAll('[role=tab]')];
+function go(id){
+  tabs.forEach(t=>t.setAttribute('aria-selected',t.dataset.page===id));
+  document.querySelectorAll('.page').forEach(p=>p.classList.toggle('on',p.id===id));
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+tabs.forEach(t=>t.addEventListener('click',()=>go(t.dataset.page)));
+</script>
+</body>
+</html>
