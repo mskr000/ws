@@ -111,3 +111,12 @@
 - Search box and Search button are the same height.
 - Sample files added to every folder of U100 (current, in review, older) for demo.
 - Tests: 75 + 12 automated checks.
+
+## 0.22.0 (2026-11-06)
+- Recurring series: Pause (no months due while paused), Resume, and Stop series (no months due after the stop month). Uploads are kept. Nothing is deleted.
+- Calendar shows paused and stopped months. Dashboard counts only months that are due.
+- Months table: separate File column with a download icon.
+- Document page: export of history sits on its own line, no longer touching the card.
+- Dashboard: activity heat map moved here. KPI cards flag problems in red. Needs you and progress sit side by side.
+- Activity tab keeps the log and the CSV export.
+- Tests: 80 + 12 automated checks.

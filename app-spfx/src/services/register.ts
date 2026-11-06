@@ -22,6 +22,7 @@ import * as TR from '../domain/transmittal';
 import * as MAIL from '../domain/mail';
 import * as CT from '../domain/contacts';
 import * as CS from '../domain/selection';
+import * as SR from '../domain/series';
 import { textPdf } from '../domain/pdf';
 import * as RT from '../domain/retention';
 import * as TREE from '../domain/tree';
@@ -257,7 +258,7 @@ export class Register {
 
   async documents(project?: string): Promise<DocumentRow[]> {
     const filter = project ? `ProjectCode eq ${odataString(project)}` : undefined;
-    let q = this.sp.web.lists.getByTitle(LISTS.documents).items.select('Id', 'Title', 'DocNumber', 'ProjectCode', 'DocType', 'DocKind', 'Folder', 'Owner', 'IsRemoved', 'SharePointName', 'DueDay', 'StartPeriod').orderBy('DocNumber').top(5000);
+    let q = this.sp.web.lists.getByTitle(LISTS.documents).items.select('Id', 'Title', 'DocNumber', 'ProjectCode', 'DocType', 'DocKind', 'Folder', 'Owner', 'IsRemoved', 'SharePointName', 'DueDay', 'StartPeriod', 'SeriesPausedFrom', 'SeriesPausedTo', 'SeriesEndedOn').orderBy('DocNumber').top(5000);
     if (filter) q = q.filter(filter);
     const rows = await q();
     return rows.map(toDocument);
@@ -537,7 +538,7 @@ export class Register {
     if (o.numbers && o.numbers.length) filter += ` and (${o.numbers.map(n => `DocNumber eq ${odataString(n)}`).join(' or ')})`;
     else if (o.text && o.text.trim()) { const t = odataString(o.text.trim()); filter += ` and (substringof(${t},DocNumber) or substringof(${t},Title))`; }
     const rows = await this.sp.web.lists.getByTitle(LISTS.documents).items
-      .select('Id', 'Title', 'DocNumber', 'ProjectCode', 'DocType', 'DocKind', 'Folder', 'Owner', 'IsRemoved', 'SharePointName', 'DueDay', 'StartPeriod', 'LegalHold', 'HoldReason')
+      .select('Id', 'Title', 'DocNumber', 'ProjectCode', 'DocType', 'DocKind', 'Folder', 'Owner', 'IsRemoved', 'SharePointName', 'DueDay', 'StartPeriod', 'LegalHold', 'HoldReason', 'SeriesPausedFrom', 'SeriesPausedTo', 'SeriesEndedOn')
       .filter(filter).orderBy('DocNumber').skip(o.skip).top(o.take + 1)();
     return { docs: rows.slice(0, o.take).map(toDocument), more: rows.length > o.take };
   }
@@ -632,6 +633,21 @@ export class Register {
     const [revs, periods, certs] = await Promise.all([this.revisions(documentId), this.periods(documentId), this.certificates(documentId)]);
     return RT.lastActivity([...revs.map(r => r.createdAt), ...periods.map(p => p.uploadedAt), ...certs.map(c => c.uploadedAt)], R.isoDay());
   }
+  /* Pause, resume or stop a recurring series. Nothing is deleted. The months already uploaded stay as they are. */
+  async setSeries(doc: DocumentRow, action: 'pause' | 'resume' | 'end'): Promise<void> {
+    const me = await this.whoAmI();
+    const denied = R.canUploadSeries(doc.owner, me.name, P.can(me, 'edit_any', doc.project, doc.folder));
+    if (denied) throw new RuleError(denied);
+    if (doc.kind !== 'periodic') throw new RuleError('Only recurring documents have a series.');
+    const before = { startPeriod: doc.startPeriod, pausedFrom: doc.pausedFrom || undefined, pausedTo: doc.pausedTo || undefined, endedOn: doc.endedOn || undefined };
+    const cur = R.monthKey();
+    const after = action === 'pause' ? SR.pause(before, cur) : action === 'resume' ? SR.resume(before, cur) : SR.end(before, cur);
+    if (after === before) throw new RuleError(action === 'end' ? 'This series has already been stopped.' : action === 'pause' ? 'This series is already paused or stopped.' : 'This series is not paused.');
+    await this.sp.web.lists.getByTitle(LISTS.documents).items.getById(doc.id).update({
+      SeriesPausedFrom: after.pausedFrom || '', SeriesPausedTo: after.pausedTo || '', SeriesEndedOn: after.endedOn || '' });
+    await this.log(action === 'pause' ? 'Paused recurring series' : action === 'resume' ? 'Resumed recurring series' : 'Stopped recurring series', doc.number,
+      action === 'end' ? `no months due after ${cur}` : action === 'pause' ? `paused from ${cur}` : `resumed ${cur}`, doc.id);
+  }
   /* Legal hold: blocks removal and renaming. Only someone who can remove may place or release it. */
   async setLegalHold(doc: DocumentRow, on: boolean, reason: string): Promise<void> {
     const me = await this.whoAmI();
@@ -679,7 +695,7 @@ function requireCap(me: Me, cap: P.Cap, project: string, folder: string, what: s
 function toDocument(r: any): DocumentRow {
   return { id: r.Id, number: r.DocNumber, title: r.Title, project: r.ProjectCode, type: r.DocType, kind: r.DocKind as DocumentRow['kind'], folder: r.Folder,
     owner: r.Owner, removed: !!r.IsRemoved, spName: r.SharePointName || r.DocNumber, dueDay: r.DueDay ?? null, startPeriod: r.StartPeriod ?? null,
-    legalHold: !!r.LegalHold, holdReason: r.HoldReason || '' };
+    legalHold: !!r.LegalHold, holdReason: r.HoldReason || '', pausedFrom: r.SeriesPausedFrom || '', pausedTo: r.SeriesPausedTo || '', endedOn: r.SeriesEndedOn || '' };
 }
 function toRevision(r: any): RevisionRow {
   return { id: r.Id, documentId: r.DocumentId, n: r.RevNumber, status: r.Status, reason: r.Reason || '', summary: r.Summary || '', note: r.Note || '',

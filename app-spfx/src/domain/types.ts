@@ -18,6 +18,9 @@ export interface DocumentRow {
   startPeriod: string | null;
   legalHold: boolean;
   holdReason: string;
+  pausedFrom: string;   // recurring series: months from here are not due (YYYY-MM), '' if none
+  pausedTo: string;     // exclusive end of the pause, '' while still paused
+  endedOn: string;      // last month that counts for a stopped series, '' if not stopped
 }
 export interface RevisionRow {
   id: number;

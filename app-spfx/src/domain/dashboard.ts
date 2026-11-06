@@ -2,9 +2,11 @@
 // .ts extension so Node's test runner can load it; tsc rejects it without allowImportingTsExtensions.
 // @ts-ignore
 import * as R from './rules.ts';
+// @ts-ignore .ts extension so Node's test runner can load it (see dashboard.ts).
+import * as SR from './series.ts';
 import type { DocKind } from './rules.ts';
 
-export interface DashDoc { id: number; number: string; title: string; project: string; kind: DocKind; owner: string; removed: boolean; dueDay: number | null; startPeriod: string | null }
+export interface DashDoc { id: number; number: string; title: string; project: string; kind: DocKind; owner: string; removed: boolean; dueDay: number | null; startPeriod: string | null; pausedFrom?: string; pausedTo?: string; endedOn?: string }
 export interface DashRev { documentId: number; n: number; status: string; checker: string; approver: string; by: string }
 export interface DashPeriod { documentId: number; periodKey: string; notNeeded: boolean; uploadedAt: string | null }
 export interface DashCert { documentId: number; n: number; expiresOn: string }
@@ -50,7 +52,8 @@ export function buildDashboard(a: {
       if (a.revisions.some(r => r.documentId === d.id && r.status === 'Approved')) pr.controlledApproved++;
     }
     if (d.kind === 'periodic' && d.dueDay && d.startPeriod) {
-      for (const key of periodKeysUpTo(d.startPeriod, a.today)) {
+      const due = SR.dueMonths({ startPeriod: d.startPeriod, pausedFrom: d.pausedFrom || undefined, pausedTo: d.pausedTo || undefined, endedOn: d.endedOn || undefined }, a.today);
+      for (const key of due) {
         const entries = a.periods.filter(p => p.documentId === d.id && p.periodKey === key);
         const upload = entries.find(e => !e.notNeeded && e.uploadedAt);
         const na = !upload && entries.some(e => e.notNeeded);

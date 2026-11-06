@@ -14,6 +14,7 @@ import * as CS from '../src/domain/selection';
 import { textPdf } from '../src/domain/pdf';
 import * as RT from '../src/domain/retention';
 import * as TREE from '../src/domain/tree';
+import * as SR from '../src/domain/series';
 
 const DRAFTS: DR.DraftRow[] = [];
 const TRANSMITTALS: TR.TransmittalRow[] = [];
@@ -73,7 +74,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 const stamp = () => new Date().toISOString();
 
 function seed() {
-  const add = (d: Omit<DocumentRow, 'id'>) => { const row = { legalHold: false, holdReason: '', ...d, id: nextId++ }; docs.push(row); return row; };
+  const add = (d: Omit<DocumentRow, 'id'>) => { const row = { legalHold: false, holdReason: '', pausedFrom: '', pausedTo: '', endedOn: '', ...d, id: nextId++ }; docs.push(row); return row; };
   const pid = add({ number: 'U100-PID-1001', title: 'Pump layout, Unit 100', project: 'U100', type: 'PID', kind: 'controlled', folder: 'EPC/02 Engineering/02.1 Process', owner: 'Sam', removed: false, spName: 'U100-PID-1001.pdf', dueDay: null, startPeriod: null });
   const rv = (n: number, status: RevisionRow['status'], summary: string, extra: Partial<RevisionRow> = {}) =>
     revs.push({ id: nextId++, documentId: pid.id, n, status, reason: 'Design change', summary, note: 'Check the vents', uploader: 'Sam', checker: 'Priya', approver: 'Tom', checkedBy: '', approvedBy: '', returnNote: '', fileName: `U100-PID-1001_r${n}.pdf`, fileUrl: '#', checksum: '', createdAt: '2026-04-10', ...extra });
@@ -298,7 +299,7 @@ export class MockRegister {
     } else if (!(input.dueDay >= 1 && input.dueDay <= 28)) errors.dueDay = 'Due day must be 1 to 28.';
     if (Object.keys(errors).length) throw new RuleError('Please fix the highlighted fields.', errors);
     const cs = await sumOf(input.file);
-    const d: DocumentRow = { legalHold: false, holdReason: '', id: nextId++, number, title: input.title.trim(), project: input.project.code, type: input.type.code, kind: input.type.kind, folder: input.type.folder, owner: input.owner, removed: false, spName: `${number}.pdf`, dueDay: input.dueDay ?? null, startPeriod: input.startPeriod ?? null };
+    const d: DocumentRow = { legalHold: false, holdReason: '', pausedFrom: '', pausedTo: '', endedOn: '', id: nextId++, number, title: input.title.trim(), project: input.project.code, type: input.type.code, kind: input.type.kind, folder: input.type.folder, owner: input.owner, removed: false, spName: `${number}.pdf`, dueDay: input.dueDay ?? null, startPeriod: input.startPeriod ?? null };
     docs.push(d);
     if (input.type.kind === 'working') revs.push({ id: nextId++, documentId: d.id, n: 0, status: 'Working', reason: '', summary: input.summary.trim(), note: '', uploader: ME, checker: '', approver: '', checkedBy: '', approvedBy: '', returnNote: '', fileName: input.file.name, fileUrl: urlOf(input.file), checksum: cs, createdAt: today() });
     if (input.type.kind === 'controlled') revs.push({ id: nextId++, documentId: d.id, n: 0, status: 'Submitted', reason: input.reason, summary: input.summary.trim(), note: input.note.trim(), uploader: ME, checker: input.checker, approver: input.approver, checkedBy: '', approvedBy: '', returnNote: '', fileName: input.file.name, fileUrl: urlOf(input.file), checksum: cs, createdAt: today() });
@@ -344,6 +345,17 @@ export class MockRegister {
     const cs = await sumOf(input.file);
     certs.push({ id: nextId++, documentId: doc.id, n: list.length, summary: input.summary.trim(), expiresOn: input.expiresOn, uploader: ME, fileName: input.file.name, fileUrl: urlOf(input.file), uploadedAt: stamp(), checksum: cs });
     this.log('Renewed certificate', doc.number, input.expiresOn);
+  }
+  /* Recurring series: pause, resume or stop. Same rules as the SharePoint version. */
+  async setSeries(doc: DocumentRow, action: 'pause' | 'resume' | 'end') {
+    if (!can('edit_any', doc.project, doc.folder) && doc.owner !== ME) throw new RuleError('Only the owner or someone who can edit any document can change the series.');
+    if (doc.kind !== 'periodic') throw new RuleError('Only recurring documents have a series.');
+    const before = { startPeriod: doc.startPeriod, pausedFrom: doc.pausedFrom || undefined, pausedTo: doc.pausedTo || undefined, endedOn: doc.endedOn || undefined };
+    const cur = today().slice(0, 7);
+    const after = action === 'pause' ? SR.pause(before, cur) : action === 'resume' ? SR.resume(before, cur) : SR.end(before, cur);
+    if (after === before) throw new RuleError(action === 'end' ? 'This series has already been stopped.' : action === 'pause' ? 'This series is already paused or stopped.' : 'This series is not paused.');
+    doc.pausedFrom = after.pausedFrom || ''; doc.pausedTo = after.pausedTo || ''; doc.endedOn = after.endedOn || '';
+    this.log(action === 'pause' ? 'Paused recurring series' : action === 'resume' ? 'Resumed recurring series' : 'Stopped recurring series', doc.number, cur);
   }
   async setLegalHold(doc: DocumentRow, on: boolean, reason: string) {
     if (!can('remove', doc.project, doc.folder)) throw new RuleError('You do not have permission to ' + (on ? 'place' : 'release') + ' a legal hold. Ask an admin.');

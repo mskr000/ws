@@ -19,6 +19,8 @@ const CELL: Record<string, { bg: string; mark: string; ink: string }> = {
   upcoming: { bg: C.panel, mark: '', ink: C.soft },
   not_needed: { bg: C.muteSoft, mark: '–', ink: C.mute },
   before: { bg: 'transparent', mark: '', ink: C.soft },
+  paused: { bg: C.warnSoft, mark: 'II', ink: C.warn },
+  ended: { bg: C.muteSoft, mark: '■', ink: C.mute },
 };
 
 export function PlanPage(props: { reg: Register; projects: ProjectInfo[] }) {
@@ -111,7 +113,7 @@ function CalendarView(props: { data: Data; year: number; setYear: (y: number) =>
             </thead>
             <tbody>
               {series.map(d => {
-                const cells = CAL.yearCells({ startPeriod: d.startPeriod, dueDay: d.dueDay }, props.data.periods.filter(p => p.documentId === d.id), props.year, props.today);
+                const cells = CAL.yearCells({ startPeriod: d.startPeriod, dueDay: d.dueDay, pausedFrom: d.pausedFrom, pausedTo: d.pausedTo, endedOn: d.endedOn }, props.data.periods.filter(p => p.documentId === d.id), props.year, props.today);
                 return (
                   <tr key={d.id} style={{ borderTop: `1px solid ${C.line}` }}>
                     <td style={{ padding: '12px 16px', position: 'sticky', left: 0, background: C.panel, borderRight: `1px solid ${C.line}` }}>
@@ -142,6 +144,8 @@ function CalendarView(props: { data: Data; year: number; setYear: (y: number) =>
         <Legend bg={C.badSoft} mark="×" ink={C.bad} label="Missing" />
         <Legend bg={C.accentSoft} mark="•" ink={C.accent} label="Due this month" />
         <Legend bg={C.muteSoft} mark="–" ink={C.mute} label="Not needed" />
+        <Legend bg={C.warnSoft} mark="II" ink={C.warn} label="Paused" />
+        <Legend bg={C.muteSoft} mark="■" ink={C.mute} label="Stopped" />
       </div>
     </Section>
   );

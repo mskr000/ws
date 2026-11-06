@@ -9,8 +9,6 @@ import { DashboardPage } from './DashboardPage';
 import { TransmittalPage } from './TransmittalPage';
 import { AccessPage } from './AccessPage';
 import { PlanPage } from './PlanPage';
-import { HeatMap } from './HeatMap';
-import { projectOf } from '../domain/activity';
 import { saveText } from '../services/download';
 import { auditCsv } from '../domain/audit';
 import * as R from '../domain/rules';
@@ -79,22 +77,14 @@ export function App(props: AppProps) {
 function ActivityPage(props: { reg: Register; projects: ProjectInfo[] }) {
   const [rows, setRows] = React.useState<AuditRow[] | null>(null);
   const [err, setErr] = React.useState('');
-  const [heat, setHeat] = React.useState<Array<{ when: string; project: string | null }>>([]);
+  React.useEffect(() => { props.reg.audit(undefined, 200).then(setRows).catch(e => setErr(String((e as Error).message || e))); }, []);
   const exportAll = async () => {
     try {
       const all = await props.reg.audit(undefined, 5000);
       saveText(auditCsv(all), `audit-log-${R.isoDay()}.csv`);
     } catch (e) { setErr(String((e as Error).message || e)); }
   };
-  React.useEffect(() => { props.reg.audit(undefined, 200).then(setRows).catch(e => setErr(String(e.message || e))); }, []);
-  React.useEffect(() => {
-    Promise.all([props.reg.audit(undefined, 5000), props.reg.documents()]).then(([all, docs]) => {
-      const docProject: Record<string, string> = {};
-      docs.forEach(d => { docProject[d.number] = d.project; });
-      const codes = props.projects.map(p => p.code);
-      setHeat(all.map(a => ({ when: a.when, project: projectOf(a, docProject, codes) })));
-    }).catch(() => setHeat([]));
-  }, [props.projects]);
+
   return (
     <div>
       <div style={{ ...row, justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 18 }}>
@@ -102,7 +92,6 @@ function ActivityPage(props: { reg: Register; projects: ProjectInfo[] }) {
         <Btn onClick={exportAll}>Export audit log (CSV)</Btn>
       </div>
       {err ? <Notice tone="bad">{err}</Notice> : null}
-      <HeatMap entries={heat} projects={props.projects} />
       <Section title="Log">
       <Table minWidth={620}>
         <thead><tr><th style={th}>When</th><th style={th}>Who</th><th style={th}>Action</th><th style={th}>Document</th><th style={th}>Detail</th></tr></thead>

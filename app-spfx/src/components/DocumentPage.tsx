@@ -6,6 +6,7 @@ import * as DR from '../domain/drafts';
 import { Register, RuleError, Me } from '../services/register';
 import { downloadFiles } from '../services/download';
 import * as RT from '../domain/retention';
+import * as SR from '../domain/series';
 import { saveText } from '../services/download';
 import { auditCsv } from '../domain/audit';
 import * as P from '../domain/permissions';
@@ -162,25 +163,51 @@ export function DocumentPage(props: { reg: Register; id: number; me: Me; members
 
       {doc.kind === 'periodic' ? (
         <>
+          <h2>Recurring series</h2>
+          <div style={card}>
+            {(() => {
+              const ss = SR.seriesStatus({ startPeriod: doc.startPeriod, pausedFrom: doc.pausedFrom || undefined, pausedTo: doc.pausedTo || undefined, endedOn: doc.endedOn || undefined }, R.monthKey());
+              const text = ss === 'active' ? 'Running. A month is due each month from the first month.'
+                : ss === 'paused' ? `Paused from ${doc.pausedFrom}. No months are due until it resumes.`
+                : `Stopped. The last month that counts is ${doc.endedOn}. Nothing is due after it. Uploads are kept.`;
+              return (<>
+                <div style={{ ...row, justifyContent: 'space-between' }}>
+                  <Pill tone={ss === 'active' ? 'ok' : ss === 'paused' ? 'wait' : 'old'}>{ss === 'active' ? 'Running' : ss === 'paused' ? 'Paused' : 'Stopped'}</Pill>
+                  {canUpload && !doc.removed && ss === 'active' ? <span style={row}>
+                    <Btn onClick={() => run(() => props.reg.setSeries(doc, 'pause'), 'Series paused. No months are due until it resumes.')}>Pause</Btn>
+                    <Btn kind="danger" onClick={() => run(() => props.reg.setSeries(doc, 'end'), 'Series stopped. Nothing is due after this month. Uploads are kept.')}>Stop series</Btn>
+                  </span> : null}
+                  {canUpload && !doc.removed && ss === 'paused' ? <span style={row}>
+                    <Btn kind="ok" onClick={() => run(() => props.reg.setSeries(doc, 'resume'), 'Series resumed. Months are due again.')}>Resume</Btn>
+                    <Btn kind="danger" onClick={() => run(() => props.reg.setSeries(doc, 'end'), 'Series stopped. Nothing is due after this month. Uploads are kept.')}>Stop series</Btn>
+                  </span> : null}
+                </div>
+                <div style={{ fontSize: 14, color: C.soft, marginTop: 8 }}>{text}</div>
+              </>);
+            })()}
+          </div>
           <h2>Months</h2>
           <div style={{ ...card, padding: 0, overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 620 }}>
-              <thead><tr>{['Period', 'Due', 'Status', 'Uploaded by', 'Summary', ''].map(h => <th key={h} style={{ textAlign: 'left', padding: 10, fontSize: 11, color: C.soft, textTransform: 'uppercase', borderBottom: `1px solid ${C.line}` }}>{h}</th>)}</tr></thead>
+              <thead><tr>{['Period', 'Due', 'Status', 'Uploaded by', 'Summary', 'File', ''].map(h => <th key={h} style={{ textAlign: 'left', padding: 10, fontSize: 11, color: C.soft, textTransform: 'uppercase', borderBottom: `1px solid ${C.line}` }}>{h}</th>)}</tr></thead>
               <tbody>
                 {monthsOf(doc).map(key => {
                   const ps = periods.filter(p => p.periodKey === key);
                   const latest = ps.length ? ps[ps.length - 1] : undefined;
                   const st = R.periodState({ periodKey: key, dueDay: doc.dueDay || 1, uploadedAt: latest && !latest.notNeeded ? latest.uploadedAt : null, na: !!(latest && latest.notNeeded) });
-                  const [label, tone] = PERIOD_LABEL[st] || ['', 'none'];
+                  const seriesNow = doc.endedOn && key > doc.endedOn ? 'ended'
+                    : SR.isPaused(key, { startPeriod: doc.startPeriod, pausedFrom: doc.pausedFrom || undefined, pausedTo: doc.pausedTo || undefined }) ? 'paused' : null;
+                  const [label, tone] = seriesNow === 'paused' ? (['Paused', 'wait'] as const) : seriesNow === 'ended' ? (['Stopped', 'old'] as const) : (PERIOD_LABEL[st] || ['', 'none'] as const);
                   return (
                     <tr key={key} style={{ borderBottom: `1px solid ${C.line}` }}>
                       <td style={{ padding: 10, fontFamily: MONO }}>{key}</td>
                       <td style={{ padding: 10 }}>{R.dueDate(key, doc.dueDay || 1)}</td>
                       <td style={{ padding: 10 }}>{label ? <Pill tone={tone}>{label}</Pill> : null}</td>
                       <td style={{ padding: 10 }}>{latest ? latest.uploader : '—'}</td>
-                      <td style={{ padding: 10, fontSize: 13 }}>{latest ? (latest.notNeeded ? `Not needed: ${latest.notNeededReason}` : latest.summary) : ''}{latest && latest.fileUrl ? <div style={{ marginTop: 4 }}><DownloadLink url={latest.fileUrl} name={latest.fileName || `${doc.number}_${latest.periodKey}`} /></div> : null}</td>
+                      <td style={{ padding: 10, fontSize: 13 }}>{latest ? (latest.notNeeded ? `Not needed: ${latest.notNeededReason}` : latest.summary) : ''}</td>
+                      <td style={{ padding: 10 }}>{latest && latest.fileUrl ? <DownloadIcon href={latest.fileUrl} fileName={latest.fileName || `${doc.number}_${latest.periodKey}`} label={`Download ${latest.periodKey} file`} /> : null}</td>
                       <td style={{ padding: 10 }}>
-                        {st !== 'upcoming' && canUpload && !doc.removed ? <>
+                        {st !== 'upcoming' && !seriesNow && canUpload && !doc.removed ? <>
                           <Btn onClick={() => setPeriod({ key, mode: 'upload' })}>{latest && !latest.notNeeded ? 'Replace' : 'Upload'}</Btn>{' '}
                           <Btn kind="link" onClick={() => setPeriod({ key, mode: 'na' })}>Not needed</Btn>
                         </> : null}
@@ -352,8 +379,8 @@ export function DocumentPage(props: { reg: Register; id: number; me: Me; members
         </>
       ) : null}
 
-      <div style={{ ...row, justifyContent: 'space-between', marginTop: 8 }}>
-        <h2 style={{ margin: 0 }}>Recent activity</h2>
+      <h2>Recent activity</h2>
+      <div style={{ marginBottom: 10 }}>
         <Btn onClick={async () => {
           try {
             const all = await props.reg.audit(doc.id, 5000);
