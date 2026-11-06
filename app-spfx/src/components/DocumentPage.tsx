@@ -2,7 +2,7 @@ import * as React from 'react';
 import type { DocumentRow, RevisionRow, PeriodRow, CertRow, AuditRow } from '../domain/types';
 import * as R from '../domain/rules';
 import { Register, RuleError, Me } from '../services/register';
-import { Btn, Pill, Field, Notice, Select, input, row, card, C } from './ui';
+import { Btn, Pill, Field, Notice, Select, input, row, card, C, MONO } from './ui';
 
 const KIND: Record<string, string> = { controlled: 'Controlled', periodic: 'Recurring', record: 'Certificate' };
 const REV_TONE: Record<string, 'ok' | 'wait' | 'bad' | 'check' | 'none'> = { Submitted: 'wait', Checked: 'check', Approved: 'ok', Returned: 'bad' };
@@ -84,9 +84,9 @@ export function DocumentPage(props: { reg: Register; id: number; me: Me; members
   return (
     <div>
       <Btn kind="link" onClick={props.onBack}>← All documents</Btn>
-      <h1 style={{ fontSize: 22, margin: '6px 0 4px' }}>{doc.title}</h1>
+      <h1>{doc.title}</h1>
       <div style={{ fontSize: 13, color: C.soft, marginBottom: 14 }}>
-        <span style={{ fontFamily: 'Consolas, monospace' }}>{doc.number}</span> · {KIND[doc.kind]} · {doc.folder.split('/').join(' › ')} · Owner {doc.owner}
+        <span style={{ fontFamily: MONO }}>{doc.number}</span> · {KIND[doc.kind]} · {doc.folder.split('/').join(' › ')} · Owner {doc.owner}
         {doc.removed ? <> · <Pill tone="bad">Removed</Pill></> : null}
       </div>
       {msg ? <Notice tone={msg.tone}>{msg.text}</Notice> : null}
@@ -99,7 +99,7 @@ export function DocumentPage(props: { reg: Register; id: number; me: Me; members
             <section style={card}><div style={{ fontSize: 13, color: C.soft }}>Latest version</div>
               {last ? <><div style={{ fontWeight: 650, fontSize: 18 }}>Rev {last.n} <Pill tone={REV_TONE[last.status] || 'none'}>{REV_LABEL[last.status] || last.status}</Pill></div><div>{last.summary}</div></> : <div style={{ color: C.soft }}>No versions yet.</div>}</section>
           </div>
-          <h2 style={{ fontSize: 16 }}>Revisions</h2>
+          <h2>Revisions</h2>
           <div style={card}>{revs.length ? [...revs].reverse().map(revisionBlock) : <span style={{ color: C.soft }}>None yet.</span>}</div>
           {!doc.removed ? (
             revOpen ? (
@@ -123,7 +123,7 @@ export function DocumentPage(props: { reg: Register; id: number; me: Me; members
 
       {doc.kind === 'periodic' ? (
         <>
-          <h2 style={{ fontSize: 16 }}>Months</h2>
+          <h2>Months</h2>
           <div style={{ ...card, padding: 0, overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 620 }}>
               <thead><tr>{['Period', 'Due', 'Status', 'Uploaded by', 'Summary', ''].map(h => <th key={h} style={{ textAlign: 'left', padding: 10, fontSize: 11, color: C.soft, textTransform: 'uppercase', borderBottom: `1px solid ${C.line}` }}>{h}</th>)}</tr></thead>
@@ -135,7 +135,7 @@ export function DocumentPage(props: { reg: Register; id: number; me: Me; members
                   const [label, tone] = PERIOD_LABEL[st] || ['', 'none'];
                   return (
                     <tr key={key} style={{ borderBottom: `1px solid ${C.line}` }}>
-                      <td style={{ padding: 10, fontFamily: 'Consolas, monospace' }}>{key}</td>
+                      <td style={{ padding: 10, fontFamily: MONO }}>{key}</td>
                       <td style={{ padding: 10 }}>{R.dueDate(key, doc.dueDay || 1)}</td>
                       <td style={{ padding: 10 }}>{label ? <Pill tone={tone}>{label}</Pill> : null}</td>
                       <td style={{ padding: 10 }}>{latest ? latest.uploader : '—'}</td>
@@ -154,7 +154,7 @@ export function DocumentPage(props: { reg: Register; id: number; me: Me; members
           </div>
           {period ? (
             <section style={card}>
-              <h3 style={{ margin: '0 0 10px' }}>{period.mode === 'na' ? `Mark ${period.key} not needed` : `Upload ${period.key}`}</h3>
+              <h3>{period.mode === 'na' ? `Mark ${period.key} not needed` : `Upload ${period.key}`}</h3>
               {period.mode === 'upload' ? <>
                 <Field label="File" error={fieldErr.file}><input type="file" aria-label="File" onChange={e => setPv({ ...pv, file: e.target.files?.[0] || null })} /></Field>
                 <Field label="One-line summary" error={fieldErr.summary}><input aria-label="Summary" value={pv.summary} onChange={e => setPv({ ...pv, summary: e.target.value })} style={input} /></Field>
@@ -175,7 +175,7 @@ export function DocumentPage(props: { reg: Register; id: number; me: Me; members
 
       {doc.kind === 'record' ? (
         <>
-          <h2 style={{ fontSize: 16 }}>Current certificate</h2>
+          <h2>Current certificate</h2>
           <div style={card}>
             {certs.length ? (() => { const v = certs[certs.length - 1]; const s = R.recordState(v.expiresOn);
               return <><Pill tone={s.state === 'valid' ? 'ok' : s.state === 'expiring' ? 'wait' : 'bad'}>{s.state === 'valid' ? 'Valid' : s.state === 'expiring' ? 'Expiring soon' : 'Expired'}</Pill>
@@ -194,10 +194,10 @@ export function DocumentPage(props: { reg: Register; id: number; me: Me; members
         </>
       ) : null}
 
-      <h2 style={{ fontSize: 16 }}>Remove</h2>
+      <h2>Remove</h2>
       {doc.removed ? (
         <>
-          <Notice tone="warn">Removed. The file is renamed to <span style={{ fontFamily: 'Consolas, monospace' }}>{doc.spName}</span>. Nothing was erased.</Notice>
+          <Notice tone="warn">Removed. The file is renamed to <span style={{ fontFamily: MONO }}>{doc.spName}</span>. Nothing was erased.</Notice>
           {props.me.isRecordsLead ? <Btn kind="ok" onClick={() => run(() => props.reg.restoreDocument(doc), 'Restored.')}>Restore</Btn> : null}
         </>
       ) : removeOpen ? (
@@ -216,7 +216,7 @@ export function DocumentPage(props: { reg: Register; id: number; me: Me; members
         </>
       )}
 
-      <h2 style={{ fontSize: 16 }}>Recent activity</h2>
+      <h2>Recent activity</h2>
       <div style={{ ...card, fontSize: 14 }}>
         {audit.length ? audit.map(a => (
           <div key={a.id} style={{ display: 'grid', gridTemplateColumns: '150px 1fr', gap: 10, padding: '6px 0', borderBottom: `1px solid ${C.line}` }}>

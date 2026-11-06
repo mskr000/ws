@@ -3,9 +3,9 @@ import type { ProjectInfo, AuditRow } from '../domain/types';
 import { Register, Me } from '../services/register';
 import { DocumentList } from './DocumentList';
 import { DocumentPage } from './DocumentPage';
-import { ProjectsPage } from './ProjectsPage';
 import { AddDocument } from './AddDocument';
-import { Btn, Notice, card, row, C } from './ui';
+import { ProjectsPage } from './ProjectsPage';
+import { Segmented, Title, Notice, Table, th, td, GLOBAL_CSS, C, FONT, MONO, hint, row } from './ui';
 
 type View = { kind: 'list' } | { kind: 'doc'; id: number } | { kind: 'add' } | { kind: 'projects' } | { kind: 'log' };
 
@@ -20,7 +20,7 @@ export function App(props: AppProps) {
   const [err, setErr] = React.useState('');
   const [version, setVersion] = React.useState(0);
   const projects = allProjects.filter(p => p.status === 'active');
-  const reloadProjects = () => { if (reg) reg.projects().then(setAllProjects).catch(() => undefined); };
+  const bump = () => setVersion(v => v + 1);
 
   React.useEffect(() => {
     if (!props.siteUrl && !props.registerFactory) return;
@@ -36,25 +36,27 @@ export function App(props: AppProps) {
     return () => { cancelled = true; };
   }, [props.siteUrl, props.registerFactory]);
 
-  if (!props.siteUrl && !props.registerFactory) return <Notice tone="info">Set the SharePoint site address in the web part settings (Edit web part, then the site address box).</Notice>;
+  if (!props.siteUrl && !props.registerFactory) return <Notice tone="info">Set the SharePoint site address in the web part settings.</Notice>;
   if (err) return <Notice tone="bad">{err}</Notice>;
-  if (!reg || !me) return <div style={{ color: C.soft }}>Signing you in and loading the register…</div>;
+  if (!reg || !me) return <div style={{ ...hint, padding: 24 }}>Signing you in and loading the register…</div>;
 
-  const bump = () => setVersion(v => v + 1);
+  const section = view.kind === 'projects' ? 'projects' : view.kind === 'log' ? 'log' : 'documents';
+  const pick = (v: string) => setView(v === 'projects' ? { kind: 'projects' } : v === 'log' ? { kind: 'log' } : { kind: 'list' });
   return (
-    <div style={{ fontFamily: 'Segoe UI, system-ui, sans-serif', color: C.ink }} data-version={version}>
-      <div style={{ ...row, justifyContent: 'space-between', marginBottom: 10 }}>
-        <div style={{ fontSize: 13, color: C.soft }}>Signed in as <b style={{ color: C.ink }}>{me.name}</b>{me.isRecordsLead ? ' · Records Lead' : ''}</div>
-        <div style={row}>
-          <Btn kind={view.kind === 'list' || view.kind === 'doc' ? 'primary' : 'plain'} onClick={() => setView({ kind: 'list' })}>Documents</Btn>
-          <Btn kind={view.kind === 'projects' ? 'primary' : 'plain'} onClick={() => setView({ kind: 'projects' })}>Projects</Btn>
-          <Btn kind={view.kind === 'log' ? 'primary' : 'plain'} onClick={() => setView({ kind: 'log' })}>Activity</Btn>
+    <div className="dr" style={{ fontFamily: FONT, color: C.ink }} data-version={version}>
+      <style>{GLOBAL_CSS}</style>
+      <div style={{ ...row, justifyContent: 'space-between', marginBottom: 22 }}>
+        <div>
+          <div style={{ fontSize: 13, color: C.soft }}>Signed in as <span style={{ color: C.ink, fontWeight: 600 }}>{me.name}</span></div>
+          {me.isRecordsLead ? <div style={{ ...hint, marginTop: 2 }}>Records Lead</div> : null}
         </div>
+        <Segmented value={section} onChange={pick} options={[['documents', 'Documents'], ['projects', 'Projects'], ['log', 'Activity']]} />
       </div>
+
       {view.kind === 'list' ? <DocumentList key={version} reg={reg} projects={projects} onOpen={id => setView({ kind: 'doc', id })} onAdd={() => setView({ kind: 'add' })} /> : null}
       {view.kind === 'doc' ? <DocumentPage reg={reg} id={view.id} me={me} members={members} onBack={() => setView({ kind: 'list' })} onChanged={bump} /> : null}
       {view.kind === 'add' ? <AddDocument reg={reg} me={me} projects={projects} members={members} onCancel={() => setView({ kind: 'list' })} onDone={id => { bump(); setView({ kind: 'doc', id }); }} /> : null}
-      {view.kind === 'projects' ? <ProjectsPage reg={reg} projects={allProjects} isRecordsLead={me.isRecordsLead} onChanged={() => { reloadProjects(); bump(); }} /> : null}
+      {view.kind === 'projects' ? <ProjectsPage reg={reg} projects={allProjects} isRecordsLead={me.isRecordsLead} onChanged={() => { reg.projects().then(setAllProjects).catch(() => undefined); bump(); }} /> : null}
       {view.kind === 'log' ? <ActivityPage reg={reg} /> : null}
     </div>
   );
@@ -66,17 +68,24 @@ function ActivityPage(props: { reg: Register }) {
   React.useEffect(() => { props.reg.audit(undefined, 200).then(setRows).catch(e => setErr(String(e.message || e))); }, []);
   return (
     <div>
-      <h1 style={{ fontSize: 22, margin: '0 0 4px' }}>Activity</h1>
-      <p style={{ color: C.soft, margin: '0 0 14px' }}>Every action, newest first. Entries are added, never edited.</p>
+      <Title sub="Every action, newest first. Entries are added, never edited.">Activity</Title>
       {err ? <Notice tone="bad">{err}</Notice> : null}
-      <div style={card}>
-        {rows === null ? 'Loading…' : rows.map(a => (
-          <div key={a.id} style={{ display: 'grid', gridTemplateColumns: '170px 1fr', gap: 10, padding: '7px 0', borderBottom: `1px solid ${C.line}`, fontSize: 14 }}>
-            <span style={{ color: C.soft, fontSize: 13 }}>{a.when.slice(0, 16).replace('T', ' ')} · {a.who}</span>
-            <span><b>{a.action}</b> {a.docNumber} {a.detail}</span>
-          </div>
-        ))}
-      </div>
+      <Table minWidth={620}>
+        <thead><tr><th style={th}>When</th><th style={th}>Who</th><th style={th}>Action</th><th style={th}>Document</th><th style={th}>Detail</th></tr></thead>
+        <tbody>
+          {rows === null ? <tr><td style={td} colSpan={5}>Loading…</td></tr> : null}
+          {rows && rows.length === 0 ? <tr><td style={{ ...td, color: C.soft }} colSpan={5}>Nothing yet.</td></tr> : null}
+          {(rows || []).map(a => (
+            <tr key={a.id} className="dr-row">
+              <td style={{ ...td, color: C.soft, fontSize: 13, whiteSpace: 'nowrap' }}>{a.when.slice(0, 16).replace('T', ' ')}</td>
+              <td style={td}>{a.who}</td>
+              <td style={{ ...td, fontWeight: 500 }}>{a.action}</td>
+              <td style={{ ...td, fontFamily: MONO, fontSize: 13 }}>{a.docNumber}</td>
+              <td style={{ ...td, color: C.soft, fontSize: 14 }}>{a.detail}</td>
+            </tr>
+          ))}
+        </tbody>
+      </Table>
     </div>
   );
 }

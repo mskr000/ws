@@ -2,7 +2,7 @@ import * as React from 'react';
 import * as SU from '../domain/setup';
 import * as N from '../domain/numbering';
 import { Register, RuleError } from '../services/register';
-import { Btn, Notice, Field, Select, input, row, card, C } from './ui';
+import { Btn, Notice, Field, Select, input, row, card, C, MONO } from './ui';
 
 interface Before { setup: SU.ProjectSetup; locked: boolean; docsInFolder: Record<string, number>; docsOfType: Record<string, number> }
 
@@ -89,14 +89,14 @@ export function ProjectForm(props: { reg: Register; code: string | null; isRecor
   return (
     <div>
       <Btn kind="link" onClick={props.onCancel}>← Projects</Btn>
-      <h1 style={{ fontSize: 22, margin: '6px 0 4px' }}>{isNew ? 'Add a project' : `${pf.code} · project setup`}</h1>
+      <h1>{isNew ? 'Add a project' : `${pf.code} · project setup`}</h1>
       <p style={{ color: C.soft, margin: '0 0 12px' }}>Work through the sections, then press Save.{locked ? ' Documents exist: the code, numbering and folders with documents are locked.' : ''}</p>
       {msg ? <Notice tone={msg.tone}>{msg.text}</Notice> : null}
       {Object.keys(errors).length && !msg ? <Notice tone="bad">Please fix the highlighted fields.</Notice> : null}
 
       {isNew ? (
         <section style={card}>
-          <h2 style={{ fontSize: 16, margin: '0 0 8px' }}>0. Start from a template</h2>
+          <h2>0. Start from a template</h2>
           <div style={row}>
             <Select label="Template" value={tplId} onChange={setTplId} placeholder="Blank: standard structure" options={templates.map(t => [t.id, `${t.name}${t.builtIn ? '' : ' (saved)'}`])} />
             <Btn disabled={ro} onClick={() => { const t = templates.find(x => x.id === tplId); if (t) applyTemplate(t); else set({ ...blankSetup(), code: pf.code, name: pf.name }); }}>Load template</Btn>
@@ -106,7 +106,7 @@ export function ProjectForm(props: { reg: Register; code: string | null; isRecor
       ) : null}
 
       <section style={card}>
-        <h2 style={{ fontSize: 16, margin: '0 0 8px' }}>1. Basics</h2>
+        <h2>1. Basics</h2>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <Field label="Project code" error={errors.code} help="2 to 5 capital letters or digits. Used at the start of every document number. Cannot change once documents exist.">
             <input aria-label="Project code" value={pf.code} disabled={!isNew || ro} onChange={e => set({ code: e.target.value.toUpperCase() })} style={input} />
@@ -119,15 +119,15 @@ export function ProjectForm(props: { reg: Register; code: string | null; isRecor
       </section>
 
       <section style={card}>
-        <h2 style={{ fontSize: 16, margin: '0 0 8px' }}>2. Numbering</h2>
+        <h2>2. Numbering</h2>
         <Field label="Numbering pattern" error={errors.numberPattern} help="Tokens: {PROJ} project code · {TYPE} document type · {SEQ:4} running number, 4 digits (required, once) · {YYYY} year. Other characters: letters, digits, - . _ /">
-          <input aria-label="Numbering pattern" value={pf.numberPattern} disabled={ro || locked} onChange={e => set({ numberPattern: e.target.value })} style={{ ...input, fontFamily: 'Consolas, monospace' }} />
+          <input aria-label="Numbering pattern" value={pf.numberPattern} disabled={ro || locked} onChange={e => set({ numberPattern: e.target.value })} style={{ ...input, fontFamily: MONO }} />
         </Field>
-        <div style={{ fontSize: 13 }}>Example: <b style={{ fontFamily: 'Consolas, monospace' }}>{example}</b>{locked ? ' · locked: documents exist' : ''}</div>
+        <div style={{ fontSize: 13 }}>Example: <b style={{ fontFamily: MONO }}>{example}</b>{locked ? ' · locked: documents exist' : ''}</div>
       </section>
 
       <section style={card}>
-        <h2 style={{ fontSize: 16, margin: '0 0 8px' }}>3. Folders</h2>
+        <h2>3. Folders</h2>
         <div style={{ ...row, marginBottom: 8 }}>
           <input aria-label="Upload folder CSV" type="file" accept=".csv,text/csv" disabled={ro} onChange={e => loadCsv(e.target.files?.[0] || null)} />
           <span style={{ fontSize: 12.5, color: C.soft }}>CSV columns: folder, types (optional, separated by ;)</span>
@@ -152,7 +152,7 @@ export function ProjectForm(props: { reg: Register; code: string | null; isRecor
       </section>
 
       <section style={card}>
-        <h2 style={{ fontSize: 16, margin: '0 0 8px' }}>4. Document types</h2>
+        <h2>4. Document types</h2>
         <div style={{ border: `1px solid ${C.line}`, borderRadius: 8, maxHeight: 320, overflow: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead><tr>{['On', 'Type', 'Kind', 'Files into', 'First number'].map(h => <th key={h} style={{ textAlign: 'left', padding: 8, fontSize: 11, textTransform: 'uppercase', color: C.soft, borderBottom: `1px solid ${C.line}` }}>{h}</th>)}</tr></thead>
@@ -163,7 +163,7 @@ export function ProjectForm(props: { reg: Register; code: string | null; isRecor
                 return (
                   <tr key={d.code} style={{ borderBottom: `1px solid ${C.line}` }}>
                     <td style={{ padding: 8 }}><input type="checkbox" aria-label={`Turn on ${d.code}`} checked={t.enabled} disabled={ro || (inUse && t.enabled)} onChange={e => setType(d.code, { enabled: e.target.checked })} /></td>
-                    <td style={{ padding: 8 }}><span style={{ fontFamily: 'Consolas, monospace' }}>{d.code}</span> {d.label}{inUse ? <span style={{ color: C.soft }}> · in use</span> : null}{err(`type:${d.code}`)}</td>
+                    <td style={{ padding: 8 }}><span style={{ fontFamily: MONO }}>{d.code}</span> {d.label}{inUse ? <span style={{ color: C.soft }}> · in use</span> : null}{err(`type:${d.code}`)}</td>
                     <td style={{ padding: 8 }}>{d.kind}</td>
                     <td style={{ padding: 8 }}><select aria-label={`Folder for ${d.code}`} value={t.folder} disabled={ro || !t.enabled} onChange={e => setType(d.code, { folder: e.target.value })} style={{ ...input, width: 'auto', minWidth: 200 }}>{pf.folders.map(f => <option key={f} value={f}>{f}</option>)}</select></td>
                     <td style={{ padding: 8 }}><input aria-label={`First number for ${d.code}`} type="number" min={1} max={9999} value={t.firstNumber} disabled={ro || inUse} onChange={e => setType(d.code, { firstNumber: Number(e.target.value) })} style={{ ...input, width: 90 }} />{err(`first:${d.code}`)}</td>
@@ -178,7 +178,7 @@ export function ProjectForm(props: { reg: Register; code: string | null; isRecor
 
       {!isNew && props.isRecordsLead ? (
         <section style={card}>
-          <h2 style={{ fontSize: 16, margin: '0 0 8px' }}>Save this setup as a template</h2>
+          <h2>Save this setup as a template</h2>
           <div style={row}>
             <input aria-label="Template name" placeholder="Template name" value={saveName} onChange={e => setSaveName(e.target.value)} style={{ ...input, maxWidth: 300 }} />
             <Btn onClick={saveTemplate}>Save as template</Btn>

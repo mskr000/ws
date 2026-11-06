@@ -3,7 +3,7 @@ import type { ProjectInfo, DocTypeInfo } from '../domain/types';
 import * as R from '../domain/rules';
 import * as N from '../domain/numbering';
 import { Register, RuleError, Me } from '../services/register';
-import { Btn, Field, Notice, Select, input, row, C } from './ui';
+import { Btn, Field, Notice, Select, input, row, C, MONO } from './ui';
 
 export function AddDocument(props: { reg: Register; me: Me; projects: ProjectInfo[]; members: string[]; onDone: (id: number) => void; onCancel: () => void }) {
   const [project, setProject] = React.useState(props.projects[0]?.code || '');
@@ -45,7 +45,7 @@ export function AddDocument(props: { reg: Register; me: Me; projects: ProjectInf
   return (
     <div>
       <Btn kind="link" onClick={props.onCancel}>← Back</Btn>
-      <h1 style={{ fontSize: 22, margin: '6px 0 12px' }}>Add a document</h1>
+      <h1>Add a document</h1>
       {msg ? <Notice tone="bad">{msg}</Notice> : null}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <Field label="Project" error={errors.project}>
@@ -57,7 +57,7 @@ export function AddDocument(props: { reg: Register; me: Me; projects: ProjectInf
       </div>
       {type ? <Notice tone="info"><b>{type.kind === 'controlled' ? 'Controlled' : type.kind === 'periodic' ? 'Recurring' : 'Certificate'}.</b>{' '}
         {type.kind === 'controlled' ? 'Upload, check and approve. Revisions.' : type.kind === 'periodic' ? 'Set up a monthly series. Each month is uploaded. No approval.' : 'Upload with an expiry date. Renew before expiry.'}
-        <br />Number: <b style={{ fontFamily: 'Consolas, monospace' }}>{preview}</b> (filled in automatically) · Folder: {type.folder.split('/').join(' › ')}</Notice> : null}
+        <br />Number: <b style={{ fontFamily: MONO }}>{preview}</b> (filled in automatically) · Folder: {type.folder.split('/').join(' › ')}</Notice> : null}
       <Field label="Title" error={errors.title}><input aria-label="Title" value={f.title} onChange={e => setF({ ...f, title: e.target.value })} style={input} /></Field>
       <Field label="Owner" error={errors.owner}>{people(f.owner, v => setF({ ...f, owner: v }), 'Owner')}</Field>
 
