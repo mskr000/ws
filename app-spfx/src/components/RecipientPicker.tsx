@@ -1,12 +1,13 @@
 import * as React from 'react';
 import * as K from '../domain/contacts';
 import { Register } from '../services/register';
-import { Btn, Field, Notice, Select, input, row, card, C, hint, Section } from './ui';
+import { Btn, Field, Notice, input, row, card, C, hint, Section } from './ui';
 
 /* Pick people from saved companies, or add a new person. Selected people show as cards. */
 export function RecipientPicker(props: { reg: Register; selected: number[]; setSelected: (ids: number[]) => void; onSelectedChange?: (r: K.Contact[]) => void }) {
   const [all, setAll] = React.useState<K.Contact[]>([]);
   const [company, setCompany] = React.useState('');
+  const [findCo, setFindCo] = React.useState('');
   const [adding, setAdding] = React.useState(false);
   const [f, setF] = React.useState({ company: '', name: '', email: '' });
   const [errors, setErrors] = React.useState<Record<string, string>>({});
@@ -54,7 +55,25 @@ export function RecipientPicker(props: { reg: Register; selected: number[]; setS
       {err ? <Notice tone="bad">{err}</Notice> : null}
       <div style={card}>
         <div style={{ ...row, alignItems: 'flex-end' }}>
-          <Select label="Company" value={company} onChange={setCompany} options={companies.map(c => [c, c])} placeholder={companies.length ? undefined : 'No companies yet'} width={280} />
+          <div style={{ width: 300, maxWidth: '100%' }}>
+            <input aria-label="Find a company" value={findCo} onChange={e => setFindCo(e.target.value)} placeholder={`Find one of ${companies.length} companies…`}
+              style={{ ...input, height: 40, boxSizing: 'border-box', padding: '0 12px', marginBottom: 6 }} />
+            <div role="listbox" aria-label="Companies" style={{ maxHeight: 150, overflowY: 'auto', border: `1px solid ${C.line}`, borderRadius: 10, background: C.panel }}>
+              {companies.filter(c => c.toLowerCase().includes(findCo.trim().toLowerCase())).map(c => {
+                const n = K.peopleOf(all, c).length;
+                const on = c === company;
+                const picked = K.peopleOf(all, c).filter(p => props.selected.includes(p.id)).length;
+                return (
+                  <button key={c} type="button" role="option" aria-selected={on} onClick={() => setCompany(c)}
+                    style={{ display: 'flex', width: '100%', justifyContent: 'space-between', gap: 8, border: 'none', borderBottom: `1px solid ${C.line}`, padding: '8px 12px', background: on ? C.accentSoft : 'transparent', color: on ? C.accent : C.ink, fontWeight: on ? 600 : 400, cursor: 'pointer', fontSize: 14, textAlign: 'left' }}>
+                    <span>{c}</span>
+                    <span style={{ color: C.soft, fontWeight: 400, fontSize: 13 }}>{picked ? `${picked} of ${n} selected` : `${n} ${n === 1 ? 'person' : 'people'}`}</span>
+                  </button>
+                );
+              })}
+              {companies.length === 0 ? <div style={{ padding: 12, color: C.soft, fontSize: 14 }}>No companies yet.</div> : null}
+            </div>
+          </div>
           <Btn disabled={!people.length} onClick={selectCompany}>{everyoneIn ? 'Clear this company' : `Select everyone at ${company || 'this company'}`}</Btn>
           <Btn onClick={() => { setAdding(a => !a); setErrors({}); setF({ company, name: '', email: '' }); }}>{adding ? 'Cancel' : '+ Add company or person'}</Btn>
         </div>

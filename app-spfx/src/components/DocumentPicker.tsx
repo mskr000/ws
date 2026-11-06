@@ -3,7 +3,7 @@ import * as S from '../domain/selection';
 import * as TREE from '../domain/tree';
 import type { DocumentRow } from '../domain/types';
 import { Register } from '../services/register';
-import { Btn, Notice, input, row, card, C, MONO, hint, Section, Pill } from './ui';
+import { Btn, Notice, input, row, card, C, MONO, hint, Pill } from './ui';
 
 const TONE: Record<S.FileStatus, 'ok' | 'wait' | 'bad' | 'none' | 'check'> = { current: 'ok', superseded: 'none', in_review: 'wait', returned: 'bad', removed: 'bad' };
 const PAGE = 25;
@@ -24,6 +24,12 @@ export function DocumentPicker(props: { reg: Register; project: string; folders:
   const [err, setErr] = React.useState('');
   const [shown, setShown] = React.useState(false);
   const [opened, setOpened] = React.useState<Record<string, boolean>>({});
+  const [bodyOpen, setBodyOpen] = React.useState(true);
+  const [chosenOpen, setChosenOpen] = React.useState(true);
+  const [docOpen, setDocOpen] = React.useState<Record<number, boolean>>({});
+  const allPaths = (ns: TREE.FolderNode[]): string[] => ns.flatMap(n => [n.path, ...allPaths(n.children)]);
+  const collapseAll = () => setOpened(Object.fromEntries(allPaths(TREE.folderTree(props.folders)).map(p => [p, false])));
+  const expandAll = () => setOpened(Object.fromEntries(allPaths(TREE.folderTree(props.folders)).map(p => [p, true])));
 
   const load = React.useCallback(async (p: number, o?: { folder?: string; sub?: boolean; text?: string; numbers?: string[] }) => {
     const f = o?.folder ?? folder;
@@ -92,7 +98,13 @@ export function DocumentPicker(props: { reg: Register; project: string; folders:
   };
 
   return (
-    <Section title="Files to send">
+    <section style={{ marginTop: 32 }}>
+      <button type="button" aria-expanded={bodyOpen} onClick={() => setBodyOpen(o => !o)}
+        style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: 'none', background: 'none', padding: '4px 0 10px', cursor: 'pointer', color: C.ink }}>
+        <span style={{ fontSize: 22, fontWeight: 600, letterSpacing: -0.3 }}>Files to send</span>
+        <span style={{ fontSize: 14, color: C.soft }}>{props.chosen.length} chosen · {bodyOpen ? 'Hide' : 'Show'} ▾</span>
+      </button>
+      {!bodyOpen ? null : <>
       {err ? <Notice tone="bad">{err}</Notice> : null}
       {note ? <Notice tone="info">{note}</Notice> : null}
 
@@ -110,10 +122,14 @@ export function DocumentPicker(props: { reg: Register; project: string; folders:
                 background: folder === '' && shown ? C.accentSoft : 'transparent', color: folder === '' && shown ? C.accent : C.ink, fontWeight: folder === '' && shown ? 600 : 400 }}>
               Whole project
             </button>
+            <div style={{ ...row, gap: 2, margin: '2px 0 6px' }}>
+              <Btn kind="link" onClick={collapseAll}>Collapse all</Btn>
+              <Btn kind="link" onClick={expandAll}>Expand all</Btn>
+            </div>
             {TREE.folderTree(props.folders).map(renderNode)}
           </div>
 
-          <div style={{ ...card, marginBottom: 0 }}>
+          <div style={{ ...card, marginBottom: 0, minWidth: 0 }}>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', height: CONTROL_H }}>
               <input aria-label="Search documents" value={text} onChange={e => setText(e.target.value)} placeholder="Number or title contains…"
                 onKeyDown={e => { if (e.key === 'Enter') load(1, { text }); }}
@@ -136,21 +152,32 @@ export function DocumentPicker(props: { reg: Register; project: string; folders:
 
             {docs.length ? (
               <>
-                <div style={{ ...row, justifyContent: 'space-between', marginTop: 12 }}>
-                  <span style={{ fontSize: 13, color: C.soft }}>Page {page}</span>
-                  <Btn kind="link" onClick={addFolderCurrent}>Add current versions on this page</Btn>
+                <div style={{ ...row, justifyContent: 'space-between', marginTop: 12, position: 'sticky', top: 0, background: C.panel, padding: '6px 0', zIndex: 1 }}>
+                  <span style={{ fontSize: 13, color: C.soft }}>Page {page} · {docs.length} documents</span>
+                  <span style={{ ...row, gap: 4 }}>
+                    <Btn kind="link" onClick={() => setDocOpen(Object.fromEntries(docs.map(d => [d.id, false])))}>Collapse all</Btn>
+                    <Btn kind="link" onClick={() => setDocOpen(Object.fromEntries(docs.map(d => [d.id, true])))}>Expand all</Btn>
+                    <Btn kind="link" onClick={addFolderCurrent}>Add current versions on this page</Btn>
+                  </span>
                 </div>
+                <div style={{ maxHeight: 460, overflowY: 'auto', paddingRight: 4 }}>
                 {docs.map(d => {
                   const list = files[d.id] || [];
                   const cur = S.defaultChoice(list);
+                  const isOpen = !!docOpen[d.id];
+                  const curLabel = cur.length ? cur.map(c => c.version).join(', ') : 'no current version';
                   return (
-                    <div key={d.id} style={{ borderTop: `1px solid ${C.line}`, padding: '10px 0' }}>
-                      <div style={{ ...row, justifyContent: 'space-between' }}>
-                        <div><span style={{ fontFamily: MONO, fontSize: 13 }}>{d.number}</span> <span style={{ fontWeight: 500 }}>{d.title}</span></div>
-                        <Btn kind="link" disabled={!cur.length} onClick={() => addCurrent(list)}>Add current version</Btn>
+                    <div key={d.id} style={{ borderTop: `1px solid ${C.line}`, padding: '8px 0' }}>
+                      <div style={{ ...row, justifyContent: 'space-between', flexWrap: 'nowrap' }}>
+                        <button type="button" aria-expanded={isOpen} aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${d.number}`} onClick={() => setDocOpen(o => ({ ...o, [d.id]: !isOpen }))}
+                          style={{ flex: 1, minWidth: 0, textAlign: 'left', border: 'none', background: 'none', padding: '4px 0', cursor: 'pointer', color: C.ink }}>
+                          <span style={{ color: C.soft, marginRight: 6 }}>{isOpen ? '▾' : '▸'}</span>
+                          <span style={{ fontFamily: MONO, fontSize: 13 }}>{d.number}</span> <span style={{ fontWeight: 500 }}>{d.title}</span>
+                          <span style={{ display: 'block', fontSize: 12, color: C.soft, marginLeft: 16 }}>{d.folder} · {list.length} file{list.length === 1 ? '' : 's'} · current: {curLabel}</span>
+                        </button>
+                        <Btn kind="link" disabled={!cur.length} onClick={() => addCurrent(list)}>Add current</Btn>
                       </div>
-                      <div style={{ fontSize: 12, color: C.soft }}>{d.folder}</div>
-                      {list.length === 0 ? <div style={{ ...hint, marginTop: 4 }}>No file stored yet.</div> : list.map(f => (
+                      {!isOpen ? null : list.length === 0 ? <div style={{ ...hint, marginTop: 4 }}>No file stored yet.</div> : list.map(f => (
                         <label key={f.key} style={{ ...row, flexWrap: 'nowrap', padding: '6px 0 0 4px', cursor: 'pointer' }}>
                           <input type="checkbox" aria-label={`Add ${f.fileName}`} checked={isChosen(f)} onChange={() => toggle(f)} />
                           <span style={{ fontSize: 14, minWidth: 96 }}>{f.version}</span>
@@ -161,6 +188,7 @@ export function DocumentPicker(props: { reg: Register; project: string; folders:
                     </div>
                   );
                 })}
+                </div>
                 <div style={{ ...row, justifyContent: 'space-between', marginTop: 8, borderTop: `1px solid ${C.line}`, paddingTop: 10 }}>
                   <Btn kind="link" disabled={page <= 1 || loading} onClick={() => load(page - 1)}>← Previous</Btn>
                   <span style={{ fontSize: 13, color: C.soft }}>Page {page}</span>
@@ -193,11 +221,13 @@ export function DocumentPicker(props: { reg: Register; project: string; folders:
       )}
 
       <div style={{ ...card, borderLeft: `4px solid ${over ? C.bad : C.accent}`, marginTop: 14 }}>
-        <div style={{ fontWeight: 600, marginBottom: 8 }}>
-          {props.chosen.length === 0 ? 'No files chosen yet' : `${props.chosen.length} file${props.chosen.length === 1 ? '' : 's'} chosen`}
-          <span style={{ fontWeight: 400, color: C.soft, fontSize: 13 }}> · limit {S.MAX_LINES} per transmittal</span>
-        </div>
-        {props.chosen.map(f => (
+        <button type="button" aria-expanded={chosenOpen} onClick={() => setChosenOpen(o => !o)}
+          style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: 'none', background: 'none', padding: 0, cursor: 'pointer', color: C.ink, fontWeight: 600, marginBottom: chosenOpen ? 8 : 0 }}>
+          <span>{props.chosen.length === 0 ? 'No files chosen yet' : `${props.chosen.length} file${props.chosen.length === 1 ? '' : 's'} chosen`}
+            <span style={{ fontWeight: 400, color: C.soft, fontSize: 13 }}> · limit {S.MAX_LINES} per transmittal</span></span>
+          <span style={{ fontSize: 13, color: C.soft, fontWeight: 400 }}>{chosenOpen ? 'Collapse ▴' : 'Expand ▾'}</span>
+        </button>
+        {chosenOpen ? <div style={{ maxHeight: 260, overflowY: 'auto' }}>{props.chosen.map(f => (
           <div key={f.key} style={{ ...row, flexWrap: 'nowrap', padding: '6px 0', borderTop: `1px solid ${C.line}` }}>
             <span style={{ fontFamily: MONO, fontSize: 13, minWidth: 150 }}>{f.number}</span>
             <span style={{ fontSize: 14, minWidth: 96 }}>{f.version}</span>
@@ -205,10 +235,11 @@ export function DocumentPicker(props: { reg: Register; project: string; folders:
             <Pill tone={TONE[f.status]}>{S.STATUS_WORDS[f.status]}</Pill>
             <Btn kind="link" label={`Take ${f.fileName} off`} onClick={() => props.setChosen(props.chosen.filter(c => c.key !== f.key))}>Remove</Btn>
           </div>
-        ))}
+        ))}</div> : null}
         {over ? <Notice tone="bad">{over}</Notice> : null}
         {needsAck ? <Notice tone="warn">Some chosen files are not the current version. Check each one above. Confirm before sending.</Notice> : null}
       </div>
-    </Section>
+      </>}
+    </section>
   );
 }
