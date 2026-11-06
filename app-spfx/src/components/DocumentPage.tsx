@@ -6,6 +6,8 @@ import * as DR from '../domain/drafts';
 import { Register, RuleError, Me } from '../services/register';
 import { downloadFiles } from '../services/download';
 import * as RT from '../domain/retention';
+import { saveText } from '../services/download';
+import { auditCsv } from '../domain/audit';
 import * as P from '../domain/permissions';
 import { Btn, Pill, Field, Notice, Select, input, row, card, C, MONO, hint, DownloadIcon } from './ui';
 
@@ -350,7 +352,15 @@ export function DocumentPage(props: { reg: Register; id: number; me: Me; members
         </>
       ) : null}
 
-      <h2>Recent activity</h2>
+      <div style={{ ...row, justifyContent: 'space-between', marginTop: 8 }}>
+        <h2 style={{ margin: 0 }}>Recent activity</h2>
+        <Btn onClick={async () => {
+          try {
+            const all = await props.reg.audit(doc.id, 5000);
+            saveText(auditCsv(all), `${doc.number}-history-${R.isoDay()}.csv`);
+          } catch (e) { setMsg({ tone: 'bad', text: String((e as Error).message || e) }); }
+        }}>Export this document's history (CSV)</Btn>
+      </div>
       <div style={{ ...card, fontSize: 14 }}>
         {audit.length ? audit.map(a => (
           <div key={a.id} style={{ display: 'grid', gridTemplateColumns: '150px 1fr', gap: 10, padding: '6px 0', borderBottom: `1px solid ${C.line}` }}>

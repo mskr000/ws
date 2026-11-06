@@ -70,3 +70,26 @@ Decision needed: which option. My recommendation: option 1 for the pilot, option
 
 - Who may issue a transmittal. Built: any member. Could be limited to the Records Lead or to editors.
 - Whether the recipient's email address is stored. Not stored now.
+
+## Status: what is built and what is not (2026-11-06)
+
+| Part | Built | Notes |
+|---|---|---|
+| Choose documents, add recipient and purpose | Yes | Demo and code |
+| Number per project (TX-U100-0001) | Yes | Never reused |
+| Record the transmittal (list in the register) | Yes | Demo; SharePoint side not tested |
+| Save list file with checksum | Yes | Uploaded to the library |
+| Audit entry | Yes | Logged on issue |
+| Email text | Yes, copy only | Copy, paste into Outlook, attach list |
+| Send the email from the register | **No** | Needs Power Automate (licence) or mail permission (IT) |
+| Record that the email was sent | **No** | Part of the sending flow |
+| Recipient email address stored | **No** | Add a field when sending is built |
+
+## How sending would work (once Power Automate is confirmed)
+
+1. A transmittal row is added to the Transmittals list.
+2. A flow starts. It reads the row, builds the email from the same text, and attaches the list file.
+3. The flow sends it from the company mailbox to the recipient address.
+4. The flow writes back "sent to [address] on [date]" and an audit entry.
+
+Without a licence: stay with copy and paste. Nothing is lost.
