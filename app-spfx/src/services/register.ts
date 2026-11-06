@@ -17,10 +17,11 @@ import { sha256Hex } from '../domain/sha';
 import { buildDashboard } from '../domain/dashboard';
 import * as SU from '../domain/setup';
 import * as P from '../domain/permissions';
+import * as DR from '../domain/drafts';
 
 export const LISTS = {
   projects: 'Projects', projectTypes: 'ProjectTypes', projectFolders: 'ProjectFolders', templates: 'Templates',
-  documents: 'Documents', revisions: 'Revisions', periods: 'PeriodEntries', certificates: 'CertificateVersions', audit: 'AuditLog', grants: 'Permissions',
+  documents: 'Documents', revisions: 'Revisions', periods: 'PeriodEntries', certificates: 'CertificateVersions', audit: 'AuditLog', grants: 'Permissions', drafts: 'Drafts',
 } as const;
 export const LIBRARY = 'Register Files';
 export const GROUPS = { members: 'Register Members', records: 'Register Records Lead' } as const;
@@ -376,6 +377,38 @@ export class Register {
       Title: `${doc.number} ${key}`, DocumentId: doc.id, PeriodKey: key, Version: 1, NotNeeded: true, NotNeededReason: reason.trim(), Uploader: me.name, UploadedAt: new Date().toISOString(),
     });
     await this.log('Marked not needed', doc.number, `${key}: ${reason.trim()}`, doc.id);
+  }
+
+  /* ---------- working drafts ---------- */
+  /* Drafts the signed-in person may see. The list itself is readable by members, so the app filters. */
+  async drafts(documentId: number): Promise<DR.DraftRow[]> {
+    const me = await this.whoAmI();
+    const rows = await this.sp.web.lists.getByTitle(LISTS.drafts).items
+      .select('Id', 'DocumentId', 'Owner', 'Note', 'FileName', 'FileUrl', 'Checksum', 'Created', 'IsDiscarded')
+      .filter(`DocumentId eq ${documentId}`).orderBy('Id', false).top(500)();
+    const editAny = P.can(me, 'edit_any');
+    return rows.map((r: any) => ({ id: r.Id, documentId: r.DocumentId, owner: r.Owner, note: r.Note || '', fileName: r.FileName || '',
+      fileUrl: r.FileUrl || '', checksum: r.Checksum || '', createdAt: r.Created || '', discarded: !!r.IsDiscarded }))
+      .filter((d: DR.DraftRow) => DR.canSeeDraft(d, me.name, editAny));
+  }
+  /* A draft is not a revision. Nothing is checked or approved. Filed as a separate working copy. */
+  async addDraft(doc: DocumentRow, input: { file: File | null; note: string }): Promise<void> {
+    const me = await this.whoAmI();
+    const errors = DR.draftErrors({ file: input.file ? { name: input.file.name, size: input.file.size } : null, note: input.note });
+    if (Object.keys(errors).length) throw new RuleError('Please fix the highlighted fields.', errors);
+    const up = await this.upload(`${doc.number}_DRAFT_${me.name}_${input.file!.name}`, input.file!);
+    await this.sp.web.lists.getByTitle(LISTS.drafts).items.add({
+      Title: `${doc.number} draft`, DocumentId: doc.id, Owner: me.name, Note: input.note.trim(), FileName: input.file!.name,
+      FileUrl: up.url, Checksum: up.checksum, IsDiscarded: false,
+    });
+    await this.log('Added working draft', doc.number, `${me.name} · not a revision`, doc.id);
+  }
+  async discardDraft(doc: DocumentRow, d: DR.DraftRow): Promise<void> {
+    const me = await this.whoAmI();
+    const problem = DR.canDiscardDraft(d, me.name, P.can(me, 'edit_any'));
+    if (problem) throw new RuleError(problem);
+    await this.sp.web.lists.getByTitle(LISTS.drafts).items.getById(d.id).update({ IsDiscarded: true });
+    await this.log('Discarded working draft', doc.number, `${d.owner}. Kept in the library.`, doc.id);
   }
 
   /* Dashboard numbers. Reads each document's history, so cost grows with the register. Fine for a pilot register. */

@@ -14,3 +14,11 @@
 - O&M (operations and maintenance) template: full folder structure, six document types. Sample project OM1 in the demo.
 - Provisioning adds a Permissions list.
 - Tests: 30 + 12 automated checks in the SharePoint package.
+
+## 0.6.0 (2026-11-06)
+- Working drafts on any document: add your own edited copy with a note. Not a revision, not checked or approved.
+- Drafts are visible to their owner and to anyone who can edit any document. Owners and editors can discard.
+- Draft file names stay out of the shared activity log.
+- Provisioning adds a Drafts list.
+- Known limit: SharePoint itself does not hide one member's draft from another member. The app hides it. Item-level permissions would close this.
+- Tests: 33 + 12 automated checks in the SharePoint package.

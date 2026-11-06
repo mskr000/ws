@@ -1,9 +1,11 @@
 import * as React from 'react';
 import type { DocumentRow, RevisionRow, PeriodRow, CertRow, AuditRow } from '../domain/types';
 import * as R from '../domain/rules';
+import type { DraftRow } from '../domain/drafts';
+import * as DR from '../domain/drafts';
 import { Register, RuleError, Me } from '../services/register';
 import * as P from '../domain/permissions';
-import { Btn, Pill, Field, Notice, Select, input, row, card, C, MONO } from './ui';
+import { Btn, Pill, Field, Notice, Select, input, row, card, C, MONO, hint } from './ui';
 
 const KIND: Record<string, string> = { controlled: 'Controlled', periodic: 'Recurring', record: 'Certificate' };
 const REV_TONE: Record<string, 'ok' | 'wait' | 'bad' | 'check' | 'none'> = { Submitted: 'wait', Checked: 'check', Approved: 'ok', Returned: 'bad' };
@@ -11,7 +13,7 @@ const REV_LABEL: Record<string, string> = { Submitted: 'Waiting for check', Chec
 const PERIOD_LABEL: Record<string, [string, 'ok' | 'wait' | 'bad' | 'check' | 'old' | 'none']> = {
   on_time: ['On time', 'ok'], late: ['Late', 'wait'], missing: ['Missing', 'bad'], open: ['Open', 'check'], not_needed: ['Not needed', 'old'], upcoming: ['', 'none'] };
 
-interface Loaded { doc: DocumentRow; revs: RevisionRow[]; periods: PeriodRow[]; certs: CertRow[]; audit: AuditRow[] }
+interface Loaded { doc: DocumentRow; revs: RevisionRow[]; periods: PeriodRow[]; certs: CertRow[]; audit: AuditRow[]; drafts: DraftRow[] }
 
 export function DocumentPage(props: { reg: Register; id: number; me: Me; members: string[]; onBack: () => void; onChanged: () => void }) {
   const [data, setData] = React.useState<Loaded | null>(null);
@@ -26,6 +28,8 @@ export function DocumentPage(props: { reg: Register; id: number; me: Me; members
   const [renew, setRenew] = React.useState({ file: null as File | null, summary: '', expiresOn: '' });
   const [removeOpen, setRemoveOpen] = React.useState(false);
   const [remove, setRemove] = React.useState({ reason: '', text: '' });
+  const [draft, setDraft] = React.useState({ file: null as File | null, note: '' });
+  const [draftOpen, setDraftOpen] = React.useState(false);
 
   const load = React.useCallback(async () => {
     const docs = await props.reg.documents();
@@ -37,7 +41,8 @@ export function DocumentPage(props: { reg: Register; id: number; me: Me; members
       doc.kind === 'record' ? props.reg.certificates(doc.id) : Promise.resolve([] as CertRow[]),
       props.reg.audit(doc.id, 30),
     ]);
-    setData({ doc, revs, periods, certs, audit });
+    const drafts = doc.removed ? [] : await props.reg.drafts(doc.id);
+    setData({ doc, revs, periods, certs, audit, drafts });
   }, [props.reg, props.id]);
 
   React.useEffect(() => { load().catch(e => setMsg({ tone: 'bad', text: String(e.message || e) })); }, [load]);
@@ -52,7 +57,7 @@ export function DocumentPage(props: { reg: Register; id: number; me: Me; members
   };
 
   if (!data) return <div>{msg ? <Notice tone={msg.tone}>{msg.text}</Notice> : 'Loading…'}</div>;
-  const { doc, revs, periods, certs, audit } = data;
+  const { doc, revs, periods, certs, audit, drafts } = data;
   const cur = revs.filter(r => r.status === 'Approved').slice(-1)[0];
   const last = revs.length ? revs[revs.length - 1] : undefined;
   const isOwner = props.me.name === doc.owner;
@@ -218,6 +223,37 @@ export function DocumentPage(props: { reg: Register; id: number; me: Me; members
           <span style={{ fontSize: 13, color: C.soft }}>{canRemove ? 'You can remove this. Nothing is erased.' : 'You need the remove permission to remove a document. Ask an admin.'}</span>
         </>
       )}
+
+      {!doc.removed ? (
+        <>
+          <h2>Working drafts</h2>
+          <div style={{ ...hint, marginBottom: 10 }}>Your own copies for editing or review together. Drafts are not revisions. Nothing in them is checked or approved. To make a change official, add it as a revision.</div>
+          {drafts.length ? (
+            <div style={card}>
+              {drafts.map(d => (
+                <div key={d.id} style={{ ...row, justifyContent: 'space-between', padding: '8px 0', borderBottom: `1px solid ${C.line}` }}>
+                  <div>
+                    <div style={{ fontWeight: 500 }}>{d.fileName} <span style={{ color: C.soft, fontWeight: 400 }}>· {d.owner} · {d.createdAt.slice(0, 10)}</span></div>
+                    {d.note ? <div style={{ fontSize: 14, color: C.soft }}>{d.note}</div> : null}
+                    <div style={{ fontSize: 12, color: C.soft, fontFamily: MONO, wordBreak: 'break-all' }}>SHA-256 {d.checksum || 'not recorded'}</div>
+                  </div>
+                  {DR.canDiscardDraft(d, props.me.name, P.can(props.me, 'edit_any')) === null ? <Btn kind="link" onClick={() => run(() => props.reg.discardDraft(doc, d), 'Draft discarded. It stays in the library.')}>Discard</Btn> : null}
+                </div>
+              ))}
+            </div>
+          ) : <div style={{ ...card, color: C.soft }}>No drafts yet.</div>}
+          {draftOpen ? (
+            <section style={card}>
+              <Field label="File" error={fieldErr.file}><input type="file" aria-label="Draft file" onChange={e => setDraft({ ...draft, file: e.target.files?.[0] || null })} /></Field>
+              <Field label="What did you change? (optional)" error={fieldErr.note}><input aria-label="Draft note" value={draft.note} onChange={e => setDraft({ ...draft, note: e.target.value })} style={input} /></Field>
+              <div style={row}>
+                <Btn kind="primary" onClick={() => run(async () => { await props.reg.addDraft(doc, draft); setDraft({ file: null, note: '' }); setDraftOpen(false); }, 'Draft added. Only you and editors can see it.')}>Add draft</Btn>
+                <Btn onClick={() => setDraftOpen(false)}>Cancel</Btn>
+              </div>
+            </section>
+          ) : <Btn onClick={() => setDraftOpen(true)}>Add a draft</Btn>}
+        </>
+      ) : null}
 
       <h2>Recent activity</h2>
       <div style={{ ...card, fontSize: 14 }}>

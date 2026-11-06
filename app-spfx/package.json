@@ -1,6 +1,6 @@
 {
   "name": "document-register-spfx",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "description": "Document Register web part for SharePoint Online (SPFx 1.20).",
   "engines": {
@@ -10,7 +10,7 @@
     "build": "gulp build",
     "bundle": "gulp bundle --ship",
     "package-solution": "gulp package-solution --ship",
-    "test": "node --experimental-strip-types --test tests/rules.test.ts tests/numbering.test.ts tests/sp.test.ts tests/dashboard.test.ts tests/permissions.test.ts && node scripts/test-bundled.mjs"
+    "test": "node --experimental-strip-types --test tests/rules.test.ts tests/numbering.test.ts tests/sp.test.ts tests/dashboard.test.ts tests/permissions.test.ts tests/drafts.test.ts && node scripts/test-bundled.mjs"
   },
   "dependencies": {
     "@microsoft/sp-core-library": "1.20.0",

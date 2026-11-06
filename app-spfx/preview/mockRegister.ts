@@ -6,6 +6,10 @@ import { RuleError } from '../src/services/register';
 import * as SU from '../src/domain/setup';
 import { sha256Hex } from '../src/domain/sha';
 import * as P from '../src/domain/permissions';
+import * as DR from '../src/domain/drafts';
+
+const DRAFTS: DR.DraftRow[] = [];
+const draftDoc = (d: DR.DraftRow) => DR.canSeeDraft(d, ME, can('edit_any'));
 import { buildDashboard } from '../src/domain/dashboard';
 
 /* SHA-256 of the file the user picked. Same method as the SharePoint version. */
@@ -137,6 +141,22 @@ export class MockRegister {
       revisions: revs.map(r => ({ documentId: r.documentId, n: r.n, status: r.status, checker: r.checker, approver: r.approver, by: r.uploader })),
       periods: periods.slice(), certificates: certs.slice(),
     });
+  }
+  async drafts(documentId: number): Promise<DR.DraftRow[]> {
+    return DRAFTS.filter(d => d.documentId === documentId).filter(draftDoc).slice().reverse();
+  }
+  async addDraft(doc: DocumentRow, input: { file: File | null; note: string }) {
+    const errors = DR.draftErrors({ file: input.file ? { name: input.file.name, size: input.file.size } : null, note: input.note });
+    if (Object.keys(errors).length) throw new RuleError('Please fix the highlighted fields.', errors);
+    const cs = await sumOf(input.file);
+    DRAFTS.push({ id: nextId++, documentId: doc.id, owner: ME, note: input.note.trim(), fileName: input.file!.name, fileUrl: '#', checksum: cs, createdAt: today(), discarded: false });
+    this.log('Added working draft', doc.number, `${ME} · not a revision`);
+  }
+  async discardDraft(doc: DocumentRow, d: DR.DraftRow) {
+    const problem = DR.canDiscardDraft(d, ME, can('edit_any'));
+    if (problem) throw new RuleError(problem);
+    d.discarded = true;
+    this.log('Discarded working draft', doc.number, `${d.owner}. Kept in the library.`);
   }
   async documents(project?: string) { return docs.filter(d => !project || d.project === project); }
   async allDocumentNumbers() { return docs.map(d => d.number); }

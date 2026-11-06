@@ -62,4 +62,5 @@ export interface CertRow {
   uploadedAt: string;
   checksum: string;
 }
+export type { DraftRow } from './drafts';
 export interface AuditRow { id: number; when: string; who: string; action: string; docNumber: string; detail: string }
