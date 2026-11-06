@@ -54,3 +54,20 @@ test('bootstrap gives the Records Lead group admin only when no grants exist', (
   assert.ok(boot.some(x => x.user === 'Mia' && x.cap === 'permissions'));
   assert.deepEqual(P.bootstrapGrants(['Mia'], true), []);
 });
+
+test('anyone can create an internal project; standard needs the projects permission', () => {
+  const sam: P.Me = { name: 'Sam', grants: [] };
+  const mia: P.Me = { name: 'Mia', grants: [g('Mia', 'projects')] };
+  assert.equal(P.canCreateProject(sam, 'internal'), true);
+  assert.equal(P.canCreateProject(sam, 'standard'), false);
+  assert.equal(P.canCreateProject(mia, 'standard'), true);
+});
+
+test('the creator manages their internal project; nobody manages someone else\'s standard one without permission', () => {
+  const sam: P.Me = { name: 'Sam', grants: [] };
+  assert.equal(P.canManageProject(sam, { code: 'SAM1', kind: 'internal', owner: 'Sam' }), true);
+  assert.equal(P.canManageProject(sam, { code: 'U100', kind: 'standard', owner: 'Mia' }), false);
+  assert.equal(P.canManageProject(sam, { code: 'SAM2', kind: 'internal', owner: 'Priya' }), false);
+  const mia: P.Me = { name: 'Mia', grants: [g('Mia', 'projects')] };
+  assert.equal(P.canManageProject(mia, { code: 'SAM1', kind: 'internal', owner: 'Sam' }), true);
+});

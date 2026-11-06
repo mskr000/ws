@@ -1,4 +1,5 @@
 import * as P from '../domain/permissions';
+import type { ProjectInfo } from '../domain/types';
 import type { Me } from '../services/register';
 import * as React from 'react';
 import * as SU from '../domain/setup';
@@ -14,16 +15,16 @@ const blankSetup = (): SU.ProjectSetup => {
     types: SU.DOC_TYPES.map(t => ({ code: t.code, enabled: std.types.some(x => x.code === t.code), folder: t.folder, firstNumber: 1 })) };
 };
 
-export function ProjectForm(props: { reg: Register; me: Me; code: string | null; onDone: () => void; onCancel: () => void }) {
+export function ProjectForm(props: { reg: Register; me: Me; code: string | null; project?: ProjectInfo; onDone: () => void; onCancel: () => void }) {
   const isNew = props.code === null;
-  const canEdit = P.can(props.me, 'projects', props.code || P.ALL_PROJECTS);
-  const ro = !canEdit;
+  const privileged = P.can(props.me, 'projects');
+  const [kind, setKind] = React.useState<'standard' | 'internal'>(privileged ? 'standard' : 'internal');
   const [pf, setPf] = React.useState<SU.ProjectSetup | null>(isNew ? blankSetup() : null);
   const [before, setBefore] = React.useState<Before | null>(null);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [msg, setMsg] = React.useState<{ tone: 'bad' | 'ok' | 'info'; text: string } | null>(null);
   const [templates, setTemplates] = React.useState<SU.TemplateDef[]>(SU.BUILT_IN_TEMPLATES);
-  const [tplId, setTplId] = React.useState('');
+  const [tplId, setTplId] = React.useState(privileged ? '' : 'internal-workspace');
   const [newFolder, setNewFolder] = React.useState('');
   const [csvMsg, setCsvMsg] = React.useState<{ tone: 'bad' | 'ok'; lines: string[] } | null>(null);
   const [saveName, setSaveName] = React.useState('');
@@ -40,6 +41,9 @@ export function ProjectForm(props: { reg: Register; me: Me; code: string | null;
   }, [props.code]);
 
   if (!pf) return <div>{msg ? <Notice tone={msg.tone}>{msg.text}</Notice> : 'Loading…'}</div>;
+  const canEdit = isNew ? P.canCreateProject(props.me, kind) : P.canManageProject(props.me, { code: pf.code, kind: pf.kind || 'standard', owner: pf.owner || '' });
+  const ro = !canEdit;
+  const usableTemplates = privileged ? templates : templates.filter(t => t.id === 'internal-workspace');
   const locked = !!before?.locked;
   const set = (patch: Partial<SU.ProjectSetup>) => setPf({ ...pf, ...patch });
   const setType = (code: string, patch: Partial<SU.SetupType>) => set({ types: pf.types.map(t => t.code === code ? { ...t, ...patch } : t) });
@@ -73,7 +77,7 @@ export function ProjectForm(props: { reg: Register; me: Me; code: string | null;
   const save = async () => {
     setBusy(true); setErrors({}); setMsg(null);
     try {
-      if (isNew) { const code = await props.reg.createProject({ ...pf, code: pf.code.trim().toUpperCase() }); setMsg({ tone: 'ok', text: `${code} created.` }); props.onDone(); }
+      if (isNew) { const code = await props.reg.createProject({ ...pf, code: pf.code.trim().toUpperCase(), kind }); setMsg({ tone: 'ok', text: `${code} created.` }); props.onDone(); }
       else { const n = await props.reg.updateProject(pf, before!); setMsg({ tone: 'ok', text: n ? 'Saved.' : 'No changes.' }); props.onDone(); }
     } catch (e) {
       if (e instanceof RuleError) { setErrors(e.fields); setMsg({ tone: 'bad', text: e.message }); }
@@ -101,7 +105,7 @@ export function ProjectForm(props: { reg: Register; me: Me; code: string | null;
         <section style={card}>
           <h2>0. Start from a template</h2>
           <div style={row}>
-            <Select label="Template" value={tplId} onChange={setTplId} placeholder="Blank: standard structure" options={templates.map(t => [t.id, `${t.name}${t.builtIn ? '' : ' (saved)'}`])} />
+            <Select label="Template" value={tplId} onChange={setTplId} placeholder="Blank: standard structure" options={usableTemplates.map(t => [t.id, `${t.name}${t.builtIn ? '' : ' (saved)'}`])} />
             <Btn disabled={ro} onClick={() => { const t = templates.find(x => x.id === tplId); if (t) applyTemplate(t); else set({ ...blankSetup(), code: pf.code, name: pf.name }); }}>Load template</Btn>
           </div>
           <div style={{ fontSize: 12.5, color: C.soft, marginTop: 6 }}>{templates.find(t => t.id === tplId)?.description || 'Loading a template fills in folders, numbering and document types. You can still change them.'}</div>
@@ -111,6 +115,10 @@ export function ProjectForm(props: { reg: Register; me: Me; code: string | null;
       <section style={card}>
         <h2>1. Basics</h2>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <Field label="Kind" help={privileged ? 'Standard: the official register. Internal: your own team space, no approval.' : 'Internal: your own team space. Only the creator manages it.'}>
+            {isNew && privileged ? <Select label="Kind" value={kind} onChange={v => setKind(v as 'standard' | 'internal')} options={[['standard', 'Standard (official register)'], ['internal', 'Internal (own team, no approval)']]} />
+              : <div style={{ fontSize: 14, padding: '9px 0' }}>{(pf.kind || kind) === 'internal' ? 'Internal' : 'Standard'}{pf.owner ? ` · owner ${pf.owner}` : ''}</div>}
+          </Field>
           <Field label="Project code" error={errors.code} help="2 to 5 capital letters or digits. Used at the start of every document number. Cannot change once documents exist.">
             <input aria-label="Project code" value={pf.code} disabled={!isNew || ro} onChange={e => set({ code: e.target.value.toUpperCase() })} style={input} />
           </Field>
@@ -179,7 +187,7 @@ export function ProjectForm(props: { reg: Register; me: Me; code: string | null;
         {err('types')}
       </section>
 
-      {!isNew && canEdit ? (
+      {!isNew && privileged && canEdit ? (
         <section style={card}>
           <h2>Save this setup as a template</h2>
           <div style={row}>

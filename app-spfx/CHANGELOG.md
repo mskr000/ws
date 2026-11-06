@@ -38,3 +38,10 @@
 - Internal workspace template: one folder, uncontrolled documents only. Sample project INT in the demo.
 - Any member can add uncontrolled documents to an internal workspace. Creating the workspace needs the projects permission.
 - Tests: 38 + 12 automated checks.
+
+## 0.9.0 (2026-11-06)
+- Anyone can create an internal project and manage it: name, folders, document types, status.
+- Standard projects still need the projects permission.
+- Project kind (Standard or Internal) and owner are stored with each project.
+- Members get Edit on Projects, ProjectTypes and ProjectFolders in provisioning. The web part limits them to internal projects they own. See UPGRADING.md.
+- Tests: 40 + 12 automated checks.

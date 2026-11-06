@@ -33,10 +33,10 @@ export function signInAs(name: string) { ME = name; }
 const MEMBERS = ['Admin', 'Mia', 'Priya', 'Sam', 'Tom'];
 export const PREVIEW_PEOPLE = MEMBERS;
 const PROJECTS: ProjectInfo[] = [
-  { code: 'U100', name: 'Unit 100 Refinery', status: 'active', numberPattern: R.DEFAULT_PATTERN },
-  { code: 'TF7', name: 'Tank Farm TF-7', status: 'active', numberPattern: R.DEFAULT_PATTERN },
-  { code: 'OM1', name: 'O&M project (sample)', status: 'active', numberPattern: R.DEFAULT_PATTERN },
-  { code: 'INT', name: 'Internal working (sample)', status: 'active', numberPattern: R.DEFAULT_PATTERN },
+  { code: 'U100', name: 'Unit 100 Refinery', status: 'active', numberPattern: R.DEFAULT_PATTERN, kind: 'standard', owner: 'Mia' },
+  { code: 'TF7', name: 'Tank Farm TF-7', status: 'active', numberPattern: R.DEFAULT_PATTERN, kind: 'standard', owner: 'Mia' },
+  { code: 'OM1', name: 'O&M project (sample)', status: 'active', numberPattern: R.DEFAULT_PATTERN, kind: 'standard', owner: 'Mia' },
+  { code: 'INT', name: 'Internal working (sample)', status: 'active', numberPattern: R.DEFAULT_PATTERN, kind: 'internal', owner: 'Sam' },
 ];
 const TYPES: Record<string, DocTypeInfo[]> = {
   U100: [
@@ -104,7 +104,7 @@ export class MockRegister {
       types: SU.DOC_TYPES.map(d => ({ code: d.code, enabled: ['PID','SOP','MNT','RPT','CERT'].includes(d.code), folder: d.folder, firstNumber: 1 })) },
     OM1: { code: 'OM1', name: 'O&M project (sample)', status: 'active', numberPattern: R.DEFAULT_PATTERN, folders: SU.OM_FOLDERS.slice(),
       types: SU.OM_TYPES.map(d => ({ code: d.code, enabled: true, folder: d.folder, firstNumber: 1 })) },
-    INT: { code: 'INT', name: 'Internal working (sample)', status: 'active', numberPattern: R.DEFAULT_PATTERN, folders: ['Working documents'],
+    INT: { code: 'INT', name: 'Internal working (sample)', status: 'active', numberPattern: R.DEFAULT_PATTERN, folders: ['Working documents'], kind: 'internal', owner: 'Sam',
       types: [{ code: 'WRK', enabled: true, folder: 'Working documents', firstNumber: 1 }] },
     TF7: { code: 'TF7', name: 'Tank Farm TF-7', status: 'active', numberPattern: R.DEFAULT_PATTERN, folders: ['EPC/02 Engineering/02.1 Process'],
       types: SU.DOC_TYPES.map(d => ({ code: d.code, enabled: d.code === 'PID', folder: 'EPC/02 Engineering/02.1 Process', firstNumber: 1 })) },
@@ -117,16 +117,18 @@ export class MockRegister {
     return { setup, locked: docs.some(d => d.project === code), docsInFolder: folderDocs, docsOfType: typeDocs };
   }
   async createProject(setup: SU.ProjectSetup) {
-    if (!can('projects')) throw new RuleError('You do not have permission to add a project. Ask an admin.');
+    const kind = setup.kind || 'standard';
+    if (!P.canCreateProject({ name: ME, grants: GRANTS }, kind)) throw new RuleError('You do not have permission to add a standard project. Ask an admin, or create an internal project.');
     const errors = SU.projectSetupErrors(setup, true, PROJECTS.map(p => p.code));
     if (Object.keys(errors).length) throw new RuleError('Please fix the highlighted fields.', errors);
-    PROJECTS.push({ code: setup.code, name: setup.name, status: 'active', numberPattern: setup.numberPattern });
+    PROJECTS.push({ code: setup.code, name: setup.name, status: 'active', numberPattern: setup.numberPattern, kind, owner: ME });
+    setup = { ...setup, kind, owner: ME };
     this.setups[setup.code] = setup;
     this.log('Created project', '', `${setup.code} · ${setup.name}`);
     return setup.code;
   }
   async updateProject(setup: SU.ProjectSetup, before: any) {
-    if (!can('projects', setup.code)) throw new RuleError('You do not have permission to change this project. Ask an admin.');
+    if (!P.canManageProject({ name: ME, grants: GRANTS }, { code: setup.code, kind: before.setup.kind || 'standard', owner: before.setup.owner || '' })) throw new RuleError('You do not have permission to change this project. Ask an admin.');
     const errors = SU.projectSetupErrors(setup, false, []);
     for (const f of before.setup.folders) if (!setup.folders.includes(f) && (before.docsInFolder[f] || 0) > 0) errors[`folder:${f}`] = `${before.docsInFolder[f]} document(s) are filed here. Move them first.`;
     for (const t of before.setup.types) { const still = setup.types.find((x: SU.SetupType) => x.code === t.code && x.enabled); if (!still && (before.docsOfType[t.code] || 0) > 0) errors[`type:${t.code}`] = `${before.docsOfType[t.code]} document(s) of this type exist.`; }

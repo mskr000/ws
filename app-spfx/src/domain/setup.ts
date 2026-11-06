@@ -56,6 +56,7 @@ export interface SetupType { code: string; enabled: boolean; folder: string; fir
 export interface ProjectSetup {
   code: string; name: string; status: 'active' | 'archived'; numberPattern: string;
   folders: string[]; types: SetupType[];
+  kind?: 'standard' | 'internal'; owner?: string;
 }
 
 /* Full check of a project setup. Returns { field: message }. Keys: code, name, folders, types, numberPattern,

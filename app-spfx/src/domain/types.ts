@@ -1,6 +1,6 @@
 import type { DocKind, RevStatus } from './rules';
 
-export interface ProjectInfo { code: string; name: string; status: 'active' | 'archived'; numberPattern: string }
+export interface ProjectInfo { code: string; name: string; status: 'active' | 'archived'; numberPattern: string; kind: 'standard' | 'internal'; owner: string }
 export interface DocTypeInfo { code: string; label: string; kind: DocKind; folder: string; firstNumber: number }
 
 export interface DocumentRow {

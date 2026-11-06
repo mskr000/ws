@@ -59,3 +59,17 @@ export function bootstrapGrants(groupMembers: string[], hasAnyGrants: boolean): 
   if (hasAnyGrants) return [];
   return groupMembers.flatMap((user, i) => presetGrants('Admin', user, ALL_PROJECTS, '').map((g, j) => ({ ...g, id: -(i * 10 + j + 1) })));
 }
+
+/* Internal projects are for one person or a small team, outside the official register.
+   Anyone can create one. Its creator manages it: folders, document types, name, status.
+   Standard projects need the projects permission. */
+export type ProjectKind = 'standard' | 'internal';
+export interface ProjectRef { code: string; kind: ProjectKind; owner: string }
+
+export function canCreateProject(me: Me, kind: ProjectKind): boolean {
+  return kind === 'internal' || can(me, 'projects');
+}
+
+export function canManageProject(me: Me, p: ProjectRef): boolean {
+  return can(me, 'projects', p.code) || (p.kind === 'internal' && p.owner === me.name);
+}

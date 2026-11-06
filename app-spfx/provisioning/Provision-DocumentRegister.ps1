@@ -118,6 +118,8 @@ Ensure-Field 'CertificateVersions' 'UploadedAt' 'DateTime' 'Uploaded at'
 Ensure-List 'AuditLog' | Out-Null
 Ensure-List 'Permissions' | Out-Null
 Ensure-List 'Drafts' | Out-Null
+Ensure-Field 'Projects' 'ProjectKind' 'Text' 'Kind (Standard or Internal)'
+Ensure-Field 'Projects' 'ProjectOwner' 'Text' 'Owner (creator)'
 Ensure-List 'Transmittals' | Out-Null
 Ensure-Field 'Transmittals' 'ProjectCode' 'Text' 'Project code'
 Ensure-Field 'Transmittals' 'ToName' 'Text' 'Sent to'
@@ -175,8 +177,13 @@ foreach ($l in $secured) {
 }
 
 # Reference lists: members can read, only the Records Lead changes them.
-foreach ($l in @('Projects','ProjectTypes','ProjectFolders','Templates','Permissions')) {
+foreach ($l in @('Templates','Permissions')) {
   Set-PnPListPermission -Identity $l -AddRole 'Read' -Group 'Register Members' | Out-Null
+}
+# Projects, types and folders: members edit, so they can run their own internal projects.
+# SharePoint cannot limit a member to internal projects only. The web part does. See UPGRADING.md.
+foreach ($l in @('Projects','ProjectTypes','ProjectFolders')) {
+  Set-PnPListPermission -Identity $l -AddRole 'Edit' -Group 'Register Members' | Out-Null
 }
 # Working lists: members add and update (checks, approvals, uploads).
 foreach ($l in @('Documents','Revisions','PeriodEntries','CertificateVersions')) {

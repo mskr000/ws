@@ -94,8 +94,9 @@ export class Register {
   /* ---------- reads ---------- */
   async projects(): Promise<ProjectInfo[]> {
     const rows = await this.sp.web.lists.getByTitle(LISTS.projects).items
-      .select('Title', 'ProjectName', 'ProjectStatus', 'NumberPattern').orderBy('Title').top(500)();
-    return rows.map((r: any) => ({ code: r.Title, name: r.ProjectName, status: r.ProjectStatus === 'Archived' ? 'archived' : 'active', numberPattern: r.NumberPattern || R.DEFAULT_PATTERN }));
+      .select('Title', 'ProjectName', 'ProjectStatus', 'NumberPattern', 'ProjectKind', 'ProjectOwner').orderBy('Title').top(500)();
+    return rows.map((r: any) => ({ code: r.Title, name: r.ProjectName, status: r.ProjectStatus === 'Archived' ? 'archived' : 'active', numberPattern: r.NumberPattern || R.DEFAULT_PATTERN,
+      kind: r.ProjectKind === 'Internal' ? 'internal' : 'standard', owner: r.ProjectOwner || '' }));
   }
   /* Document types on for this project, with their folder and first number. Labels and kinds come from the code library. */
   async projectTypes(project: string): Promise<DocTypeInfo[]> {
@@ -124,19 +125,22 @@ export class Register {
       for (const f of folders) if (d.folder === f || d.folder.startsWith(f + '/')) docsInFolder[f] = (docsInFolder[f] || 0) + 1;
     }
     return {
-      setup: { code, name: p.ProjectName, status: p.ProjectStatus === 'Archived' ? 'archived' : 'active', numberPattern: p.NumberPattern || R.DEFAULT_PATTERN, folders, types },
+      setup: { code, name: p.ProjectName, status: p.ProjectStatus === 'Archived' ? 'archived' : 'active', numberPattern: p.NumberPattern || R.DEFAULT_PATTERN, folders, types,
+        kind: p.ProjectKind === 'Internal' ? 'internal' : 'standard', owner: p.ProjectOwner || '' },
       locked: docs.length > 0, docsInFolder, docsOfType,
     };
   }
   async createProject(setup: SU.ProjectSetup): Promise<string> {
     const me = await this.whoAmI();
-    requireCap(me, 'projects', P.ALL_PROJECTS, '', 'add a project');
+    const kind = setup.kind || 'standard';
+    if (!P.canCreateProject(me, kind)) throw new RuleError('You do not have permission to add a standard project. Ask an admin, or create an internal project.');
     const code = setup.code.trim().toUpperCase();
     const existing = (await this.projects()).map(p => p.code);
     const errors = SU.projectSetupErrors({ ...setup, code }, true, existing);
     if (Object.keys(errors).length) throw new RuleError('Please fix the highlighted fields.', errors);
     await this.sp.web.lists.getByTitle(LISTS.projects).items.add({
       Title: code, ProjectName: setup.name.trim(), ProjectStatus: 'Active', NumberPattern: setup.numberPattern.trim(),
+      ProjectKind: kind === 'internal' ? 'Internal' : 'Standard', ProjectOwner: me.name,
     });
     for (const f of setup.folders) await this.sp.web.lists.getByTitle(LISTS.projectFolders).items.add({ Title: f, ProjectCode: code });
     for (const t of setup.types.filter(x => x.enabled)) {
@@ -147,7 +151,8 @@ export class Register {
   }
   async updateProject(setup: SU.ProjectSetup, before: { setup: SU.ProjectSetup; docsInFolder: Record<string, number>; docsOfType: Record<string, number>; locked: boolean }): Promise<number> {
     const me = await this.whoAmI();
-    requireCap(me, 'projects', setup.code, '', 'change a project');
+    const ref = { code: setup.code, kind: before.setup.kind || 'standard', owner: before.setup.owner || '' } as P.ProjectRef;
+    if (!P.canManageProject(me, ref)) throw new RuleError('You do not have permission to change this project. Ask an admin.');
     const errors = SU.projectSetupErrors(setup, false, []);
     const cur = before.setup;
     for (const f of cur.folders) if (!setup.folders.includes(f) && (before.docsInFolder[f] || 0) > 0) errors[`folder:${f}`] = `${before.docsInFolder[f]} document(s) are filed here. Move them first.`;

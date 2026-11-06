@@ -58,3 +58,10 @@ Schema changes to SharePoint lists:
 
 - A scheduled export of the SharePoint lists (planned under item 25, audit export). Until then, use the manual backup above.
 - A tested restore procedure for the SharePoint lists. Not built. The local app restore is copying a backup file back over `register.db` with the app stopped.
+
+## Internal projects and SharePoint permissions (added 0.9.0)
+
+- Members can create internal projects and edit their own. The web part enforces this.
+- To allow that, members get Edit on the Projects, ProjectTypes and ProjectFolders lists.
+- SharePoint cannot stop a member from editing a standard project directly in the list. The web part can. A list-level check would need a separate list for internal projects, or item-level permissions.
+- Decision needed: accept this for the pilot, or keep internal projects in their own lists.
