@@ -160,3 +160,58 @@ Ranked by value for an EPC or operations team:
 5. Expiry tracker. Reuses the reminder engine.
 6. Handover completeness. Needs the master list.
 7. Full-text search. Heavy. Needs its own scope.
+
+---
+
+## Addendum: Personal working drafts (scope only)
+
+Date: 2026-11-06.
+
+### Problem
+
+People need to work on a document before anyone else sees it. Examples: marking up a revision, drafting a monthly report, preparing a certificate renewal. Today the register has no private space.
+
+### Rules
+
+1. **Drafts are private.** Only the owner sees a draft. Drafts do not show as Current, Latest or Waiting.
+2. **Drafts are not revisions.** A draft becomes a revision only when the owner submits it.
+3. **Start from the current file.** "Start working on a revision" copies the Current file (or the latest file) into the owner's draft.
+4. **Check-out lock (recommended).** Starting a draft locks the document for editing by others, with a visible "in draft by X since date" flag. Lock expires after a set time (for example 10 working days) and the owner or records lead can release it.
+5. **Each upload to a draft is a draft version.** Old draft versions are kept, so a bad edit can be rolled back.
+6. **Submit** creates the revision (controlled), the period (recurring) or the renewal (certificate), with summary, reason and checker/approver as before.
+7. **Discard** removes the draft from view, keeps its versions in the audit log, and releases the lock.
+8. **Drafts in exports.** Transmittals and exports never include drafts unless the owner chooses it.
+
+### Download and upload
+
+- Download gives a copy. The original stays in the register.
+- Editing happens on the owner's computer, in the owner's own applications.
+- Uploading back goes to the draft, not to the register.
+- In SharePoint, this maps to native check-out and check-in. Draft folders per person are restricted to that person and the records lead.
+
+### Who can do what
+
+| Action | Owner | Others | Records lead |
+|---|---|---|---|
+| Start draft | Yes (locks document) | No | Can release lock |
+| Upload draft version | Yes | No | No |
+| Download draft | Yes | No | Yes (for support) |
+| Submit draft | Yes | No | No |
+| Discard draft | Yes | No | Yes |
+
+### Critique and risks
+
+1. **Lock abandonment.** Drafts left open block everyone. Needs an expiry and a reminder.
+2. **Two people, one draft.** Only one editor at a time, enforced by the lock. Cannot merge.
+3. **Private does not mean secret.** The records lead can see drafts for support. This must be stated to users.
+4. **Draft numbers.** Decide whether a draft uses a number now. Recommended: numbers are assigned on first submit, so no gaps appear.
+5. **Audit.** Draft starts, uploads and discards are logged. Draft content is not.
+6. **Storage.** Draft versions grow fast. Need a cap or a clean-up rule.
+7. **Permissions in SharePoint.** Personal draft folders must not be readable by project members. Test this before go-live.
+
+### Open decisions
+
+1. Lock expiry time: 10 working days proposed.
+2. Are drafts visible to the project admin, or to the records lead only?
+3. Should draft numbers be reserved?
+4. Maximum draft versions kept per person.
