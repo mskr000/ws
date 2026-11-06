@@ -127,6 +127,8 @@ export const OM_TYPES: DocTypeDef[] = [
 ];
 
 export const BUILT_IN_TEMPLATES: TemplateDef[] = [
+  { id: 'internal-workspace', name: 'Internal workspace (no approval)', description: 'For your own files, team working or unofficial work. One folder, uncontrolled documents only: no check, no approval.',
+    numberPattern: DEFAULT_PATTERN, folders: ['Working documents'], types: typesOf(['WRK']), builtIn: true },
   { id: 'om-standard', name: 'O&M (operations and maintenance)', description: 'Standard O&M structure: engineering, change management, equipment, contracts, maintenance, operations, HSEQ, training, warranty, finance, EPC handover.',
     numberPattern: DEFAULT_PATTERN, folders: OM_FOLDERS, types: OM_TYPES.map(t => ({ code: t.code, enabled: true, folder: t.folder, firstNumber: 1 })), builtIn: true },
   { id: 'epc-standard', name: 'EPC project (standard)', description: 'Full EPC structure: project management, engineering, procurement, construction, commissioning and handover. Every EPC document type on.',

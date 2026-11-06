@@ -36,6 +36,7 @@ const PROJECTS: ProjectInfo[] = [
   { code: 'U100', name: 'Unit 100 Refinery', status: 'active', numberPattern: R.DEFAULT_PATTERN },
   { code: 'TF7', name: 'Tank Farm TF-7', status: 'active', numberPattern: R.DEFAULT_PATTERN },
   { code: 'OM1', name: 'O&M project (sample)', status: 'active', numberPattern: R.DEFAULT_PATTERN },
+  { code: 'INT', name: 'Internal working (sample)', status: 'active', numberPattern: R.DEFAULT_PATTERN },
 ];
 const TYPES: Record<string, DocTypeInfo[]> = {
   U100: [
@@ -47,6 +48,7 @@ const TYPES: Record<string, DocTypeInfo[]> = {
   ],
   TF7: [{ code: 'PID', label: 'P&ID', kind: 'controlled', folder: 'EPC/02 Engineering/02.1 Process' }],
   OM1: SU.OM_TYPES.map(t => ({ ...t, folder: t.folder })),
+  INT: [{ code: 'WRK', label: 'Working document (uncontrolled)', kind: 'working', folder: 'Working documents', firstNumber: 1 }],
 };
 
 let nextId = 100;
@@ -102,6 +104,8 @@ export class MockRegister {
       types: SU.DOC_TYPES.map(d => ({ code: d.code, enabled: ['PID','SOP','MNT','RPT','CERT'].includes(d.code), folder: d.folder, firstNumber: 1 })) },
     OM1: { code: 'OM1', name: 'O&M project (sample)', status: 'active', numberPattern: R.DEFAULT_PATTERN, folders: SU.OM_FOLDERS.slice(),
       types: SU.OM_TYPES.map(d => ({ code: d.code, enabled: true, folder: d.folder, firstNumber: 1 })) },
+    INT: { code: 'INT', name: 'Internal working (sample)', status: 'active', numberPattern: R.DEFAULT_PATTERN, folders: ['Working documents'],
+      types: [{ code: 'WRK', enabled: true, folder: 'Working documents', firstNumber: 1 }] },
     TF7: { code: 'TF7', name: 'Tank Farm TF-7', status: 'active', numberPattern: R.DEFAULT_PATTERN, folders: ['EPC/02 Engineering/02.1 Process'],
       types: SU.DOC_TYPES.map(d => ({ code: d.code, enabled: d.code === 'PID', folder: 'EPC/02 Engineering/02.1 Process', firstNumber: 1 })) },
   };

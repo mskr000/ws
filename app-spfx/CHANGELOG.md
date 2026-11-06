@@ -31,3 +31,10 @@
 - Email text built from the transmittal. Copy it; sending is not built yet. See TRANSMITTAL_DESIGN.md.
 - Provisioning adds a Transmittals list.
 - Tests: 38 + 12 automated checks.
+
+## 0.8.0 (2026-11-06)
+- Download is an icon with a tooltip and a label for screen readers.
+- Revisions are separated by lines and spacing.
+- Internal workspace template: one folder, uncontrolled documents only. Sample project INT in the demo.
+- Any member can add uncontrolled documents to an internal workspace. Creating the workspace needs the projects permission.
+- Tests: 38 + 12 automated checks.

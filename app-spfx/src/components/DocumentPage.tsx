@@ -6,7 +6,7 @@ import * as DR from '../domain/drafts';
 import { Register, RuleError, Me } from '../services/register';
 import { downloadFiles } from '../services/download';
 import * as P from '../domain/permissions';
-import { Btn, Pill, Field, Notice, Select, input, row, card, C, MONO, hint } from './ui';
+import { Btn, Pill, Field, Notice, Select, input, row, card, C, MONO, hint, DownloadIcon } from './ui';
 
 const KIND: Record<string, string> = { controlled: 'Controlled', periodic: 'Recurring', record: 'Certificate', working: 'Uncontrolled' };
 const REV_TONE: Record<string, 'ok' | 'wait' | 'bad' | 'check' | 'none'> = { Submitted: 'wait', Checked: 'check', Approved: 'ok', Returned: 'bad' };
@@ -16,7 +16,7 @@ const PERIOD_LABEL: Record<string, [string, 'ok' | 'wait' | 'bad' | 'check' | 'o
 
 /* A plain download link for one stored file. */
 function DownloadLink(props: { url: string; name: string }) {
-  return <a href={props.url} download={props.name} style={{ color: C.accent, fontSize: 13, textDecoration: 'none', whiteSpace: 'nowrap' }}>Download</a>;
+  return <DownloadIcon href={props.url} fileName={props.name} />;
 }
 
 interface Loaded { doc: DocumentRow; revs: RevisionRow[]; periods: PeriodRow[]; certs: CertRow[]; audit: AuditRow[]; drafts: DraftRow[] }
@@ -95,7 +95,7 @@ export function DocumentPage(props: { reg: Register; id: number; me: Me; members
     const canApproveIt = r.status === 'Checked' && mine === r.approver;
     const canReturnIt = (r.status === 'Submitted' || r.status === 'Checked') && (mine === r.checker || mine === r.approver);
     return (
-      <div key={r.id} style={{ borderLeft: `2px solid ${C.line}`, paddingLeft: 12, marginLeft: 4, paddingBottom: 14 }}>
+      <div key={r.id} style={{ padding: '16px 0', borderTop: `1px solid ${C.line}`, display: 'grid', gap: 8 }}>
         <div style={row}><b>Rev {r.n}</b><Pill tone={REV_TONE[r.status] || 'none'}>{REV_LABEL[r.status] || r.status}</Pill>{cur && cur.n === r.n ? <Pill tone="ok">Current</Pill> : null}</div>
         <div style={{ fontSize: 13, color: C.soft }}>{r.createdAt.slice(0, 10)} · added by {r.uploader} · {r.reason} · checker {r.checker} · approver {r.approver}</div>
         <div style={{ margin: '6px 0', background: C.bg, border: `1px solid ${C.line}`, borderRadius: 9, padding: '9px 11px' }}>{r.summary}</div>

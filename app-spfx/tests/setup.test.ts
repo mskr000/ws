@@ -34,7 +34,7 @@ test('numbering pattern is checked as part of the setup', () => {
 });
 
 test('built-in templates: every type files into a folder the template contains', () => {
-  assert.equal(S.BUILT_IN_TEMPLATES.length, 4);
+  assert.equal(S.BUILT_IN_TEMPLATES.length, 5);
   for (const t of S.BUILT_IN_TEMPLATES) {
     for (const ty of t.types) assert.ok(t.folders.includes(ty.folder), `${t.id} ${ty.code}`);
     assert.deepEqual(S.projectSetupErrors({ code: 'X1', name: 'x', status: 'active', numberPattern: t.numberPattern, folders: t.folders, types: t.types }, true, []), {});

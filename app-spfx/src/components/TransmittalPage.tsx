@@ -3,7 +3,7 @@ import type { ProjectInfo } from '../domain/types';
 import * as R from '../domain/rules';
 import { transmittalCsv, transmittalText, TransmittalLine, TransmittalRow, nextTransmittalNumber, emailDraft } from '../domain/transmittal';
 import { Register, Me } from '../services/register';
-import { Btn, Field, Notice, Select, Title, Section, Table, th, td, card, input, row, C, MONO, FONT, hint } from './ui';
+import { Btn, Field, Notice, Select, Title, Section, Table, th, td, card, input, row, C, MONO, FONT, hint, DownloadIcon } from './ui';
 
 /* Where a document stands, in words, for the cover list. */
 async function standingOf(reg: Register, d: { id: number; kind: string }): Promise<string> {
@@ -156,7 +156,7 @@ export function TransmittalPage(props: { reg: Register; me: Me; projects: Projec
                 <td style={td}>{t.purpose}</td>
                 <td style={td}>{t.lines.length}</td>
                 <td style={td}>{t.issuedBy}</td>
-                <td style={{ ...td, textAlign: 'right' }}>{t.fileUrl ? <a href={t.fileUrl} download={`${t.number}.csv`} style={{ color: C.accent, fontSize: 14 }}>Download list</a> : null}</td>
+                <td style={{ ...td, textAlign: 'right' }}>{t.fileUrl ? <DownloadIcon href={t.fileUrl} fileName={`${t.number}.csv`} label={`Download list ${t.number}`} /> : null}</td>
               </tr>
             ))}
           </tbody>
