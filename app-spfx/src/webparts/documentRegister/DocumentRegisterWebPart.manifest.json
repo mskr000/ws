@@ -1,0 +1,18 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx/client-side-web-part-manifest.schema.json",
+  "id": "2e47d4a6-64cc-425e-92a1-5dd0dcf5b610",
+  "alias": "DocumentRegisterWebPart",
+  "componentType": "WebPart",
+  "version": "*",
+  "manifestVersion": 2,
+  "requiresCustomScript": false,
+  "supportedHosts": ["SharePointWebPart", "SharePointFullPage"],
+  "preconfiguredEntries": [{
+    "groupId": "5c03119e-3074-46fd-976b-c60198311f70",
+    "group": { "default": "Other" },
+    "title": { "default": "Document Register" },
+    "description": { "default": "Controlled, recurring and certificate documents, with approvals and an audit trail." },
+    "officeFabricIconFontName": "Page",
+    "properties": { "siteUrl": "" }
+  }]
+}

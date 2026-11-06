@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/serve.schema.json",
+  "port": 4321,
+  "https": true,
+  "serveConfigurations": {
+    "default": {
+      "pageUrl": "https://YOUR-TENANT.sharepoint.com/sites/DocumentRegister/SitePages/Test.aspx",
+      "customActions": {}
+    }
+  }
+}

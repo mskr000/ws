@@ -1,0 +1,12 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/package-solution.schema.json",
+  "solution": {
+    "name": "document-register-client-side-solution",
+    "id": "19087e3f-ca01-49e5-8ea3-f47e64a42e80",
+    "version": "1.0.0.0",
+    "includeClientSideAssets": true,
+    "skipFeatureDeployment": true,
+    "isDomainIsolated": false
+  },
+  "paths": { "zippedPackage": "solution/document-register.sppkg" }
+}
