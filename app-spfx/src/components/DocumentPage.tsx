@@ -162,9 +162,8 @@ export function DocumentPage(props: { reg: Register; id: number; me: Me; members
               </> : <Field label="Why is it not needed?" error={fieldErr.naReason}><input aria-label="Reason" value={pv.naReason} onChange={e => setPv({ ...pv, naReason: e.target.value })} style={input} /></Field>}
               <div style={row}>
                 <Btn kind="primary" onClick={() => run(async () => {
-                  const existing = periods.some(p => p.periodKey === period.key && !p.notNeeded);
                   if (period.mode === 'na') await props.reg.markNotNeeded(doc, period.key, pv.naReason);
-                  else await props.reg.uploadPeriod(doc, period.key, { file: pv.file, summary: pv.summary, replaceReason: pv.replaceReason, existing });
+                  else await props.reg.uploadPeriod(doc, period.key, { file: pv.file, summary: pv.summary, replaceReason: pv.replaceReason });
                   setPeriod(null); setPv({ file: null, summary: '', replaceReason: '', naReason: '' });
                 }, 'Saved.')}>Save</Btn>
                 <Btn kind="link" onClick={() => setPeriod(null)}>Cancel</Btn>

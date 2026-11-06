@@ -13,6 +13,7 @@ import * as R from '../domain/rules';
 import * as N from '../domain/numbering';
 import type { ProjectInfo, DocTypeInfo, DocumentRow, RevisionRow, PeriodRow, CertRow, AuditRow } from '../domain/types';
 import type { DocKind } from '../domain/rules';
+import { safeFileName, odataString, nextVersion } from '../domain/sp';
 
 export const LISTS = {
   projects: 'Projects', types: 'DocumentTypes', documents: 'Documents', revisions: 'Revisions',
@@ -50,8 +51,12 @@ export class Register {
   }
   /* Names of people in the register. Used for owner, checker and approver choices. */
   async members(): Promise<string[]> {
-    const users = await this.sp.web.siteGroups.getByName(GROUPS.members).users();
-    return users.map((u: { Title: string }) => u.Title).sort();
+    try {
+      const users = await this.sp.web.siteGroups.getByName(GROUPS.members).users();
+      return users.map((u: { Title: string }) => u.Title).sort();
+    } catch {
+      return []; /* Not in the members group, or the group cannot be read. The register still opens. */
+    }
   }
 
   /* ---------- reads ---------- */
@@ -64,13 +69,13 @@ export class Register {
     const rows = await this.sp.web.lists.getByTitle(LISTS.types).items
       .select('Title', 'TypeLabel', 'Kind', 'DefaultFolder').top(200)();
     const enabled = await this.sp.web.lists.getByTitle('ProjectTypes').items
-      .select('TypeCode', 'Folder').filter(`ProjectCode eq '${project}'`).top(200)();
+      .select('TypeCode', 'Folder').filter(`ProjectCode eq ${odataString(project)}`).top(200)();
     const folderOf = new Map<string, string>(enabled.map((r: any) => [r.TypeCode, r.Folder]));
     return rows.filter((r: any) => folderOf.has(r.Title)).map((r: any) => ({ code: r.Title, label: r.TypeLabel, kind: r.Kind as DocKind, folder: folderOf.get(r.Title) as string }));
   }
 
   async documents(project?: string): Promise<DocumentRow[]> {
-    const filter = project ? `ProjectCode eq '${project}'` : undefined;
+    const filter = project ? `ProjectCode eq ${odataString(project)}` : undefined;
     let q = this.sp.web.lists.getByTitle(LISTS.documents).items.select('Id', 'Title', 'DocNumber', 'ProjectCode', 'DocType', 'DocKind', 'Folder', 'Owner', 'IsRemoved', 'SharePointName', 'DueDay', 'StartPeriod').orderBy('DocNumber').top(5000);
     if (filter) q = q.filter(filter);
     const rows = await q();
@@ -112,7 +117,7 @@ export class Register {
   private async upload(fileName: string, file: File): Promise<string> {
     const folder = this.sp.web.getFolderByServerRelativePath(this.libraryPath);
     const buffer = await file.arrayBuffer();
-    const added = await folder.files.addUsingPath(fileName, buffer, { Overwrite: false });
+    const added = await folder.files.addUsingPath(safeFileName(fileName), buffer, { Overwrite: false });
     return added.ServerRelativeUrl;
   }
 
@@ -176,7 +181,7 @@ export class Register {
     const errors = R.revisionErrors({ uploader: me.name, checker: input.checker, approver: input.approver, reason: input.reason, summary: input.summary, note: input.note,
       file: input.file ? { name: input.file.name, size: input.file.size } : null });
     if (Object.keys(errors).length) throw new RuleError('Please fix the highlighted fields.', errors);
-    const n = revs.length ? Math.max(...revs.map(r => r.n)) + 1 : 0;
+    const n = nextVersion(revs.map(r => r.n));
     const url = await this.upload(`${doc.number}_r${n}_${input.file!.name}`, input.file!);
     await this.sp.web.lists.getByTitle(LISTS.revisions).items.add({
       Title: `${doc.number} rev ${n}`, DocumentId: doc.id, RevNumber: n, Status: 'Submitted', Reason: input.reason, Summary: input.summary.trim(),
@@ -206,18 +211,22 @@ export class Register {
     return this.transition(rev, doc, R.canReturn, { ReturnNote: text.trim() }, 'Returned', 'Returned');
   }
 
-  async uploadPeriod(doc: DocumentRow, key: string, input: { file: File | null; summary: string; replaceReason: string; existing: boolean }): Promise<void> {
+  async uploadPeriod(doc: DocumentRow, key: string, input: { file: File | null; summary: string; replaceReason: string }): Promise<void> {
     const me = await this.whoAmI();
     const denied = R.canUploadSeries(doc.owner, me.name, me.isRecordsLead);
     if (denied) throw new RuleError(denied);
-    const errors = R.periodErrors({ file: input.file ? { name: input.file.name, size: input.file.size } : null, summary: input.summary, replaceReason: input.replaceReason, existing: input.existing });
+    /* Work out replace and version from the list itself, not from the page. */
+    const prior = (await this.periods(doc.id)).filter(p => p.periodKey === key);
+    const existing = prior.some(p => !p.notNeeded);
+    const version = nextVersion(prior.map(p => p.version));
+    const errors = R.periodErrors({ file: input.file ? { name: input.file.name, size: input.file.size } : null, summary: input.summary, replaceReason: input.replaceReason, existing });
     if (Object.keys(errors).length) throw new RuleError('Please fix the highlighted fields.', errors);
-    const url = await this.upload(`${doc.number}_${key}_v${Date.now()}_${input.file!.name}`, input.file!);
+    const url = await this.upload(`${doc.number}_${key}_v${version}_${input.file!.name}`, input.file!);
     await this.sp.web.lists.getByTitle(LISTS.periods).items.add({
-      Title: `${doc.number} ${key}`, DocumentId: doc.id, PeriodKey: key, Version: input.existing ? 2 : 1, NotNeeded: false, Summary: input.summary.trim(),
+      Title: `${doc.number} ${key}`, DocumentId: doc.id, PeriodKey: key, Version: version, NotNeeded: false, Summary: input.summary.trim(),
       Uploader: me.name, UploadedAt: new Date().toISOString(), FileName: input.file!.name, FileUrl: url, ReplaceReason: input.replaceReason.trim() || null,
     });
-    await this.log(input.existing ? 'Replaced period' : 'Uploaded period', doc.number, `${key}: ${input.summary.trim()}`, doc.id);
+    await this.log(existing ? 'Replaced period' : 'Uploaded period', doc.number, `${key}: ${input.summary.trim()}`, doc.id);
   }
   async markNotNeeded(doc: DocumentRow, key: string, reason: string): Promise<void> {
     const me = await this.whoAmI();
@@ -237,7 +246,7 @@ export class Register {
     if (denied) throw new RuleError(denied.replace('series', 'certificate'));
     const errors = R.renewalErrors({ file: input.file ? { name: input.file.name, size: input.file.size } : null, summary: input.summary, expiresOn: input.expiresOn });
     if (Object.keys(errors).length) throw new RuleError('Please fix the highlighted fields.', errors);
-    const n = certs.length ? Math.max(...certs.map(c => c.n)) + 1 : 0;
+    const n = nextVersion(certs.map(c => c.n));
     const url = await this.upload(`${doc.number}_v${n}_${input.file!.name}`, input.file!);
     await this.sp.web.lists.getByTitle(LISTS.certificates).items.add({
       Title: `${doc.number} v${n}`, DocumentId: doc.id, VersionNo: n, Summary: input.summary.trim(), ExpiresOn: input.expiresOn, Uploader: me.name,

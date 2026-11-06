@@ -138,14 +138,26 @@ if (-not (Get-PnPRoleDefinition -Identity 'Register Add Only' -ErrorAction Silen
   Write-Host "Created permission level: Register Add Only"
 }
 
-foreach ($l in @('Projects','DocumentTypes','ProjectTypes','Documents','Revisions','PeriodEntries','CertificateVersions')) {
-  Set-PnPListPermission -Identity $l -AddRole 'Edit' -Group 'Register Members' | Out-Null
+# Stop the register lists and library inheriting access from the whole site.
+# Site owners keep access. Everyone else gets only what is set below.
+$secured = @('Projects','DocumentTypes','ProjectTypes','Documents','Revisions','PeriodEntries','CertificateVersions','AuditLog','Register Files')
+foreach ($l in $secured) {
+  Set-PnPList -Identity $l -BreakRoleInheritance -CopyRoleAssignments:$false -ClearSubscopes | Out-Null
   Set-PnPListPermission -Identity $l -AddRole 'Full Control' -Group 'Register Records Lead' | Out-Null
 }
+
+# Reference lists: members can read, only the Records Lead changes them.
+foreach ($l in @('Projects','DocumentTypes','ProjectTypes')) {
+  Set-PnPListPermission -Identity $l -AddRole 'Read' -Group 'Register Members' | Out-Null
+}
+# Working lists: members add and update (checks, approvals, uploads).
+foreach ($l in @('Documents','Revisions','PeriodEntries','CertificateVersions')) {
+  Set-PnPListPermission -Identity $l -AddRole 'Edit' -Group 'Register Members' | Out-Null
+}
+# Audit log: members may only add entries. Nobody but the Records Lead may change them.
 Set-PnPListPermission -Identity 'AuditLog' -AddRole 'Register Add Only' -Group 'Register Members' | Out-Null
-Set-PnPListPermission -Identity 'AuditLog' -AddRole 'Full Control' -Group 'Register Records Lead' | Out-Null
+# Files: members upload. Nobody deletes (removal renames).
 Set-PnPListPermission -Identity 'Register Files' -AddRole 'Edit' -Group 'Register Members' | Out-Null
-Set-PnPListPermission -Identity 'Register Files' -AddRole 'Full Control' -Group 'Register Records Lead' | Out-Null
 
 Write-Host ''
 Write-Host 'Done. Next: add people to the two groups, then add the Document Register web part to a page.'
