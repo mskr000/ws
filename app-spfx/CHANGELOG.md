@@ -52,3 +52,9 @@
 - Audit log export to CSV from the Activity tab.
 - Power Automate flows parked until licence is confirmed (AUTOMATION_PARKED.md).
 - Tests: 45 + 12 automated checks.
+
+## 0.12.0 (2026-11-06)
+- Copy structure: create a new project from an existing one's folders, numbering and document types. Documents, owner and permissions are not copied.
+- Folders shown as an indented tree: expand or collapse, document counts, add inside a folder, remove a branch (only when empty).
+- Document types: short explanation of what a type is and what each kind does.
+- Tests: 48 + 12 automated checks.

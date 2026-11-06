@@ -1,5 +1,8 @@
 import * as P from '../domain/permissions';
 import type { ProjectInfo } from '../domain/types';
+import * as TREE from '../domain/tree';
+
+const KIND_WORDS: Record<string, string> = { controlled: 'Controlled: check and approve', periodic: 'Recurring: monthly upload', record: 'Certificate: expiry date', working: 'Uncontrolled: no approval' };
 import type { Me } from '../services/register';
 import * as React from 'react';
 import * as SU from '../domain/setup';
@@ -15,23 +18,32 @@ const blankSetup = (): SU.ProjectSetup => {
     types: SU.DOC_TYPES.map(t => ({ code: t.code, enabled: std.types.some(x => x.code === t.code), folder: t.folder, firstNumber: 1 })) };
 };
 
-export function ProjectForm(props: { reg: Register; me: Me; code: string | null; project?: ProjectInfo; onDone: () => void; onCancel: () => void }) {
+export function ProjectForm(props: { reg: Register; me: Me; code: string | null; project?: ProjectInfo; copyFrom?: string; onDone: () => void; onCancel: () => void }) {
   const isNew = props.code === null;
   const privileged = P.can(props.me, 'projects');
   const [kind, setKind] = React.useState<'standard' | 'internal'>(privileged ? 'standard' : 'internal');
-  const [pf, setPf] = React.useState<SU.ProjectSetup | null>(isNew ? blankSetup() : null);
+  const [pf, setPf] = React.useState<SU.ProjectSetup | null>(isNew && !props.copyFrom ? blankSetup() : null);
   const [before, setBefore] = React.useState<Before | null>(null);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [msg, setMsg] = React.useState<{ tone: 'bad' | 'ok' | 'info'; text: string } | null>(null);
   const [templates, setTemplates] = React.useState<SU.TemplateDef[]>(SU.BUILT_IN_TEMPLATES);
   const [tplId, setTplId] = React.useState(privileged ? '' : 'internal-workspace');
   const [newFolder, setNewFolder] = React.useState('');
+  const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
   const [csvMsg, setCsvMsg] = React.useState<{ tone: 'bad' | 'ok'; lines: string[] } | null>(null);
   const [saveName, setSaveName] = React.useState('');
   const [busy, setBusy] = React.useState(false);
 
   React.useEffect(() => {
     props.reg.templates().then(setTemplates).catch(() => undefined);
+    if (isNew && props.copyFrom) {
+      /* Copy: same folders, numbering and document types. No documents, no owner, new code. */
+      props.reg.projectSetup(props.copyFrom).then(r => {
+        setPf({ ...r.setup, code: '', name: `Copy of ${r.setup.name}`, status: 'active', owner: '', kind: privileged ? (r.setup.kind || 'standard') : 'internal' });
+        setKind(privileged ? (r.setup.kind || 'standard') : 'internal');
+        setMsg({ tone: 'info', text: `Copied the structure of ${props.copyFrom}. Documents are not copied. Give it a code and name.` });
+      }).catch(e => setMsg({ tone: 'bad', text: String(e.message || e) }));
+    }
     if (!isNew && props.code) {
       props.reg.projectSetup(props.code).then(r => {
         setPf(r.setup);
@@ -63,8 +75,19 @@ export function ProjectForm(props: { reg: Register; me: Me; code: string | null;
     set({ folders: [...pf.folders, f] }); setNewFolder(''); setErrors({});
   };
   const removeFolder = (f: string) => {
-    if (before && (before.docsInFolder[f] || 0) > 0) { setErrors({ ...errors, [`folder:${f}`]: `${before.docsInFolder[f]} document(s) are filed here. Move them first.` }); return; }
-    set({ folders: pf.folders.filter(x => x !== f), types: pf.types.map(t => t.folder === f ? { ...t, folder: pf.folders.find(x => x !== f) || '' } : t) });
+    const branch = TREE.subtreePaths(pf.folders, f);
+    const busy = branch.find(x => before && (before.docsInFolder[x] || 0) > 0);
+    if (busy) { setErrors({ ...errors, [`folder:${f}`]: `${before!.docsInFolder[busy]} document(s) are filed in ${busy}. Move them first.` }); return; }
+    const left = pf.folders.filter(x => !branch.includes(x));
+    set({ folders: left, types: pf.types.map(t => branch.includes(t.folder) ? { ...t, folder: left[0] || '' } : t) });
+  };
+  const addSubfolder = (parent: string, name: string) => {
+    const f = `${parent}/${name.trim()}`;
+    const bad = SU.folderPathError(f);
+    if (!name.trim()) { setErrors({ ...errors, [`folder:${parent}`]: 'Type a name first.' }); return; }
+    if (bad) { setErrors({ ...errors, [`folder:${parent}`]: bad }); return; }
+    if (pf.folders.includes(f)) { setErrors({ ...errors, [`folder:${parent}`]: 'That folder already exists.' }); return; }
+    set({ folders: [...pf.folders, f] }); setErrors({});
   };
   const loadCsv = async (file: File | null) => {
     if (!file) return;
@@ -144,26 +167,29 @@ export function ProjectForm(props: { reg: Register; me: Me; code: string | null;
           <span style={{ fontSize: 12.5, color: C.soft }}>CSV columns: folder, types (optional, separated by ;)</span>
         </div>
         {csvMsg ? <Notice tone={csvMsg.tone === 'ok' ? 'ok' : 'bad'}>{csvMsg.lines.map((l, i) => <div key={i}>{l}</div>)}{csvMsg.tone === 'bad' ? <div>Nothing was changed.</div> : null}</Notice> : null}
-        <div style={{ border: `1px solid ${C.line}`, borderRadius: 8, maxHeight: 260, overflow: 'auto' }}>
+        <div style={{ border: `1px solid ${C.line}`, borderRadius: 8, padding: 6, maxHeight: 420, overflow: 'auto' }}>
           {pf.folders.length === 0 ? <div style={{ padding: 10, color: C.soft }}>No folders yet.</div> : null}
-          {pf.folders.map(f => (
-            <div key={f} style={{ display: 'grid', gridTemplateColumns: '1fr 110px 90px', gap: 8, padding: '6px 10px', borderBottom: `1px solid ${C.line}`, fontSize: 13, alignItems: 'center' }}>
-              <span>{f.split('/').join(' › ')}</span>
-              <span style={{ color: C.soft }}>{before && (before.docsInFolder[f] || 0) > 0 ? `${before.docsInFolder[f]} doc(s)` : ''}</span>
-              <span><Btn kind="link" disabled={ro} onClick={() => removeFolder(f)}>Remove</Btn></span>
-              {err(`folder:${f}`) ? <span style={{ gridColumn: '1 / -1' }}>{err(`folder:${f}`)}</span> : null}
-            </div>
+          {TREE.folderTree(pf.folders).map(n => (
+            <FolderNodeRow key={n.path} node={n} depth={0} ro={ro} before={before} errors={errors}
+              collapsed={collapsed} setCollapsed={setCollapsed} onRemove={removeFolder} onAddSub={addSubfolder} />
           ))}
         </div>
         <div style={{ ...row, marginTop: 8 }}>
           <input aria-label="New folder path" placeholder="New folder, for example EPC/07 Close-out/07.1 Records" value={newFolder} disabled={ro} onChange={e => setNewFolder(e.target.value)} style={{ ...input, flex: 1 }} />
           <Btn disabled={ro} onClick={addFolder}>Add folder</Btn>
         </div>
-        <div style={{ fontSize: 12.5, color: C.soft }}>Up to 4 levels, separated by /. A folder with documents cannot be removed.</div>
+        <div style={{ fontSize: 12.5, color: C.soft }}>Up to 4 levels. Use + to add inside a folder. Removing a folder removes everything inside it, but only if none of it holds documents.</div>
       </section>
 
       <section style={card}>
         <h2>4. Document types</h2>
+        <div style={{ fontSize: 13.5, color: C.soft, lineHeight: 1.5, marginBottom: 12 }}>
+          A document type is one kind of document this project keeps, such as a P&amp;ID or a monthly maintenance check.
+          Its <b style={{ color: C.ink }}>kind</b> sets how it is handled:
+          controlled documents are checked and approved; recurring ones are uploaded each month; certificates have an expiry date;
+          uncontrolled ones are working files with no approval.
+          Turn on only the types this project uses. Each type files into one folder and numbers from its first number.
+        </div>
         <div style={{ border: `1px solid ${C.line}`, borderRadius: 8, maxHeight: 320, overflow: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead><tr>{['On', 'Type', 'Kind', 'Files into', 'First number'].map(h => <th key={h} style={{ textAlign: 'left', padding: 8, fontSize: 11, textTransform: 'uppercase', color: C.soft, borderBottom: `1px solid ${C.line}` }}>{h}</th>)}</tr></thead>
@@ -175,7 +201,7 @@ export function ProjectForm(props: { reg: Register; me: Me; code: string | null;
                   <tr key={d.code} style={{ borderBottom: `1px solid ${C.line}` }}>
                     <td style={{ padding: 8 }}><input type="checkbox" aria-label={`Turn on ${d.code}`} checked={t.enabled} disabled={ro || (inUse && t.enabled)} onChange={e => setType(d.code, { enabled: e.target.checked })} /></td>
                     <td style={{ padding: 8 }}><span style={{ fontFamily: MONO }}>{d.code}</span> {d.label}{inUse ? <span style={{ color: C.soft }}> · in use</span> : null}{err(`type:${d.code}`)}</td>
-                    <td style={{ padding: 8 }}>{d.kind}</td>
+                    <td style={{ padding: 8, whiteSpace: 'nowrap' }}>{KIND_WORDS[d.kind] || d.kind}</td>
                     <td style={{ padding: 8 }}><select aria-label={`Folder for ${d.code}`} value={t.folder} disabled={ro || !t.enabled} onChange={e => setType(d.code, { folder: e.target.value })} style={{ ...input, width: 'auto', minWidth: 200 }}>{pf.folders.map(f => <option key={f} value={f}>{f}</option>)}</select></td>
                     <td style={{ padding: 8 }}><input aria-label={`First number for ${d.code}`} type="number" min={1} max={9999} value={t.firstNumber} disabled={ro || inUse} onChange={e => setType(d.code, { firstNumber: Number(e.target.value) })} style={{ ...input, width: 90 }} />{err(`first:${d.code}`)}</td>
                   </tr>
@@ -201,6 +227,46 @@ export function ProjectForm(props: { reg: Register; me: Me; code: string | null;
         <Btn kind="link" onClick={props.onCancel}>Cancel</Btn>
         {!ro ? <Btn kind="primary" disabled={busy} onClick={save}>{isNew ? 'Create project' : 'Save changes'}</Btn> : null}
       </div>
+    </div>
+  );
+}
+
+/* One folder in the tree. Indented, collapsible, with a count of documents and an add-inside control. */
+function FolderNodeRow(props: {
+  node: TREE.FolderNode; depth: number; ro: boolean; before: { docsInFolder: Record<string, number> } | null; errors: Record<string, string>;
+  collapsed: Record<string, boolean>; setCollapsed: (f: (c: Record<string, boolean>) => Record<string, boolean>) => void;
+  onRemove: (path: string) => void; onAddSub: (parent: string, name: string) => void;
+}) {
+  const { node, ro } = props;
+  const [adding, setAdding] = React.useState(false);
+  const [name, setName] = React.useState('');
+  const open = !props.collapsed[node.path];
+  const docs = props.before?.docsInFolder[node.path] || 0;
+  const canAddSub = !ro && TREE.levelOf(node.path) < 4;
+  const err = props.errors[`folder:${node.path}`];
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 6px', paddingLeft: 6 + props.depth * 20, borderRadius: 6, background: props.depth === 0 ? C.bg : 'transparent' }}>
+        <button type="button" aria-label={`${open ? 'Collapse' : 'Expand'} ${node.name}`} onClick={() => props.setCollapsed(c => ({ ...c, [node.path]: open }))}
+          disabled={node.children.length === 0} style={{ width: 22, border: 'none', background: 'none', cursor: node.children.length ? 'pointer' : 'default', color: C.soft, fontSize: 12 }}>
+          {node.children.length ? (open ? '▾' : '▸') : '·'}
+        </button>
+        <span style={{ fontWeight: props.depth === 0 ? 600 : 400, fontSize: 14, flex: 1, minWidth: 0 }}>{node.name}</span>
+        {docs > 0 ? <span style={{ fontSize: 12, color: C.soft, whiteSpace: 'nowrap' }}>{docs} doc{docs === 1 ? '' : 's'}</span> : null}
+        {canAddSub ? <Btn kind="link" onClick={() => setAdding(a => !a)}>+ Inside</Btn> : null}
+        {!ro ? <Btn kind="link" onClick={() => props.onRemove(node.path)}>Remove</Btn> : null}
+      </div>
+      {adding ? (
+        <div style={{ display: 'flex', gap: 6, padding: '4px 6px 6px', paddingLeft: 34 + props.depth * 20 }}>
+          <input aria-label={`New folder inside ${node.name}`} autoFocus value={name} placeholder="Folder name" onChange={e => setName(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { props.onAddSub(node.path, name); if (!props.errors[`folder:${node.path}`]) { setName(''); setAdding(false); } } }}
+            style={{ ...input, padding: '6px 10px', fontSize: 14 }} />
+          <Btn onClick={() => { props.onAddSub(node.path, name); if (!props.errors[`folder:${node.path}`]) { setName(''); setAdding(false); } }}>Add</Btn>
+          <Btn kind="link" onClick={() => { setAdding(false); setName(''); }}>Cancel</Btn>
+        </div>
+      ) : null}
+      {err ? <div style={{ paddingLeft: 34 + props.depth * 20, color: C.bad, fontSize: 13, padding: '2px 0 4px' }}>{err}</div> : null}
+      {open ? node.children.map(c => <FolderNodeRow key={c.path} {...props} node={c} depth={props.depth + 1} />) : null}
     </div>
   );
 }
