@@ -1,7 +1,11 @@
 /* Transmittal: a cover list of documents for a client or contractor. Pure text and CSV. */
 
 export interface TransmittalLine { number: string; title: string; standing: string }
-export interface TransmittalRow { id: number; number: string; project: string; to: string; date: string; purpose: string; notes: string; lines: TransmittalLine[]; fileUrl: string; checksum: string; issuedBy: string }
+export interface TransmittalRow {
+  id: number; number: string; project: string; to: string; toEmail: string; date: string; purpose: string; notes: string; lines: TransmittalLine[];
+  fileUrl: string; checksum: string; pdfUrl: string; pdfChecksum: string; issuedBy: string;
+  status: 'Recorded' | 'Held' | 'Sent' | 'Cancelled'; heldAt: string; sentAt: string;
+}
 export interface TransmittalInput { to: string; date: string; purpose: string; notes: string; lines: TransmittalLine[] }
 
 /* A cell that starts with = + - @ can run as a formula in Excel. Prefix it with an apostrophe. */
@@ -49,4 +53,20 @@ export function emailDraft(t: { number: string; projectName: string; to: string;
     t.from,
   ].join('\n');
   return { subject, body };
+}
+
+/* The lines of the PDF copy kept as evidence. Same content as the list, with who, when and where it was sent. */
+export function transmittalPdfLines(t: { number: string; to: string; toEmail: string; date: string; purpose: string; notes: string; issuedBy: string; lines: TransmittalLine[]; status: string; sentAt: string }): string[] {
+  return [
+    `Transmittal number: ${t.number}`,
+    `Date: ${t.date}`,
+    `To: ${t.to}${t.toEmail ? ` <${t.toEmail}>` : ''}`,
+    `Purpose: ${t.purpose}`,
+    t.notes ? `Notes: ${t.notes}` : '',
+    `Issued by: ${t.issuedBy}`,
+    t.sentAt ? `Emailed: ${t.sentAt.slice(0, 16).replace('T', ' ')} UTC` : `Status: ${t.status}`,
+    '',
+    'Documents:',
+    ...t.lines.map((l, i) => `${i + 1}. ${l.number}  ${l.title}  (${l.standing})`),
+  ].filter(x => x !== undefined);
 }

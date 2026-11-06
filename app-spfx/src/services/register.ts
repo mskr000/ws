@@ -19,6 +19,8 @@ import * as SU from '../domain/setup';
 import * as P from '../domain/permissions';
 import * as DR from '../domain/drafts';
 import * as TR from '../domain/transmittal';
+import * as MAIL from '../domain/mail';
+import { textPdf } from '../domain/pdf';
 import * as RT from '../domain/retention';
 import * as TREE from '../domain/tree';
 
@@ -38,11 +40,13 @@ export type Me = P.Me;
 
 export class Register {
   private sp: SPFI;
+  private context: any;
   private siteUrl: string;
   private libraryPath: string;
   private me: Me | null = null;
 
   constructor(context: unknown, siteUrl: string) {
+    this.context = context;
     this.siteUrl = siteUrl.replace(/\/+$/, '');
     this.sp = spfi(this.siteUrl).using(SPFx(context as never));
     this.libraryPath = `${new URL(this.siteUrl).pathname.replace(/\/+$/, '')}/${LIBRARY}`;
@@ -452,29 +456,71 @@ export class Register {
   /* ---------- transmittals ---------- */
   async transmittals(project: string): Promise<TR.TransmittalRow[]> {
     const rows = await this.sp.web.lists.getByTitle(LISTS.transmittals).items
-      .select('Id', 'Title', 'ProjectCode', 'ToName', 'Purpose', 'Notes', 'LinesJson', 'FileUrl', 'Checksum', 'IssuedDate', 'IssuedBy')
+      .select('Id', 'Title', 'ProjectCode', 'ToName', 'ToEmail', 'Purpose', 'Notes', 'LinesJson', 'FileUrl', 'Checksum', 'PdfUrl', 'PdfChecksum',
+        'IssuedDate', 'IssuedBy', 'Status', 'HeldAt', 'SentAt')
       .filter(`ProjectCode eq ${odataString(project)}`).orderBy('Id', false).top(500)();
-    return rows.map((r: any) => ({ id: r.Id, number: r.Title, project: r.ProjectCode, to: r.ToName || '', date: r.IssuedDate || '', purpose: r.Purpose || '',
-      notes: r.Notes || '', lines: JSON.parse(r.LinesJson || '[]'), fileUrl: r.FileUrl || '', checksum: r.Checksum || '', issuedBy: r.IssuedBy || '' }));
+    return rows.map((r: any) => ({ id: r.Id, number: r.Title, project: r.ProjectCode, to: r.ToName || '', toEmail: r.ToEmail || '', date: r.IssuedDate || '',
+      purpose: r.Purpose || '', notes: r.Notes || '', lines: JSON.parse(r.LinesJson || '[]'), fileUrl: r.FileUrl || '', checksum: r.Checksum || '',
+      pdfUrl: r.PdfUrl || '', pdfChecksum: r.PdfChecksum || '', issuedBy: r.IssuedBy || '', status: (r.Status || 'Recorded') as TR.TransmittalRow['status'],
+      heldAt: r.HeldAt || '', sentAt: r.SentAt || '' }));
   }
-  /* Records the transmittal, files its list in the library, and logs it. The list is kept as it was issued. */
-  async issueTransmittal(input: { project: string; to: string; purpose: string; notes: string; lines: TR.TransmittalLine[] }): Promise<string> {
+  /* Records the transmittal: list file and PDF copy saved in the library, audit entry written. If it is to be emailed,
+     it is held for the undo window. Nothing is sent here. Nothing is deleted. */
+  async issueTransmittal(input: { project: string; to: string; toEmail: string; purpose: string; notes: string; lines: TR.TransmittalLine[]; send: boolean }): Promise<string> {
     const me = await this.whoAmI();
     if (!input.to.trim()) throw new RuleError('Say who it is for.', { to: 'Say who it is for.' });
     if (!input.purpose.trim()) throw new RuleError('Say why it is sent.', { purpose: 'Say why it is sent.' });
     if (!input.lines.length) throw new RuleError('Choose at least one document.');
+    if (input.send && !MAIL.validEmail(input.toEmail)) throw new RuleError('Enter a valid email address to send it.', { toEmail: 'Enter a valid email address.' });
     const existing = (await this.transmittals(input.project)).map(t => t.number);
     const number = TR.nextTransmittalNumber(input.project, existing);
     const date = R.isoDay();
-    const csv = TR.transmittalCsv({ to: input.to.trim(), date, purpose: input.purpose.trim(), notes: input.notes.trim(), lines: input.lines });
-    const file = new File(['\uFEFF' + csv], `${number}.csv`, { type: 'text/csv' });
-    const up = await this.upload(`${number}.csv`, file);
+    const now = new Date().toISOString();
+    const base = { number, to: input.to.trim(), toEmail: input.toEmail.trim(), date, purpose: input.purpose.trim(), notes: input.notes.trim(), issuedBy: me.name, lines: input.lines, status: input.send ? 'Held' : 'Recorded', sentAt: '' };
+    const csv = TR.transmittalCsv({ to: base.to, date, purpose: base.purpose, notes: base.notes, lines: input.lines });
+    const up = await this.upload(`${number}.csv`, new File(['﻿' + csv], `${number}.csv`, { type: 'text/csv' }));
+    const pdfBytes = textPdf(`Transmittal ${number}`, TR.transmittalPdfLines(base));
+    const pdfFile = new File([pdfBytes], `${number}.pdf`, { type: 'application/pdf' });
+    const pdf = await this.upload(`${number}.pdf`, pdfFile);
     await this.sp.web.lists.getByTitle(LISTS.transmittals).items.add({
-      Title: number, ProjectCode: input.project, ToName: input.to.trim(), Purpose: input.purpose.trim(), Notes: input.notes.trim(),
-      LinesJson: JSON.stringify(input.lines), FileUrl: up.url, Checksum: up.checksum, IssuedDate: date, IssuedBy: me.name,
+      Title: number, ProjectCode: input.project, ToName: base.to, ToEmail: base.toEmail, Purpose: base.purpose, Notes: base.notes,
+      LinesJson: JSON.stringify(input.lines), FileUrl: up.url, Checksum: up.checksum, PdfUrl: pdf.url, PdfChecksum: pdf.checksum,
+      IssuedDate: date, IssuedBy: me.name, Status: base.status, HeldAt: input.send ? now : null,
     });
-    await this.log('Issued transmittal', number, `${input.to.trim()} · ${input.purpose.trim()} · ${input.lines.length} document(s)`);
+    await this.log(input.send ? 'Issued transmittal, held for undo' : 'Issued transmittal, not emailed', number,
+      `${base.to}${base.toEmail ? ' <' + base.toEmail + '>' : ''} · ${base.purpose} · ${input.lines.length} document(s)`);
     return number;
+  }
+  /* Sends a held transmittal from the signed-in person's own mailbox (Microsoft Graph, delegated). Only the issuer may send. */
+  async sendHeld(t: TR.TransmittalRow): Promise<void> {
+    const me = await this.whoAmI();
+    if (t.issuedBy !== me.name) throw new RuleError('Only the person who issued this transmittal can send it.');
+    if (t.status !== 'Held') throw new RuleError(`This transmittal is ${t.status.toLowerCase()}. It cannot be sent.`);
+    const mail = TR.emailDraft({ number: t.number, projectName: t.project, to: t.to, date: t.date, purpose: t.purpose, from: me.name, lines: t.lines });
+    const csvText = '﻿' + TR.transmittalCsv({ to: t.to, date: t.date, purpose: t.purpose, notes: t.notes, lines: t.lines });
+    const pdfBytes = textPdf(`Transmittal ${t.number}`, TR.transmittalPdfLines(t));
+    const msg = MAIL.graphMessage({ to: t.toEmail, subject: mail.subject, body: mail.body, attachments: [
+      { name: `${t.number}.csv`, contentType: 'text/csv', base64: toBase64(new TextEncoder().encode(csvText)) },
+      { name: `${t.number}.pdf`, contentType: 'application/pdf', base64: toBase64(pdfBytes) },
+    ] });
+    const client = await this.graphClient();
+    await client.api('/me/sendMail').post(msg);
+    const now = new Date().toISOString();
+    await this.sp.web.lists.getByTitle(LISTS.transmittals).items.getById(t.id).update({ Status: 'Sent', SentAt: now });
+    await this.log('Sent transmittal by email', t.number, `to ${t.toEmail} from ${me.name}`);
+  }
+  /* Undo. Only inside the undo window and only for the issuer. The record is marked cancelled, not deleted. */
+  async cancelHeld(t: TR.TransmittalRow): Promise<void> {
+    const me = await this.whoAmI();
+    if (t.issuedBy !== me.name) throw new RuleError('Only the person who issued this transmittal can undo it.');
+    if (t.status !== 'Held') throw new RuleError(`This transmittal is ${t.status.toLowerCase()}. Nothing to undo.`);
+    if (!MAIL.canUndo(t.heldAt, new Date().toISOString())) throw new RuleError('The undo time has passed. The email has gone.');
+    await this.sp.web.lists.getByTitle(LISTS.transmittals).items.getById(t.id).update({ Status: 'Cancelled' });
+    await this.log('Cancelled transmittal email (undo)', t.number, `to ${t.toEmail}. Record kept.`);
+  }
+  /* Mail goes out through the signed-in user's Microsoft 365 account. */
+  private async graphClient(): Promise<any> {
+    return this.context.msGraphClientFactory.getClient('3');
   }
 
   /* ---------- working drafts ---------- */
@@ -571,6 +617,13 @@ export class Register {
     await this.sp.web.lists.getByTitle(LISTS.documents).items.getById(doc.id).update({ IsRemoved: false, SharePointName: `${doc.number}.pdf` });
     await this.log('Restored document', doc.number, 'Name set back.', doc.id);
   }
+}
+
+/* Base64 for mail attachments. */
+function toBase64(bytes: Uint8Array): string {
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
 }
 
 /* Throws a plain message when the person lacks the permission. */

@@ -93,3 +93,18 @@ Decision needed: which option. My recommendation: option 1 for the pilot, option
 4. The flow writes back "sent to [address] on [date]" and an audit entry.
 
 Without a licence: stay with copy and paste. Nothing is lost.
+
+
+## Update 2026-11-06 (v0.17): sending is built
+
+| Part | Built | Notes |
+|---|---|---|
+| Recipient email, stored on the record | Yes | Checked before sending |
+| Send from the register | Yes | From the issuer's own mailbox (Microsoft Graph, Mail.Send, on behalf of the user) |
+| Undo for 60 seconds | Yes | Undo marks the record Cancelled. Nothing is deleted. |
+| Send now | Yes | Only the issuer |
+| PDF copy kept as evidence | Yes | Saved with the record, with checksum |
+| Record that it was emailed | Yes | Status, sent time, audit entry |
+| Held transmittals if the page is closed | Yes | Shown in the list with Send now or Undo. Nothing auto-sends after the page closes. |
+
+Needs before it works live: IT approves the Mail.Send API permission in the SharePoint admin centre. Until then the app shows the send as an error and records nothing as sent.

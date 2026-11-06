@@ -8,6 +8,8 @@ import { sha256Hex } from '../src/domain/sha';
 import * as P from '../src/domain/permissions';
 import * as DR from '../src/domain/drafts';
 import * as TR from '../src/domain/transmittal';
+import * as MAIL from '../src/domain/mail';
+import { textPdf } from '../src/domain/pdf';
 import * as RT from '../src/domain/retention';
 import * as TREE from '../src/domain/tree';
 
@@ -169,17 +171,36 @@ export class MockRegister {
     this.log('Uploaded new version', doc.number, `v${n} · no check or approval`);
   }
   async transmittals(project: string) { return TRANSMITTALS.filter(t => t.project === project); }
+  /* Demo: nothing is really emailed. The status moves the same way it does in SharePoint. */
   async issueTransmittal(input: any): Promise<string> {
     if (!input.to.trim()) throw new RuleError('Say who it is for.', { to: 'Say who it is for.' });
     if (!input.purpose.trim()) throw new RuleError('Say why it is sent.', { purpose: 'Say why it is sent.' });
     if (!input.lines.length) throw new RuleError('Choose at least one document.');
+    if (input.send && !MAIL.validEmail(input.toEmail)) throw new RuleError('Enter a valid email address to send it.', { toEmail: 'Enter a valid email address.' });
     const number = TR.nextTransmittalNumber(input.project, TRANSMITTALS.map(t => t.number));
     const date = today();
-    const csv = TR.transmittalCsv({ to: input.to.trim(), date, purpose: input.purpose.trim(), notes: input.notes.trim(), lines: input.lines });
-    const file = new File(['\uFEFF' + csv], `${number}.csv`, { type: 'text/csv' });
-    TRANSMITTALS.unshift({ id: nextId++, number, project: input.project, to: input.to.trim(), date, purpose: input.purpose.trim(), notes: input.notes.trim(), lines: input.lines, fileUrl: urlOf(file), checksum: await sumOf(file), issuedBy: ME });
-    this.log('Issued transmittal', number, `${input.to.trim()} · ${input.purpose.trim()} · ${input.lines.length} document(s)`);
+    const base = { number, to: input.to.trim(), toEmail: (input.toEmail || '').trim(), date, purpose: input.purpose.trim(), notes: input.notes.trim(), issuedBy: ME, lines: input.lines, status: input.send ? 'Held' : 'Recorded', sentAt: '' };
+    const csv = TR.transmittalCsv({ to: base.to, date, purpose: base.purpose, notes: base.notes, lines: input.lines });
+    const pdf = new File([textPdf(`Transmittal ${number}`, TR.transmittalPdfLines(base))], `${number}.pdf`, { type: 'application/pdf' });
+    TRANSMITTALS.unshift({ id: nextId++, project: input.project, fileUrl: urlOf(new File(['﻿' + csv], `${number}.csv`, { type: 'text/csv' })), checksum: await sumOf(new File([csv], 'x.csv')),
+      pdfUrl: urlOf(pdf), pdfChecksum: await sumOf(pdf), heldAt: input.send ? new Date().toISOString() : '', ...base } as any);
+    this.log(input.send ? 'Issued transmittal, held for undo' : 'Issued transmittal, not emailed', number, `${base.to} · ${base.purpose} · ${input.lines.length} document(s)`);
     return number;
+  }
+  async sendHeld(t: TR.TransmittalRow) {
+    if (t.issuedBy !== ME) throw new RuleError('Only the person who issued this transmittal can send it.');
+    if (t.status !== 'Held') throw new RuleError(`This transmittal is ${t.status.toLowerCase()}. It cannot be sent.`);
+    const row = TRANSMITTALS.find(x => x.id === t.id)!;
+    row.status = 'Sent'; row.sentAt = new Date().toISOString();
+    this.log('Sent transmittal by email', t.number, `to ${t.toEmail} (demo: not really emailed)`);
+  }
+  async cancelHeld(t: TR.TransmittalRow) {
+    if (t.issuedBy !== ME) throw new RuleError('Only the person who issued this transmittal can undo it.');
+    if (t.status !== 'Held') throw new RuleError(`This transmittal is ${t.status.toLowerCase()}. Nothing to undo.`);
+    if (!MAIL.canUndo(t.heldAt, new Date().toISOString())) throw new RuleError('The undo time has passed. The email has gone.');
+    const row = TRANSMITTALS.find(x => x.id === t.id)!;
+    row.status = 'Cancelled';
+    this.log('Cancelled transmittal email (undo)', t.number, `to ${t.toEmail}. Record kept.`);
   }
   async planData(project: string) {
     const ids = new Set(docs.filter(d => d.project === project).map(d => d.id));

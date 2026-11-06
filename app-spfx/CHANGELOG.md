@@ -79,3 +79,12 @@
 - Guard test: fails if any code path deletes a record, file, folder or project.
 - Provisioning adds Removed and On columns. Permissions list adds Revoked.
 - Tests: 56 + 12 automated checks.
+
+## 0.17.0 (2026-11-06)
+- Send transmittal by email from the register, from the issuer's own Microsoft 365 mailbox (Microsoft Graph, Mail.Send on behalf of the user).
+- 60-second undo. Undo marks the record Cancelled. Nothing is deleted. Send now available.
+- Recipient email stored on the record.
+- PDF copy of each transmittal saved with the record as evidence.
+- Status on each transmittal: Recorded, Held, Sent, Cancelled. Every step is in the audit log.
+- Needs IT approval of the Mail.Send API permission (set in package-solution.json).
+- Tests: 65 + 12 automated checks.

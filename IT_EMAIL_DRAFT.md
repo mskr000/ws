@@ -24,6 +24,12 @@ We have built a simple tool to keep track of our project documents. It is a web 
 5. Confirmation that work PCs sign in with the company account, so sign-in is automatic in the browser.
 6. Optional, later: a retention label for 7 years on the files and the audit list. (See the questions below.)
 
+**Email sending (new, please read)**
+- The register can send transmittal emails. Each email goes from the signed-in person's own work mailbox, not from a shared account.
+- To allow this, the app asks for one permission: "Mail.Send" for Microsoft Graph, on behalf of the signed-in user. It can send mail only as that person. It cannot read anyone's mail.
+- IT must approve this permission once in the SharePoint admin centre, under API access. It is a standard request. It is not an app registration.
+- Each sent email is recorded in the register: who sent it, to whom, and when. A 60-second undo is available.
+
 **What we do not need**
 - No new app registration.
 - No outside access to our data.
@@ -33,6 +39,8 @@ We have built a simple tool to keep track of our project documents. It is a web 
 2. Which Microsoft 365 plan do we have? Does it include retention labels?
 3. Who approves an app file for the app catalog?
 4. Is a test site allowed before the live site is created?
+5. Can you approve the "Mail.Send" API permission in the SharePoint admin centre (API access), for the Document Register package only?
+6. Do we need a mail-retention or compliance check for emails sent by the register?
 
 We can walk you through the demo in 15 minutes. The demo file is attached.
 
