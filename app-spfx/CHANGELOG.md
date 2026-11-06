@@ -105,3 +105,9 @@
 - Limit of 200 files per transmittal.
 - Each file's version, file name and checksum are saved on the transmittal list and the PDF copy.
 - Tests: 75 + 12 automated checks.
+
+## 0.20.0 (2026-11-06)
+- Transmittal picker: browse the folder tree, click a folder, see its files, tick them. "Include subfolders" option.
+- Search box and Search button are the same height.
+- Sample files added to every folder of U100 (current, in review, older) for demo.
+- Tests: 75 + 12 automated checks.

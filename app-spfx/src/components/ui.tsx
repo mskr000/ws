@@ -48,7 +48,7 @@ export function Title(props: { children: React.ReactNode; sub?: React.ReactNode 
   );
 }
 
-export function Btn(props: { onClick?: () => void; kind?: 'primary' | 'ok' | 'danger' | 'link' | 'plain'; disabled?: boolean; children: React.ReactNode; type?: 'button' | 'submit'; label?: string }) {
+export function Btn(props: { onClick?: () => void; kind?: 'primary' | 'ok' | 'danger' | 'link' | 'plain'; disabled?: boolean; children: React.ReactNode; type?: 'button' | 'submit'; label?: string; style?: React.CSSProperties }) {
   const k = props.kind || 'plain';
   const base: React.CSSProperties = { borderRadius: 980, padding: k === 'link' ? '6px 6px' : '8px 18px', fontSize: 15, fontWeight: 500, fontFamily: FONT,
     cursor: props.disabled ? 'default' : 'pointer', opacity: props.disabled ? 0.4 : 1, border: 'none', background: C.fill, color: C.ink, whiteSpace: 'nowrap', lineHeight: 1.3 };
@@ -57,7 +57,7 @@ export function Btn(props: { onClick?: () => void; kind?: 'primary' | 'ok' | 'da
   if (k === 'danger') Object.assign(base, { background: C.badSoft, color: C.bad });
   if (k === 'link') Object.assign(base, { background: 'none', color: C.accent, fontWeight: 500, padding: '6px 4px' });
   const cls = k === 'link' ? 'dr-btn dr-link' : 'dr-btn';
-  return <button type={props.type || 'button'} className={cls} style={base} disabled={props.disabled} onClick={props.onClick} aria-label={props.label}>{props.children}</button>;
+  return <button type={props.type || 'button'} className={cls} style={{ ...base, ...props.style }} disabled={props.disabled} onClick={props.onClick} aria-label={props.label}>{props.children}</button>;
 }
 
 export function Pill(props: { tone?: 'ok' | 'wait' | 'bad' | 'check' | 'old' | 'none'; children: React.ReactNode }) {

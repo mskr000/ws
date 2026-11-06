@@ -89,6 +89,23 @@ function seed() {
 
   audit.push({ id: nextId++, when: '2026-04-10T14:20:00Z', who: 'Tom', action: 'Approved', docNumber: 'U100-PID-1001', detail: 'rev 1 approved by Tom' });
   audit.push({ id: nextId++, when: '2026-02-03T09:00:00Z', who: 'Sam', action: 'Created document', docNumber: 'U100-PID-1001', detail: 'rev 0 waiting for Priya' });
+
+  /* Sample files in every folder of U100, so the picker can be browsed. Mix of current, in review and sent back. */
+  let seq = 2001;
+  SU.STANDARD_FOLDERS.forEach((folder, i) => {
+    const leaf = folder.split('/').pop() || folder;
+    for (let j = 0; j < 2; j++) {
+      const number = `U100-DOC-${seq++}`;
+      const doc = add({ number, title: `${leaf}: sample ${j + 1}`, project: 'U100', type: 'DOC', kind: 'controlled', folder, owner: 'Sam', removed: false, spName: `${number}.pdf`, dueDay: null, startPeriod: null });
+      const base = { documentId: doc.id, reason: 'Design change', note: '', uploader: 'Sam', checker: 'Priya', approver: 'Tom', checkedBy: '', approvedBy: '', returnNote: '', checksum: '', createdAt: '2026-05-01' };
+      revs.push({ ...base, id: nextId++, n: 0, status: 'Approved', summary: 'First issue.', fileName: `${number}_r0.pdf`, fileUrl: seedUrl(`${number}_r0.pdf`), checkedBy: 'Priya', approvedBy: 'Tom' });
+      if (j === 0) {
+        revs.push({ ...base, id: nextId++, n: 1, status: 'Approved', summary: 'Updated after review.', fileName: `${number}_r1.pdf`, fileUrl: seedUrl(`${number}_r1.pdf`), checkedBy: 'Priya', approvedBy: 'Tom', createdAt: '2026-06-01' });
+      } else {
+        revs.push({ ...base, id: nextId++, n: 1, status: 'Submitted', summary: 'Waiting for check.', fileName: `${number}_r1.pdf`, fileUrl: seedUrl(`${number}_r1.pdf`), createdAt: '2026-11-02' });
+      }
+    }
+  });
 }
 seed();
 
@@ -181,9 +198,10 @@ export class MockRegister {
   async transmittals(project: string) { return TRANSMITTALS.filter(t => t.project === project); }
   async contacts() { return CONTACTS.slice(); }
   /* Same contract as the SharePoint version: one page at a time. */
-  async findDocuments(project: string, o: { folder?: string; text?: string; numbers?: string[]; skip: number; take: number }) {
+  async findDocuments(project: string, o: { folder?: string; subfolders?: boolean; text?: string; numbers?: string[]; skip: number; take: number }) {
     let list = docs.filter(d => d.project === project);
-    if (o.folder) list = list.filter(d => d.folder === o.folder || d.folder.startsWith(o.folder + '/'));
+    if (o.folder && o.subfolders === false) list = list.filter(d => d.folder === o.folder);
+    else if (o.folder) list = list.filter(d => d.folder === o.folder || d.folder.startsWith(o.folder + '/'));
     if (o.numbers && o.numbers.length) list = list.filter(d => o.numbers!.includes(d.number));
     else if (o.text && o.text.trim()) { const t = o.text.trim().toLowerCase(); list = list.filter(d => d.number.toLowerCase().includes(t) || d.title.toLowerCase().includes(t)); }
     list = list.slice().sort((a, b) => a.number.localeCompare(b.number));

@@ -530,9 +530,10 @@ export class Register {
 
   /* ---------- choosing files for a transmittal ---------- */
   /* One page of documents, by folder, number or title. Never loads the whole register. */
-  async findDocuments(project: string, o: { folder?: string; text?: string; numbers?: string[]; skip: number; take: number }): Promise<{ docs: DocumentRow[]; more: boolean }> {
+  async findDocuments(project: string, o: { folder?: string; subfolders?: boolean; text?: string; numbers?: string[]; skip: number; take: number }): Promise<{ docs: DocumentRow[]; more: boolean }> {
     let filter = `ProjectCode eq ${odataString(project)}`;
-    if (o.folder) filter += ` and (Folder eq ${odataString(o.folder)} or startswith(Folder,${odataString(o.folder + '/')}))`;
+    if (o.folder && o.subfolders === false) filter += ` and Folder eq ${odataString(o.folder)}`;
+    else if (o.folder) filter += ` and (Folder eq ${odataString(o.folder)} or startswith(Folder,${odataString(o.folder + '/')}))`;
     if (o.numbers && o.numbers.length) filter += ` and (${o.numbers.map(n => `DocNumber eq ${odataString(n)}`).join(' or ')})`;
     else if (o.text && o.text.trim()) { const t = odataString(o.text.trim()); filter += ` and (substringof(${t},DocNumber) or substringof(${t},Title))`; }
     const rows = await this.sp.web.lists.getByTitle(LISTS.documents).items
