@@ -16,10 +16,11 @@ import { safeFileName, odataString, nextVersion } from '../domain/sp';
 import { sha256Hex } from '../domain/sha';
 import { buildDashboard } from '../domain/dashboard';
 import * as SU from '../domain/setup';
+import * as P from '../domain/permissions';
 
 export const LISTS = {
   projects: 'Projects', projectTypes: 'ProjectTypes', projectFolders: 'ProjectFolders', templates: 'Templates',
-  documents: 'Documents', revisions: 'Revisions', periods: 'PeriodEntries', certificates: 'CertificateVersions', audit: 'AuditLog',
+  documents: 'Documents', revisions: 'Revisions', periods: 'PeriodEntries', certificates: 'CertificateVersions', audit: 'AuditLog', grants: 'Permissions',
 } as const;
 export const LIBRARY = 'Register Files';
 export const GROUPS = { members: 'Register Members', records: 'Register Records Lead' } as const;
@@ -29,7 +30,7 @@ export class RuleError extends Error {
   constructor(message: string, fields: R.Errors = {}) { super(message); this.fields = fields; }
 }
 
-export interface Me { name: string; isRecordsLead: boolean }
+export type Me = P.Me;
 
 export class Register {
   private sp: SPFI;
@@ -48,8 +49,35 @@ export class Register {
     if (this.me) return this.me;
     const u = await this.sp.web.currentUser();
     const groups = await this.sp.web.currentUser.groups();
-    this.me = { name: u.Title, isRecordsLead: groups.some((g: { Title: string }) => g.Title === GROUPS.records) };
+    const stored = await this.grants();
+    const inRecords = groups.some((g: { Title: string }) => g.Title === GROUPS.records);
+    /* Until grants exist, the Records Lead group works as admin. Once grants exist, only grants count. */
+    this.me = { name: u.Title, grants: [...stored, ...P.bootstrapGrants(inRecords ? [u.Title] : [], stored.length > 0)] };
     return this.me;
+  }
+
+  /* ---------- who can do what ---------- */
+  async grants(): Promise<P.Grant[]> {
+    const rows = await this.sp.web.lists.getByTitle(LISTS.grants).items.select('Id', 'Title', 'ProjectCode', 'FolderPath', 'Capability').top(5000)();
+    return rows.map((r: any) => ({ id: r.Id, user: r.Title, project: r.ProjectCode || P.ALL_PROJECTS, folder: r.FolderPath || '', cap: r.Capability as P.Cap }));
+  }
+  async addGrant(input: { user: string; project: string; folder: string; cap: P.Cap }): Promise<void> {
+    const me = await this.whoAmI();
+    requireCap(me, 'permissions', P.ALL_PROJECTS, '', 'manage permissions');
+    const existing = await this.grants();
+    const problem = P.grantErrors(input, existing);
+    if (problem) throw new RuleError(problem);
+    await this.sp.web.lists.getByTitle(LISTS.grants).items.add({ Title: input.user, ProjectCode: input.project, FolderPath: input.folder, Capability: input.cap });
+    await this.log('Granted permission', '', `${input.user} · ${P.CAP_LABEL[input.cap]} · ${input.project === P.ALL_PROJECTS ? 'all projects' : input.project}${input.folder ? ' / ' + input.folder : ''}`);
+  }
+  async removeGrant(g: P.Grant): Promise<void> {
+    const me = await this.whoAmI();
+    requireCap(me, 'permissions', P.ALL_PROJECTS, '', 'manage permissions');
+    if (g.cap === 'permissions' && (await this.grants()).filter(x => x.cap === 'permissions' && x.project === P.ALL_PROJECTS).length <= 1) {
+      throw new RuleError('Keep at least one admin. Add another admin before removing this one.');
+    }
+    await this.sp.web.lists.getByTitle(LISTS.grants).items.getById(g.id).delete();
+    await this.log('Removed permission', '', `${g.user} · ${P.CAP_LABEL[g.cap]} · ${g.project === P.ALL_PROJECTS ? 'all projects' : g.project}${g.folder ? ' / ' + g.folder : ''}`);
   }
   /* Names of people in the register. Used for owner, checker and approver choices. */
   async members(): Promise<string[]> {
@@ -78,9 +106,7 @@ export class Register {
   }
 
   /* ---------- project setup ---------- */
-  private requireLead(me: Me, what: string): void {
-    if (!me.isRecordsLead) throw new RuleError(`Only the Records Lead can ${what}.`);
-  }
+
   /* Full setup of one project, for the setup form. */
   async projectSetup(code: string): Promise<{ setup: SU.ProjectSetup; locked: boolean; docsInFolder: Record<string, number>; docsOfType: Record<string, number> }> {
     const p = (await this.sp.web.lists.getByTitle(LISTS.projects).items.filter(`Title eq ${odataString(code)}`).top(1)())[0];
@@ -102,7 +128,7 @@ export class Register {
   }
   async createProject(setup: SU.ProjectSetup): Promise<string> {
     const me = await this.whoAmI();
-    this.requireLead(me, 'add a project');
+    requireCap(me, 'projects', P.ALL_PROJECTS, '', 'add a project');
     const code = setup.code.trim().toUpperCase();
     const existing = (await this.projects()).map(p => p.code);
     const errors = SU.projectSetupErrors({ ...setup, code }, true, existing);
@@ -119,7 +145,7 @@ export class Register {
   }
   async updateProject(setup: SU.ProjectSetup, before: { setup: SU.ProjectSetup; docsInFolder: Record<string, number>; docsOfType: Record<string, number>; locked: boolean }): Promise<number> {
     const me = await this.whoAmI();
-    this.requireLead(me, 'change a project');
+    requireCap(me, 'projects', setup.code, '', 'change a project');
     const errors = SU.projectSetupErrors(setup, false, []);
     const cur = before.setup;
     for (const f of cur.folders) if (!setup.folders.includes(f) && (before.docsInFolder[f] || 0) > 0) errors[`folder:${f}`] = `${before.docsInFolder[f]} document(s) are filed here. Move them first.`;
@@ -169,7 +195,7 @@ export class Register {
   }
   async saveTemplate(name: string, description: string, setup: SU.ProjectSetup): Promise<void> {
     const me = await this.whoAmI();
-    this.requireLead(me, 'save a template');
+    requireCap(me, 'projects', P.ALL_PROJECTS, '', 'save a template');
     const clean = name.trim();
     if (!clean) throw new RuleError('Give the template a name.', { name: 'Give the template a name.' });
     if (SU.BUILT_IN_TEMPLATES.some(t => t.name === clean)) throw new RuleError('That name is used by a built-in template.', { name: 'That name is used by a built-in template.' });
@@ -325,7 +351,7 @@ export class Register {
 
   async uploadPeriod(doc: DocumentRow, key: string, input: { file: File | null; summary: string; replaceReason: string }): Promise<void> {
     const me = await this.whoAmI();
-    const denied = R.canUploadSeries(doc.owner, me.name, me.isRecordsLead);
+    const denied = R.canUploadSeries(doc.owner, me.name, P.can(me, 'edit_any', doc.project, doc.folder));
     if (denied) throw new RuleError(denied);
     /* Work out replace and version from the list itself, not from the page. */
     const prior = (await this.periods(doc.id)).filter(p => p.periodKey === key);
@@ -342,7 +368,7 @@ export class Register {
   }
   async markNotNeeded(doc: DocumentRow, key: string, reason: string): Promise<void> {
     const me = await this.whoAmI();
-    const denied = R.canUploadSeries(doc.owner, me.name, me.isRecordsLead);
+    const denied = R.canUploadSeries(doc.owner, me.name, P.can(me, 'edit_any', doc.project, doc.folder));
     if (denied) throw new RuleError(denied);
     const errors = R.naErrors(reason);
     if (Object.keys(errors).length) throw new RuleError('Please fix the highlighted fields.', errors);
@@ -367,7 +393,7 @@ export class Register {
 
   async renew(doc: DocumentRow, certs: CertRow[], input: { file: File | null; summary: string; expiresOn: string }): Promise<void> {
     const me = await this.whoAmI();
-    const denied = R.canUploadSeries(doc.owner, me.name, me.isRecordsLead);
+    const denied = R.canUploadSeries(doc.owner, me.name, P.can(me, 'edit_any', doc.project, doc.folder));
     if (denied) throw new RuleError(denied.replace('series', 'certificate'));
     const errors = R.renewalErrors({ file: input.file ? { name: input.file.name, size: input.file.size } : null, summary: input.summary, expiresOn: input.expiresOn });
     if (Object.keys(errors).length) throw new RuleError('Please fix the highlighted fields.', errors);
@@ -382,7 +408,7 @@ export class Register {
 
   async removeDocument(doc: DocumentRow, reason: string, text: string): Promise<string> {
     const me = await this.whoAmI();
-    const denied = R.canRemove(me.isRecordsLead);
+    const denied = R.canRemove(P.can(me, 'remove', doc.project, doc.folder));
     if (denied) throw new RuleError(denied);
     const errors = R.removeErrors(reason, text);
     if (Object.keys(errors).length) throw new RuleError('Please fix the highlighted fields.', errors);
@@ -393,10 +419,15 @@ export class Register {
   }
   async restoreDocument(doc: DocumentRow): Promise<void> {
     const me = await this.whoAmI();
-    if (!me.isRecordsLead) throw new RuleError('Only the Records Lead can restore a document.');
+    requireCap(me, 'remove', doc.project, doc.folder, 'restore a document');
     await this.sp.web.lists.getByTitle(LISTS.documents).items.getById(doc.id).update({ IsRemoved: false, SharePointName: `${doc.number}.pdf` });
     await this.log('Restored document', doc.number, 'Name set back.', doc.id);
   }
+}
+
+/* Throws a plain message when the person lacks the permission. */
+function requireCap(me: Me, cap: P.Cap, project: string, folder: string, what: string): void {
+  if (!P.can(me, cap, project, folder)) throw new RuleError(`You do not have permission to ${what}. Ask an admin.`);
 }
 
 /* ---------- row mapping ---------- */

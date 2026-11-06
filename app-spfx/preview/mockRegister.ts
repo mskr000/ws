@@ -5,19 +5,27 @@ import type { ProjectInfo, DocTypeInfo, DocumentRow, RevisionRow, PeriodRow, Cer
 import { RuleError } from '../src/services/register';
 import * as SU from '../src/domain/setup';
 import { sha256Hex } from '../src/domain/sha';
+import * as P from '../src/domain/permissions';
 import { buildDashboard } from '../src/domain/dashboard';
 
 /* SHA-256 of the file the user picked. Same method as the SharePoint version. */
 async function sumOf(file: File | null): Promise<string> { return file ? sha256Hex(await file.arrayBuffer()) : ''; }
 
 let ME = 'Sam';
-const LEAD = 'Mia';
+/* Demo accounts. Admin manages access. Mia is Records Lead. Others are members. */
+const GRANTS: P.Grant[] = [
+  ...P.presetGrants('Admin', 'Admin', '*', '').map((g, i) => ({ ...g, id: 1 + i })),
+  ...P.presetGrants('Records Lead', 'Mia', '*', '').map((g, i) => ({ ...g, id: 10 + i })),
+];
+let nextGrant = 100;
+const can = (cap: P.Cap, project = '*', folder = '') => P.can({ name: ME, grants: GRANTS }, cap, project, folder);
 export function signInAs(name: string) { ME = name; }
-const MEMBERS = ['Mia', 'Priya', 'Sam', 'Tom'];
+const MEMBERS = ['Admin', 'Mia', 'Priya', 'Sam', 'Tom'];
 export const PREVIEW_PEOPLE = MEMBERS;
 const PROJECTS: ProjectInfo[] = [
   { code: 'U100', name: 'Unit 100 Refinery', status: 'active', numberPattern: R.DEFAULT_PATTERN },
   { code: 'TF7', name: 'Tank Farm TF-7', status: 'active', numberPattern: R.DEFAULT_PATTERN },
+  { code: 'OM1', name: 'O&M project (sample)', status: 'active', numberPattern: R.DEFAULT_PATTERN },
 ];
 const TYPES: Record<string, DocTypeInfo[]> = {
   U100: [
@@ -28,6 +36,7 @@ const TYPES: Record<string, DocTypeInfo[]> = {
     { code: 'CERT', label: 'Certificate or inspection', kind: 'record', folder: 'Operations/06 Certificates' },
   ],
   TF7: [{ code: 'PID', label: 'P&ID', kind: 'controlled', folder: 'EPC/02 Engineering/02.1 Process' }],
+  OM1: SU.OM_TYPES.map(t => ({ ...t, folder: t.folder })),
 };
 
 let nextId = 100;
@@ -60,13 +69,29 @@ function seed() {
 seed();
 
 export class MockRegister {
-  async whoAmI() { return { name: ME, isRecordsLead: ME === LEAD }; }
+  async whoAmI() { return { name: ME, grants: GRANTS.slice() }; }
+  async grants() { return GRANTS.slice(); }
+  async addGrant(input: { user: string; project: string; folder: string; cap: P.Cap }) {
+    if (!can('permissions')) throw new RuleError('You do not have permission to manage permissions. Ask an admin.');
+    const problem = P.grantErrors(input, GRANTS);
+    if (problem) throw new RuleError(problem);
+    GRANTS.push({ ...input, id: nextGrant++ });
+    this.log('Granted permission', '', `${input.user} · ${P.CAP_LABEL[input.cap]} · ${input.project}${input.folder ? ' / ' + input.folder : ''}`);
+  }
+  async removeGrant(g: P.Grant) {
+    if (!can('permissions')) throw new RuleError('You do not have permission to manage permissions. Ask an admin.');
+    if (g.cap === 'permissions' && GRANTS.filter(x => x.cap === 'permissions' && x.project === '*').length <= 1) throw new RuleError('Keep at least one admin. Add another admin before removing this one.');
+    GRANTS.splice(GRANTS.indexOf(g), 1);
+    this.log('Removed permission', '', `${g.user} · ${P.CAP_LABEL[g.cap]} · ${g.project}${g.folder ? ' / ' + g.folder : ''}`);
+  }
   async members() { return MEMBERS; }
   async projects() { return PROJECTS; }
   async projectTypes(p: string) { return (TYPES[p] || []).map(t => ({ ...t, firstNumber: 1 })); }
   private setups: Record<string, SU.ProjectSetup> = {
     U100: { code: 'U100', name: 'Unit 100 Refinery', status: 'active', numberPattern: R.DEFAULT_PATTERN, folders: SU.STANDARD_FOLDERS.slice(),
       types: SU.DOC_TYPES.map(d => ({ code: d.code, enabled: ['PID','SOP','MNT','RPT','CERT'].includes(d.code), folder: d.folder, firstNumber: 1 })) },
+    OM1: { code: 'OM1', name: 'O&M project (sample)', status: 'active', numberPattern: R.DEFAULT_PATTERN, folders: SU.OM_FOLDERS.slice(),
+      types: SU.OM_TYPES.map(d => ({ code: d.code, enabled: true, folder: d.folder, firstNumber: 1 })) },
     TF7: { code: 'TF7', name: 'Tank Farm TF-7', status: 'active', numberPattern: R.DEFAULT_PATTERN, folders: ['EPC/02 Engineering/02.1 Process'],
       types: SU.DOC_TYPES.map(d => ({ code: d.code, enabled: d.code === 'PID', folder: 'EPC/02 Engineering/02.1 Process', firstNumber: 1 })) },
   };
@@ -78,7 +103,7 @@ export class MockRegister {
     return { setup, locked: docs.some(d => d.project === code), docsInFolder: folderDocs, docsOfType: typeDocs };
   }
   async createProject(setup: SU.ProjectSetup) {
-    if (ME !== LEAD) throw new RuleError('Only the Records Lead can add a project.');
+    if (!can('projects')) throw new RuleError('You do not have permission to add a project. Ask an admin.');
     const errors = SU.projectSetupErrors(setup, true, PROJECTS.map(p => p.code));
     if (Object.keys(errors).length) throw new RuleError('Please fix the highlighted fields.', errors);
     PROJECTS.push({ code: setup.code, name: setup.name, status: 'active', numberPattern: setup.numberPattern });
@@ -87,7 +112,7 @@ export class MockRegister {
     return setup.code;
   }
   async updateProject(setup: SU.ProjectSetup, before: any) {
-    if (ME !== LEAD) throw new RuleError('Only the Records Lead can change a project.');
+    if (!can('projects', setup.code)) throw new RuleError('You do not have permission to change this project. Ask an admin.');
     const errors = SU.projectSetupErrors(setup, false, []);
     for (const f of before.setup.folders) if (!setup.folders.includes(f) && (before.docsInFolder[f] || 0) > 0) errors[`folder:${f}`] = `${before.docsInFolder[f]} document(s) are filed here. Move them first.`;
     for (const t of before.setup.types) { const still = setup.types.find((x: SU.SetupType) => x.code === t.code && x.enabled); if (!still && (before.docsOfType[t.code] || 0) > 0) errors[`type:${t.code}`] = `${before.docsOfType[t.code]} document(s) of this type exist.`; }
@@ -100,7 +125,7 @@ export class MockRegister {
   }
   async templates() { return [...SU.BUILT_IN_TEMPLATES, ...this.savedTemplates]; }
   async saveTemplate(name: string, description: string, setup: SU.ProjectSetup) {
-    if (ME !== LEAD) throw new RuleError('Only the Records Lead can save a template.');
+    if (!can('projects')) throw new RuleError('You do not have permission to save a template. Ask an admin.');
     if (!name.trim()) throw new RuleError('Give the template a name.', { name: 'Give the template a name.' });
     this.savedTemplates.push({ id: 'saved-' + nextId++, name: name.trim(), description, numberPattern: setup.numberPattern, folders: setup.folders, types: setup.types.filter(t => t.enabled), builtIn: false });
   }
@@ -157,7 +182,7 @@ export class MockRegister {
     rev.status = 'Returned'; rev.returnNote = text.trim(); this.log('Returned', doc.number, text.trim());
   }
   async uploadPeriod(doc: DocumentRow, key: string, input: any) {
-    this.rule(R.canUploadSeries(doc.owner, ME, ME === LEAD));
+    this.rule(R.canUploadSeries(doc.owner, ME, can('edit_any', doc.project, doc.folder)));
     const errors = R.periodErrors({ file: input.file ? { name: input.file.name, size: input.file.size } : null, summary: input.summary, replaceReason: input.replaceReason, existing: input.existing });
     if (Object.keys(errors).length) throw new RuleError('Please fix the highlighted fields.', errors);
     const cs = await sumOf(input.file);
@@ -165,14 +190,14 @@ export class MockRegister {
     this.log('Uploaded period', doc.number, key);
   }
   async markNotNeeded(doc: DocumentRow, key: string, reason: string) {
-    this.rule(R.canUploadSeries(doc.owner, ME, ME === LEAD));
+    this.rule(R.canUploadSeries(doc.owner, ME, can('edit_any', doc.project, doc.folder)));
     const errors = R.naErrors(reason);
     if (Object.keys(errors).length) throw new RuleError('Please fix the highlighted fields.', errors);
     periods.push({ id: nextId++, documentId: doc.id, periodKey: key, version: 1, notNeeded: true, notNeededReason: reason, summary: '', uploader: ME, uploadedAt: stamp(), fileUrl: '', replaceReason: '', checksum: '' });
     this.log('Marked not needed', doc.number, `${key}: ${reason}`);
   }
   async renew(doc: DocumentRow, list: CertRow[], input: any) {
-    this.rule(R.canUploadSeries(doc.owner, ME, ME === LEAD));
+    this.rule(R.canUploadSeries(doc.owner, ME, can('edit_any', doc.project, doc.folder)));
     const errors = R.renewalErrors({ file: input.file ? { name: input.file.name, size: input.file.size } : null, summary: input.summary, expiresOn: input.expiresOn });
     if (Object.keys(errors).length) throw new RuleError('Please fix the highlighted fields.', errors);
     const cs = await sumOf(input.file);
@@ -180,12 +205,12 @@ export class MockRegister {
     this.log('Renewed certificate', doc.number, input.expiresOn);
   }
   async removeDocument(doc: DocumentRow, reason: string, text: string) {
-    this.rule(R.canRemove(ME === LEAD));
+    this.rule(R.canRemove(can('remove', doc.project, doc.folder)));
     const errors = R.removeErrors(reason, text);
     if (Object.keys(errors).length) throw new RuleError('Please fix the highlighted fields.', errors);
     doc.removed = true; doc.spName = `DELETED_${today().replace(/-/g, '')}_${doc.number}.pdf`;
     this.log('Removed document', doc.number, `${reason}: ${text}. Renamed. Nothing erased.`);
     return doc.spName;
   }
-  async restoreDocument(doc: DocumentRow) { doc.removed = false; doc.spName = `${doc.number}.pdf`; this.log('Restored document', doc.number, 'Name set back.'); }
+  async restoreDocument(doc: DocumentRow) { this.rule(R.canRemove(can('remove', doc.project, doc.folder))); doc.removed = false; doc.spName = `${doc.number}.pdf`; this.log('Restored document', doc.number, 'Name set back.'); }
 }

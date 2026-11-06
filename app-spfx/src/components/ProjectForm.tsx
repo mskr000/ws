@@ -1,3 +1,5 @@
+import * as P from '../domain/permissions';
+import type { Me } from '../services/register';
 import * as React from 'react';
 import * as SU from '../domain/setup';
 import * as N from '../domain/numbering';
@@ -12,9 +14,10 @@ const blankSetup = (): SU.ProjectSetup => {
     types: SU.DOC_TYPES.map(t => ({ code: t.code, enabled: std.types.some(x => x.code === t.code), folder: t.folder, firstNumber: 1 })) };
 };
 
-export function ProjectForm(props: { reg: Register; code: string | null; isRecordsLead: boolean; onDone: () => void; onCancel: () => void }) {
+export function ProjectForm(props: { reg: Register; me: Me; code: string | null; onDone: () => void; onCancel: () => void }) {
   const isNew = props.code === null;
-  const ro = !props.isRecordsLead;
+  const canEdit = P.can(props.me, 'projects', props.code || P.ALL_PROJECTS);
+  const ro = !canEdit;
   const [pf, setPf] = React.useState<SU.ProjectSetup | null>(isNew ? blankSetup() : null);
   const [before, setBefore] = React.useState<Before | null>(null);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
@@ -176,7 +179,7 @@ export function ProjectForm(props: { reg: Register; code: string | null; isRecor
         {err('types')}
       </section>
 
-      {!isNew && props.isRecordsLead ? (
+      {!isNew && canEdit ? (
         <section style={card}>
           <h2>Save this setup as a template</h2>
           <div style={row}>

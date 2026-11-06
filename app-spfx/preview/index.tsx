@@ -16,8 +16,8 @@ function Preview() {
       <div style={{ maxWidth: 1040, margin: '0 auto', padding: '28px 20px 48px' }}>
         <div style={{ background: C.panel, borderRadius: 16, padding: '14px 18px', marginBottom: 22, boxShadow: '0 1px 2px rgba(0,0,0,0.04), 0 2px 12px rgba(0,0,0,0.04)' }}>
           <div style={{ fontSize: 13, color: C.soft, marginBottom: 10 }}>Preview with sample data. This is the real web part. In SharePoint, Windows sign-in sets who you are.</div>
-          <Segmented value={who} onChange={choose} options={PREVIEW_PEOPLE.map(p => [p, p === 'Mia' ? 'Mia · Records Lead' : p])} />
-          <div style={{ ...hint, marginTop: 8 }}>Sam adds files. Mia can also add projects and remove documents.</div>
+          <Segmented value={who} onChange={choose} options={PREVIEW_PEOPLE.map(p => [p, p === 'Mia' ? 'Mia · Records Lead' : p === 'Admin' ? 'Admin' : p])} />
+          <div style={{ ...hint, marginTop: 8 }}>Sam adds files. Mia adds projects and removes documents. Admin sets who can do what on the Access tab.</div>
         </div>
         <App key={who} context={null} siteUrl="https://preview.example/sites/DocumentRegister" registerFactory={() => mock as unknown as Register} />
       </div>

@@ -34,7 +34,7 @@ test('numbering pattern is checked as part of the setup', () => {
 });
 
 test('built-in templates: every type files into a folder the template contains', () => {
-  assert.equal(S.BUILT_IN_TEMPLATES.length, 3);
+  assert.equal(S.BUILT_IN_TEMPLATES.length, 4);
   for (const t of S.BUILT_IN_TEMPLATES) {
     for (const ty of t.types) assert.ok(t.folders.includes(ty.folder), `${t.id} ${ty.code}`);
     assert.deepEqual(S.projectSetupErrors({ code: 'X1', name: 'x', status: 'active', numberPattern: t.numberPattern, folders: t.folders, types: t.types }, true, []), {});
@@ -71,4 +71,18 @@ test('folder CSV without types: standard types go to their folders when the fold
 test('folder CSV: a file with problems still returns errors and nothing else is trusted by the caller', () => {
   const r = S.readFolderCsv('"unclosed,PID\n');
   assert.ok(r.errors.length > 0);
+});
+
+test('O&M template: every folder is valid, every type sits in a listed folder, no duplicates', () => {
+  const t = S.BUILT_IN_TEMPLATES.find(x => x.id === 'om-standard')!;
+  assert.ok(t, 'template exists');
+  assert.equal(new Set(t.folders).size, t.folders.length, 'no duplicate folders');
+  for (const f of t.folders) assert.equal(S.folderPathError(f), null, f);
+  for (const ty of t.types) assert.ok(t.folders.includes(ty.folder), `${ty.code} folder listed`);
+  assert.equal(S.projectSetupErrors({ code: 'OM1', name: 'O&M test', status: 'active', numberPattern: t.numberPattern, folders: t.folders, types: t.types }, true, []).folders, undefined);
+});
+
+test('O&M template: no folder name uses a slash inside a name', () => {
+  const t = S.BUILT_IN_TEMPLATES.find(x => x.id === 'om-standard')!;
+  for (const f of t.folders) for (const seg of f.split('/')) assert.ok(!seg.includes('/'));
 });

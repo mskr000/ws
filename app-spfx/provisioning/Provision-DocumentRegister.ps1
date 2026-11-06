@@ -116,6 +116,10 @@ Ensure-Field 'CertificateVersions' 'Checksum' 'Text' 'SHA-256 checksum'
 Ensure-Field 'CertificateVersions' 'UploadedAt' 'DateTime' 'Uploaded at'
 
 Ensure-List 'AuditLog' | Out-Null
+Ensure-List 'Permissions' | Out-Null
+Ensure-Field 'Permissions' 'ProjectCode' 'Text' 'Project code (* = all)'
+Ensure-Field 'Permissions' 'FolderPath' 'Text' 'Folder (blank = whole project)'
+Ensure-Field 'Permissions' 'Capability' 'Text' 'Permission'
 Ensure-Field 'AuditLog' 'WhoName' 'Text' 'Who'
 Ensure-Field 'AuditLog' 'At' 'DateTime' 'When'
 Ensure-Field 'AuditLog' 'DocNumber' 'Text' 'Document number' -Indexed
@@ -146,14 +150,14 @@ if (-not (Get-PnPRoleDefinition -Identity 'Register Add Only' -ErrorAction Silen
 
 # Stop the register lists and library inheriting access from the whole site.
 # Site owners keep access. Everyone else gets only what is set below.
-$secured = @('Projects','ProjectTypes','ProjectFolders','Templates','Documents','Revisions','PeriodEntries','CertificateVersions','AuditLog','Register Files')
+$secured = @('Projects','ProjectTypes','ProjectFolders','Templates','Documents','Revisions','PeriodEntries','CertificateVersions','AuditLog','Permissions','Register Files')
 foreach ($l in $secured) {
   Set-PnPList -Identity $l -BreakRoleInheritance -CopyRoleAssignments:$false -ClearSubscopes | Out-Null
   Set-PnPListPermission -Identity $l -AddRole 'Full Control' -Group 'Register Records Lead' | Out-Null
 }
 
 # Reference lists: members can read, only the Records Lead changes them.
-foreach ($l in @('Projects','ProjectTypes','ProjectFolders','Templates')) {
+foreach ($l in @('Projects','ProjectTypes','ProjectFolders','Templates','Permissions')) {
   Set-PnPListPermission -Identity $l -AddRole 'Read' -Group 'Register Members' | Out-Null
 }
 # Working lists: members add and update (checks, approvals, uploads).

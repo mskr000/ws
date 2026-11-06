@@ -2,6 +2,7 @@ import * as React from 'react';
 import type { DocumentRow, RevisionRow, PeriodRow, CertRow, AuditRow } from '../domain/types';
 import * as R from '../domain/rules';
 import { Register, RuleError, Me } from '../services/register';
+import * as P from '../domain/permissions';
 import { Btn, Pill, Field, Notice, Select, input, row, card, C, MONO } from './ui';
 
 const KIND: Record<string, string> = { controlled: 'Controlled', periodic: 'Recurring', record: 'Certificate' };
@@ -55,7 +56,8 @@ export function DocumentPage(props: { reg: Register; id: number; me: Me; members
   const cur = revs.filter(r => r.status === 'Approved').slice(-1)[0];
   const last = revs.length ? revs[revs.length - 1] : undefined;
   const isOwner = props.me.name === doc.owner;
-  const canUpload = isOwner || props.me.isRecordsLead;
+  const canUpload = isOwner || P.can(props.me, 'edit_any', doc.project, doc.folder);
+  const canRemove = P.can(props.me, 'remove', doc.project, doc.folder);
 
   const revisionBlock = (r: RevisionRow) => {
     const mine = props.me.name;
@@ -199,7 +201,7 @@ export function DocumentPage(props: { reg: Register; id: number; me: Me; members
       {doc.removed ? (
         <>
           <Notice tone="warn">Removed. The file is renamed to <span style={{ fontFamily: MONO }}>{doc.spName}</span>. Nothing was erased.</Notice>
-          {props.me.isRecordsLead ? <Btn kind="ok" onClick={() => run(() => props.reg.restoreDocument(doc), 'Restored.')}>Restore</Btn> : null}
+          {canRemove ? <Btn kind="ok" onClick={() => run(() => props.reg.restoreDocument(doc), 'Restored.')}>Restore</Btn> : null}
         </>
       ) : removeOpen ? (
         <section style={card}>
@@ -212,8 +214,8 @@ export function DocumentPage(props: { reg: Register; id: number; me: Me; members
         </section>
       ) : (
         <>
-          <Btn kind="danger" disabled={!props.me.isRecordsLead} onClick={() => setRemoveOpen(true)}>Remove document</Btn>{' '}
-          <span style={{ fontSize: 13, color: C.soft }}>{props.me.isRecordsLead ? 'Records Lead only. Nothing is erased.' : 'Only the Records Lead can remove a document.'}</span>
+          <Btn kind="danger" disabled={!canRemove} onClick={() => setRemoveOpen(true)}>Remove document</Btn>{' '}
+          <span style={{ fontSize: 13, color: C.soft }}>{canRemove ? 'You can remove this. Nothing is erased.' : 'You need the remove permission to remove a document. Ask an admin.'}</span>
         </>
       )}
 

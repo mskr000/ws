@@ -95,7 +95,39 @@ const typesOf = (codes: string[]): SetupType[] => codes.map(code => ({ code, ena
 const EPC = STANDARD_FOLDERS.filter(f => f.startsWith('EPC/'));
 const OPS = STANDARD_FOLDERS.filter(f => f.startsWith('Operations/'));
 
+/* O&M (operations and maintenance) structure, as agreed. Folder names use "-" where a name needs a separator.
+   Subfolders of "Warranty/Other equipment" are not defined yet; add them on the project when known. */
+const CORRECTIVE_SUB = ['Maintenance schedule', 'Outage request notification', 'Work orders', 'Logs', 'Test results', 'Maintenance records', 'Defect register'];
+export const OM_FOLDERS: string[] = [
+  'Engineering/Drawings', 'Engineering/Drawings/As-built drawings', 'Engineering/NCN', 'Engineering/PPC',
+  'Change management/Change request', 'Change management/ABCD',
+  'Equipment space/Asset-equipment list', 'Equipment space/Spare inventory', 'Equipment space/Tools', 'Equipment space/Certificates',
+  'Equipment space/Calibration', 'Equipment space/Licenses', 'Equipment space/Logistics', 'Equipment space/Obsolete', 'Equipment space/Vendor list',
+  'Contract-legal/Correspondence-letter', 'Contract-legal/Grid code compliance', 'Contract-legal/Vendor contracts', 'Contract-legal/Vendor codes',
+  'Contract-legal/Variations', 'Contract-legal/Quotes to customers', 'Contract-legal/Claims', 'Contract-legal/Insurance',
+  ...['Corrective', 'Preventative'].flatMap(k => [`Engineering maintenance engagement/${k}`, ...CORRECTIVE_SUB.map(x => `Engineering maintenance engagement/${k}/${x}`)]),
+  'Operations/Monthly reports', 'Operations/KPI calculation report', 'Operations/Procedures', 'Operations/Communication protocols', 'Operations/O&M plan',
+  'Operations/OEM manuals', 'Operations/Minutes of meetings', 'Operations/OEM updates', 'Operations/CMMS',
+  'HSEQ/HSE management plan', 'HSEQ/Safety and incident reports', 'HSEQ/Risk assessment', 'HSEQ/Site inductions', 'HSEQ/Site access',
+  'HSEQ/Health and hygiene', 'HSEQ/Audit and inspections', 'HSEQ/Emergency drills', 'HSEQ/Pest control', 'HSEQ/Permits to work', 'HSEQ/Environmental permits',
+  'Training/Training records', 'Training/OEM training', 'Training/Training certificate',
+  'Warranty/Batteries', 'Warranty/Inverters', 'Warranty/Other equipment',
+  'Finance/Budget', 'Finance/Cost tracking', 'Finance/Vendor bills', 'Finance/Customer invoices', 'Finance/Purchase orders', 'Finance/Vendor quotes',
+  'EPC related/Punch list', 'EPC related/Commissioning and handover',
+];
+const om = (code: string, label: string, kind: DocKind, folder: string) => ({ code, label, kind, folder });
+export const OM_TYPES: DocTypeDef[] = [
+  om('MAN', 'OEM manual', 'controlled', 'Operations/OEM manuals'),
+  om('SOP', 'Procedure', 'controlled', 'Operations/Procedures'),
+  om('RPT', 'Monthly report', 'periodic', 'Operations/Monthly reports'),
+  om('MNT', 'Preventative check record', 'periodic', 'Engineering maintenance engagement/Preventative/Maintenance records'),
+  om('PTW', 'Permit to work', 'record', 'HSEQ/Permits to work'),
+  om('CERT', 'Certificate', 'record', 'Equipment space/Certificates'),
+];
+
 export const BUILT_IN_TEMPLATES: TemplateDef[] = [
+  { id: 'om-standard', name: 'O&M (operations and maintenance)', description: 'Standard O&M structure: engineering, change management, equipment, contracts, maintenance, operations, HSEQ, training, warranty, finance, EPC handover.',
+    numberPattern: DEFAULT_PATTERN, folders: OM_FOLDERS, types: OM_TYPES.map(t => ({ code: t.code, enabled: true, folder: t.folder, firstNumber: 1 })), builtIn: true },
   { id: 'epc-standard', name: 'EPC project (standard)', description: 'Full EPC structure: project management, engineering, procurement, construction, commissioning and handover. Every EPC document type on.',
     numberPattern: DEFAULT_PATTERN, folders: EPC, types: typesOf(DOC_TYPES.filter(t => t.folder.startsWith('EPC/')).map(t => t.code)), builtIn: true },
   { id: 'operations-only', name: 'Operations (plant running)', description: 'For a plant in operation: manuals, SOPs, monthly checks, permits, monthly reports and certificates.',
