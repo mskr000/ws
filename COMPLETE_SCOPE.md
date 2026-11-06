@@ -108,3 +108,29 @@ Not done, in suggested order:
 Later release (proposed, not yet agreed): full-text search (24), access review report (27).
 
 Blocked on you: test site address, IT request sent, licence and retention decisions, pilot people.
+
+## Status update 2026-11-06 (demo v0.16.0)
+
+| # | Feature | Status |
+|---|---|---|
+| 1 | Windows sign-in | Done by design (SharePoint). Needs a test site to prove. |
+| 2–8 | Document list, add, workflow, recurring, certificates, remove/restore, activity | Done |
+| 9–14 | Projects, numbering, types, folders, templates, CSV | Done. Folder rename and soft removal added. |
+| 15 | Working drafts | Partial. Add, discard and visibility done. Check-out missing. |
+| 16 | Download with checksum | Done. Icon, bulk ZIP, checksum shown. SharePoint side untested. |
+| 17 | Import of existing list, with resume | Missing. Waiting for the list files. |
+| 18 | Transmittal | Partial. Recorded and numbered. Email text is copy-only. Sending missing. |
+| 19 | Dashboard | Done |
+| 20 | Recurring calendar, 12 months | Done (Plan tab) |
+| 21 | Master document list | Done (Plan tab, CSV export) |
+| 22 | Reminders | Missing. Parked until Power Automate licence is confirmed. |
+| 23 | Rule-breach alerts | Missing. Parked (licence). Needed before controlled docs go live. |
+| 24 | Full-text search | Later release (proposed, not agreed) |
+| 25 | Audit export | Done for the whole log (CSV). Per-document export missing. |
+| 26 | Retention and legal hold | Done in the app. Purview retention label needs IT. |
+| 27 | Access review report | Later release (proposed, not agreed) |
+| 28 | Tests for SharePoint layer | Missing. Needs a test site. |
+| 29 | Pilot with named people | Missing. Needs test site and people. |
+| — | Added beyond the list | Admin access by person/project/folder; uncontrolled documents; internal projects; copy structure; never-delete rule with guard test; heat map on Activity tab |
+
+Totals: 56 app-side and 12 SharePoint-side tests pass.

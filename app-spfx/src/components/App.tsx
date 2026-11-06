@@ -9,11 +9,13 @@ import { DashboardPage } from './DashboardPage';
 import { TransmittalPage } from './TransmittalPage';
 import { AccessPage } from './AccessPage';
 import { PlanPage } from './PlanPage';
+import { HeatMap } from './HeatMap';
+import { projectOf } from '../domain/activity';
 import { saveText } from '../services/download';
 import { auditCsv } from '../domain/audit';
 import * as R from '../domain/rules';
 import * as P from '../domain/permissions';
-import { Segmented, Title, Notice, Table, th, td, GLOBAL_CSS, C, FONT, MONO, hint, row, Btn } from './ui';
+import { Segmented, Title, Notice, Table, th, td, GLOBAL_CSS, C, FONT, MONO, hint, row, Btn, Section } from './ui';
 
 type View = { kind: 'dashboard' } | { kind: 'list' } | { kind: 'doc'; id: number } | { kind: 'add' } | { kind: 'transmittal' } | { kind: 'projects' } | { kind: 'access' } | { kind: 'plan' } | { kind: 'log' };
 
@@ -65,7 +67,7 @@ export function App(props: AppProps) {
       {view.kind === 'doc' ? <DocumentPage reg={reg} id={view.id} me={me} members={members} onBack={() => setView({ kind: 'list' })} onChanged={bump} /> : null}
       {view.kind === 'add' ? <AddDocument reg={reg} me={me} projects={projects} members={members} onCancel={() => setView({ kind: 'list' })} onDone={id => { bump(); setView({ kind: 'doc', id }); }} /> : null}
       {view.kind === 'projects' ? <ProjectsPage reg={reg} me={me} projects={allProjects} onChanged={() => { reg.projects().then(setAllProjects).catch(() => undefined); bump(); }} /> : null}
-      {view.kind === 'log' ? <ActivityPage reg={reg} /> : null}
+      {view.kind === 'log' ? <ActivityPage reg={reg} projects={projects} /> : null}
       {view.kind === 'dashboard' ? <DashboardPage key={version} reg={reg} me={me} onOpen={id => setView({ kind: 'doc', id })} /> : null}
       {view.kind === 'access' && P.can(me, 'permissions') ? <AccessPage reg={reg} me={me} projects={allProjects} people={members} /> : null}
       {view.kind === 'plan' ? <PlanPage reg={reg} projects={projects} /> : null}
@@ -74,9 +76,10 @@ export function App(props: AppProps) {
   );
 }
 
-function ActivityPage(props: { reg: Register }) {
+function ActivityPage(props: { reg: Register; projects: ProjectInfo[] }) {
   const [rows, setRows] = React.useState<AuditRow[] | null>(null);
   const [err, setErr] = React.useState('');
+  const [heat, setHeat] = React.useState<Array<{ when: string; project: string | null }>>([]);
   const exportAll = async () => {
     try {
       const all = await props.reg.audit(undefined, 5000);
@@ -84,6 +87,14 @@ function ActivityPage(props: { reg: Register }) {
     } catch (e) { setErr(String((e as Error).message || e)); }
   };
   React.useEffect(() => { props.reg.audit(undefined, 200).then(setRows).catch(e => setErr(String(e.message || e))); }, []);
+  React.useEffect(() => {
+    Promise.all([props.reg.audit(undefined, 5000), props.reg.documents()]).then(([all, docs]) => {
+      const docProject: Record<string, string> = {};
+      docs.forEach(d => { docProject[d.number] = d.project; });
+      const codes = props.projects.map(p => p.code);
+      setHeat(all.map(a => ({ when: a.when, project: projectOf(a, docProject, codes) })));
+    }).catch(() => setHeat([]));
+  }, [props.projects]);
   return (
     <div>
       <div style={{ ...row, justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 18 }}>
@@ -91,6 +102,8 @@ function ActivityPage(props: { reg: Register }) {
         <Btn onClick={exportAll}>Export audit log (CSV)</Btn>
       </div>
       {err ? <Notice tone="bad">{err}</Notice> : null}
+      <HeatMap entries={heat} projects={props.projects} />
+      <Section title="Log">
       <Table minWidth={620}>
         <thead><tr><th style={th}>When</th><th style={th}>Who</th><th style={th}>Action</th><th style={th}>Document</th><th style={th}>Detail</th></tr></thead>
         <tbody>
@@ -107,6 +120,7 @@ function ActivityPage(props: { reg: Register }) {
           ))}
         </tbody>
       </Table>
+      </Section>
     </div>
   );
 }
