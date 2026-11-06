@@ -120,6 +120,8 @@ Ensure-List 'Permissions' | Out-Null
 Ensure-List 'Drafts' | Out-Null
 Ensure-Field 'Projects' 'ProjectKind' 'Text' 'Kind (Standard or Internal)'
 Ensure-Field 'Projects' 'ProjectOwner' 'Text' 'Owner (creator)'
+Ensure-Field 'Documents' 'LegalHold' 'Boolean' 'Legal hold'
+Ensure-Field 'Documents' 'HoldReason' 'Text' 'Legal hold reason'
 Ensure-List 'Transmittals' | Out-Null
 Ensure-Field 'Transmittals' 'ProjectCode' 'Text' 'Project code'
 Ensure-Field 'Transmittals' 'ToName' 'Text' 'Sent to'

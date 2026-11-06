@@ -30,3 +30,8 @@ export async function downloadFiles(files: FileRef[], zipName: string): Promise<
   }));
   saveBlob(new Blob([buildZip(entries)], { type: 'application/zip' }), zipName);
 }
+
+/* Save text as a file. Used for CSV exports. A UTF-8 byte-order mark keeps Excel from garbling accents. */
+export function saveText(text: string, fileName: string, type = 'text/csv;charset=utf-8'): void {
+  saveBlob(new Blob(['﻿' + text], { type }), fileName);
+}

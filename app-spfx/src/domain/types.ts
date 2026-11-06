@@ -16,6 +16,8 @@ export interface DocumentRow {
   spName: string;
   dueDay: number | null;
   startPeriod: string | null;
+  legalHold: boolean;
+  holdReason: string;
 }
 export interface RevisionRow {
   id: number;

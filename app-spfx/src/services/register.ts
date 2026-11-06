@@ -19,6 +19,7 @@ import * as SU from '../domain/setup';
 import * as P from '../domain/permissions';
 import * as DR from '../domain/drafts';
 import * as TR from '../domain/transmittal';
+import * as RT from '../domain/retention';
 
 export const LISTS = {
   projects: 'Projects', projectTypes: 'ProjectTypes', projectFolders: 'ProjectFolders', templates: 'Templates',
@@ -496,12 +497,29 @@ export class Register {
     await this.log('Renewed certificate', doc.number, `version ${n} · expires ${input.expiresOn}`, doc.id);
   }
 
+  /* Latest date of any revision, upload or certificate. Retention counts from here. */
+  async lastActivityOf(documentId: number): Promise<string> {
+    const [revs, periods, certs] = await Promise.all([this.revisions(documentId), this.periods(documentId), this.certificates(documentId)]);
+    return RT.lastActivity([...revs.map(r => r.createdAt), ...periods.map(p => p.uploadedAt), ...certs.map(c => c.uploadedAt)], R.isoDay());
+  }
+  /* Legal hold: blocks removal and renaming. Only someone who can remove may place or release it. */
+  async setLegalHold(doc: DocumentRow, on: boolean, reason: string): Promise<void> {
+    const me = await this.whoAmI();
+    requireCap(me, 'remove', doc.project, doc.folder, on ? 'place a legal hold' : 'release a legal hold');
+    const errors = RT.holdErrors(reason);
+    if (Object.keys(errors).length) throw new RuleError('Please fix the highlighted fields.', errors);
+    await this.sp.web.lists.getByTitle(LISTS.documents).items.getById(doc.id).update({ LegalHold: on, HoldReason: on ? reason.trim() : '' });
+    await this.log(on ? 'Legal hold placed' : 'Legal hold released', doc.number, `${reason.trim()}`, doc.id);
+  }
   async removeDocument(doc: DocumentRow, reason: string, text: string): Promise<string> {
     const me = await this.whoAmI();
     const denied = R.canRemove(P.can(me, 'remove', doc.project, doc.folder));
     if (denied) throw new RuleError(denied);
     const errors = R.removeErrors(reason, text);
     if (Object.keys(errors).length) throw new RuleError('Please fix the highlighted fields.', errors);
+    const last = await this.lastActivityOf(doc.id);
+    const held = RT.removalBlock({ legalHold: doc.legalHold, lastActivityDay: last, today: R.isoDay() });
+    if (held) throw new RuleError(held);
     const name = `DELETED_${R.isoDay().replace(/-/g, '')}_${doc.number}.pdf`;
     await this.sp.web.lists.getByTitle(LISTS.documents).items.getById(doc.id).update({ IsRemoved: true, SharePointName: name });
     await this.log('Removed document', doc.number, `${reason}: ${text.trim()}. Renamed to ${name}. Nothing erased.`, doc.id);
@@ -523,7 +541,8 @@ function requireCap(me: Me, cap: P.Cap, project: string, folder: string, what: s
 /* ---------- row mapping ---------- */
 function toDocument(r: any): DocumentRow {
   return { id: r.Id, number: r.DocNumber, title: r.Title, project: r.ProjectCode, type: r.DocType, kind: r.DocKind as DocumentRow['kind'], folder: r.Folder,
-    owner: r.Owner, removed: !!r.IsRemoved, spName: r.SharePointName || r.DocNumber, dueDay: r.DueDay ?? null, startPeriod: r.StartPeriod ?? null };
+    owner: r.Owner, removed: !!r.IsRemoved, spName: r.SharePointName || r.DocNumber, dueDay: r.DueDay ?? null, startPeriod: r.StartPeriod ?? null,
+    legalHold: !!r.LegalHold, holdReason: r.HoldReason || '' };
 }
 function toRevision(r: any): RevisionRow {
   return { id: r.Id, documentId: r.DocumentId, n: r.RevNumber, status: r.Status, reason: r.Reason || '', summary: r.Summary || '', note: r.Note || '',

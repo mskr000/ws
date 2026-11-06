@@ -5,6 +5,7 @@ import type { DraftRow } from '../domain/drafts';
 import * as DR from '../domain/drafts';
 import { Register, RuleError, Me } from '../services/register';
 import { downloadFiles } from '../services/download';
+import * as RT from '../domain/retention';
 import * as P from '../domain/permissions';
 import { Btn, Pill, Field, Notice, Select, input, row, card, C, MONO, hint, DownloadIcon } from './ui';
 
@@ -33,6 +34,7 @@ export function DocumentPage(props: { reg: Register; id: number; me: Me; members
   const [renewOpen, setRenewOpen] = React.useState(false);
   const [renew, setRenew] = React.useState({ file: null as File | null, summary: '', expiresOn: '' });
   const [removeOpen, setRemoveOpen] = React.useState(false);
+  const [holdText, setHoldText] = React.useState('');
   const [remove, setRemove] = React.useState({ reason: '', text: '' });
   const [draft, setDraft] = React.useState({ file: null as File | null, note: '' });
   const [draftOpen, setDraftOpen] = React.useState(false);
@@ -68,6 +70,8 @@ export function DocumentPage(props: { reg: Register; id: number; me: Me; members
 
   if (!data) return <div>{msg ? <Notice tone={msg.tone}>{msg.text}</Notice> : 'Loading…'}</div>;
   const { doc, revs, periods, certs, audit, drafts } = data;
+  const lastDay = RT.lastActivity([...revs.map(r => r.createdAt), ...periods.map(p => p.uploadedAt), ...certs.map(c => c.uploadedAt)], R.isoDay());
+  const keepUntil = RT.retentionUntil(lastDay);
   /* Every stored file of this document, for the Files list and bulk download. */
   const fileItems: Array<{ key: string; name: string; label: string; date: string; url: string }> = [
     ...revs.filter(r => r.fileUrl).map(r => ({ key: `rev${r.id}`, name: r.fileName || `${doc.number}_r${r.n}`, label: doc.kind === 'working' ? `Version ${r.n}` : `Rev ${r.n} · ${REV_LABEL[r.status] || r.status}`, date: r.createdAt, url: r.fileUrl })),
@@ -226,6 +230,31 @@ export function DocumentPage(props: { reg: Register; id: number; me: Me; members
           ) : <Btn onClick={() => setRenewOpen(true)}>Upload renewal</Btn>) : null}
         </>
       ) : null}
+
+      <h2>Legal hold and retention</h2>
+      <div style={card}>
+        <div style={{ ...row, justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontWeight: 500 }}>{doc.legalHold ? <Pill tone="bad">Legal hold on</Pill> : <Pill tone="ok">No legal hold</Pill>}</div>
+            {doc.legalHold ? <div style={{ fontSize: 14, color: C.soft, marginTop: 6 }}>Reason: {doc.holdReason}. Cannot be removed or renamed until released.</div> : null}
+          </div>
+        </div>
+        <div style={{ fontSize: 14, color: C.soft, marginTop: 10 }}>
+          Kept at least until <b style={{ color: C.ink }}>{keepUntil}</b> ({RT.RETENTION_YEARS} years after the last activity on {lastDay}). Removal before that date is blocked.
+        </div>
+        {canRemove ? (
+          <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${C.line}` }}>
+            <Field label={doc.legalHold ? 'Why release the hold?' : 'Why place a legal hold?'} error={fieldErr.reason}>
+              <input aria-label="Hold reason" value={holdText} onChange={e => setHoldText(e.target.value)} style={input} placeholder="At least 10 characters" />
+            </Field>
+            <div style={row}>
+              {doc.legalHold
+                ? <Btn kind="ok" onClick={() => run(() => props.reg.setLegalHold(doc, false, holdText), 'Legal hold released.').then(() => setHoldText(''))}>Release legal hold</Btn>
+                : <Btn kind="danger" onClick={() => run(() => props.reg.setLegalHold(doc, true, holdText), 'Legal hold placed.').then(() => setHoldText(''))}>Place legal hold</Btn>}
+            </div>
+          </div>
+        ) : null}
+      </div>
 
       <h2>Remove</h2>
       {doc.removed ? (

@@ -8,8 +8,11 @@ import { ProjectsPage } from './ProjectsPage';
 import { DashboardPage } from './DashboardPage';
 import { TransmittalPage } from './TransmittalPage';
 import { AccessPage } from './AccessPage';
+import { saveText } from '../services/download';
+import { auditCsv } from '../domain/audit';
+import * as R from '../domain/rules';
 import * as P from '../domain/permissions';
-import { Segmented, Title, Notice, Table, th, td, GLOBAL_CSS, C, FONT, MONO, hint, row } from './ui';
+import { Segmented, Title, Notice, Table, th, td, GLOBAL_CSS, C, FONT, MONO, hint, row, Btn } from './ui';
 
 type View = { kind: 'dashboard' } | { kind: 'list' } | { kind: 'doc'; id: number } | { kind: 'add' } | { kind: 'transmittal' } | { kind: 'projects' } | { kind: 'access' } | { kind: 'log' };
 
@@ -72,10 +75,19 @@ export function App(props: AppProps) {
 function ActivityPage(props: { reg: Register }) {
   const [rows, setRows] = React.useState<AuditRow[] | null>(null);
   const [err, setErr] = React.useState('');
+  const exportAll = async () => {
+    try {
+      const all = await props.reg.audit(undefined, 5000);
+      saveText(auditCsv(all), `audit-log-${R.isoDay()}.csv`);
+    } catch (e) { setErr(String((e as Error).message || e)); }
+  };
   React.useEffect(() => { props.reg.audit(undefined, 200).then(setRows).catch(e => setErr(String(e.message || e))); }, []);
   return (
     <div>
-      <Title sub="Every action, newest first. Entries are added, never edited.">Activity</Title>
+      <div style={{ ...row, justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 18 }}>
+        <Title sub="Every action, newest first. Entries are added, never edited.">Activity</Title>
+        <Btn onClick={exportAll}>Export audit log (CSV)</Btn>
+      </div>
       {err ? <Notice tone="bad">{err}</Notice> : null}
       <Table minWidth={620}>
         <thead><tr><th style={th}>When</th><th style={th}>Who</th><th style={th}>Action</th><th style={th}>Document</th><th style={th}>Detail</th></tr></thead>
