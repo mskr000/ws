@@ -118,6 +118,16 @@ Ensure-Field 'CertificateVersions' 'UploadedAt' 'DateTime' 'Uploaded at'
 Ensure-List 'AuditLog' | Out-Null
 Ensure-List 'Permissions' | Out-Null
 Ensure-List 'Drafts' | Out-Null
+Ensure-List 'Transmittals' | Out-Null
+Ensure-Field 'Transmittals' 'ProjectCode' 'Text' 'Project code'
+Ensure-Field 'Transmittals' 'ToName' 'Text' 'Sent to'
+Ensure-Field 'Transmittals' 'Purpose' 'Text' 'Purpose'
+Ensure-Field 'Transmittals' 'Notes' 'Note' 'Notes'
+Ensure-Field 'Transmittals' 'LinesJson' 'Note' 'Documents (as issued)'
+Ensure-Field 'Transmittals' 'FileUrl' 'Text' 'List file link'
+Ensure-Field 'Transmittals' 'Checksum' 'Text' 'SHA-256 checksum'
+Ensure-Field 'Transmittals' 'IssuedDate' 'Text' 'Issued date'
+Ensure-Field 'Transmittals' 'IssuedBy' 'Text' 'Issued by'
 Ensure-Field 'Drafts' 'DocumentId' 'Number' 'Document ID' -Indexed
 Ensure-Field 'Drafts' 'Owner' 'Text' 'Owner'
 Ensure-Field 'Drafts' 'Note' 'Note' 'Note'
@@ -158,7 +168,7 @@ if (-not (Get-PnPRoleDefinition -Identity 'Register Add Only' -ErrorAction Silen
 
 # Stop the register lists and library inheriting access from the whole site.
 # Site owners keep access. Everyone else gets only what is set below.
-$secured = @('Projects','ProjectTypes','ProjectFolders','Templates','Documents','Revisions','PeriodEntries','CertificateVersions','AuditLog','Permissions','Drafts','Register Files')
+$secured = @('Projects','ProjectTypes','ProjectFolders','Templates','Documents','Revisions','PeriodEntries','CertificateVersions','AuditLog','Permissions','Drafts','Transmittals','Register Files')
 foreach ($l in $secured) {
   Set-PnPList -Identity $l -BreakRoleInheritance -CopyRoleAssignments:$false -ClearSubscopes | Out-Null
   Set-PnPListPermission -Identity $l -AddRole 'Full Control' -Group 'Register Records Lead' | Out-Null
@@ -179,6 +189,8 @@ Set-PnPListPermission -Identity 'Register Files' -AddRole 'Edit' -Group 'Registe
 # Drafts: members add and discard their own. The web part shows each person only their own drafts (and editors all).
 # SharePoint itself cannot hide one member's draft from another member without item-level permissions. See UPGRADING.md.
 Set-PnPListPermission -Identity 'Drafts' -AddRole 'Edit' -Group 'Register Members' | Out-Null
+# Transmittals: members issue, nobody edits a sent record.
+Set-PnPListPermission -Identity 'Transmittals' -AddRole 'Register Add Only' -Group 'Register Members' | Out-Null
 
 Write-Host ''
 Write-Host 'Done. Next: add people to the two groups, then add the Document Register web part to a page.'

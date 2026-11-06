@@ -64,7 +64,7 @@ export function App(props: AppProps) {
       {view.kind === 'log' ? <ActivityPage reg={reg} /> : null}
       {view.kind === 'dashboard' ? <DashboardPage key={version} reg={reg} me={me} onOpen={id => setView({ kind: 'doc', id })} /> : null}
       {view.kind === 'access' && P.can(me, 'permissions') ? <AccessPage reg={reg} me={me} projects={allProjects} people={members} /> : null}
-      {view.kind === 'transmittal' ? <TransmittalPage reg={reg} projects={projects} /> : null}
+      {view.kind === 'transmittal' ? <TransmittalPage reg={reg} me={me} projects={projects} /> : null}
     </div>
   );
 }

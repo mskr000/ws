@@ -3,7 +3,7 @@ import type { DocumentRow, ProjectInfo } from '../domain/types';
 import { Register } from '../services/register';
 import { Btn, Pill, Select, Title, Notice, Table, th, td, input, row, C, MONO } from './ui';
 
-const KIND: Record<string, string> = { controlled: 'Controlled', periodic: 'Recurring', record: 'Certificate' };
+const KIND: Record<string, string> = { controlled: 'Controlled', periodic: 'Recurring', record: 'Certificate', working: 'Uncontrolled' };
 
 export function DocumentList(props: { reg: Register; projects: ProjectInfo[]; onOpen: (id: number) => void; onAdd: () => void }) {
   const [docs, setDocs] = React.useState<DocumentRow[] | null>(null);

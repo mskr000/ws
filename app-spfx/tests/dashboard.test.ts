@@ -64,3 +64,19 @@ test('transmittal CSV and text carry the header and every line', () => {
   assert.match(txt, /^TRANSMITTAL/);
   assert.ok(txt.includes('U100-PID-1001\tPump layout'));
 });
+
+import { nextTransmittalNumber, emailDraft } from '../src/domain/transmittal.ts';
+
+test('transmittal numbers run per project and never repeat', () => {
+  assert.equal(nextTransmittalNumber('U100', []), 'TX-U100-0001');
+  assert.equal(nextTransmittalNumber('U100', ['TX-U100-0001', 'TX-U100-0007', 'TX-TF7-0009']), 'TX-U100-0008');
+});
+
+test('email draft has subject, greeting, document list and signature', () => {
+  const e = emailDraft({ number: 'TX-U100-0001', projectName: 'Unit 100', to: 'Client A', date: '2026-11-06', purpose: 'For review', from: 'Sam',
+    lines: [{ number: 'U100-PID-1001', title: 'Pump layout', standing: 'Current: Rev 1' }] });
+  assert.equal(e.subject, 'Transmittal TX-U100-0001 · Unit 100 · For review');
+  assert.match(e.body, /^Dear Client A,/);
+  assert.match(e.body, /U100-PID-1001 Pump layout \(Current: Rev 1\)/);
+  assert.match(e.body, /Regards,\nSam$/);
+});

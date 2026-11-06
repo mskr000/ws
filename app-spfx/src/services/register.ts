@@ -18,10 +18,11 @@ import { buildDashboard } from '../domain/dashboard';
 import * as SU from '../domain/setup';
 import * as P from '../domain/permissions';
 import * as DR from '../domain/drafts';
+import * as TR from '../domain/transmittal';
 
 export const LISTS = {
   projects: 'Projects', projectTypes: 'ProjectTypes', projectFolders: 'ProjectFolders', templates: 'Templates',
-  documents: 'Documents', revisions: 'Revisions', periods: 'PeriodEntries', certificates: 'CertificateVersions', audit: 'AuditLog', grants: 'Permissions', drafts: 'Drafts',
+  documents: 'Documents', revisions: 'Revisions', periods: 'PeriodEntries', certificates: 'CertificateVersions', audit: 'AuditLog', grants: 'Permissions', drafts: 'Drafts', transmittals: 'Transmittals',
 } as const;
 export const LIBRARY = 'Register Files';
 export const GROUPS = { members: 'Register Members', records: 'Register Records Lead' } as const;
@@ -288,7 +289,7 @@ export class Register {
     if (input.type.kind === 'controlled') {
       Object.assign(errors, R.revisionErrors({ uploader: me.name, checker: input.checker || '', approver: input.approver || '', reason: input.reason || '',
         summary: input.summary || '', note: input.note || '', file: file ? { name: file.name, size: file.size } : null }));
-    } else if (!/^\d{4}-\d{2}-\d{2}$/.test(input.expiresOn || '') || (input.expiresOn || '') <= R.isoDay()) {
+    } else if (input.type.kind === 'record' && (!/^\d{4}-\d{2}-\d{2}$/.test(input.expiresOn || '') || (input.expiresOn || '') <= R.isoDay())) {
       errors.expiresOn = 'Enter an expiry date after today.';
     }
     if (Object.keys(errors).length) throw new RuleError('Please fix the highlighted fields.', errors);
@@ -305,6 +306,12 @@ export class Register {
         Note: input.note!.trim(), Uploader: me.name, Checker: input.checker, Approver: input.approver, FileName: file!.name, FileUrl: up.url, Checksum: up.checksum,
       });
       await this.log('Created document', number, `${title} · rev 0 waiting for ${input.checker}`, id);
+    } else if (input.type.kind === 'working') {
+      await this.sp.web.lists.getByTitle(LISTS.revisions).items.add({
+        Title: `${number} v0`, DocumentId: id, RevNumber: 0, Status: 'Working', Summary: input.summary!.trim(), Uploader: me.name,
+        FileName: file!.name, FileUrl: up.url, Checksum: up.checksum,
+      });
+      await this.log('Created uncontrolled document', number, `${title} · no check or approval`, id);
     } else {
       await this.sp.web.lists.getByTitle(LISTS.certificates).items.add({
         Title: `${number} v0`, DocumentId: id, VersionNo: 0, Summary: input.summary!.trim(), ExpiresOn: input.expiresOn, Uploader: me.name,
@@ -377,6 +384,51 @@ export class Register {
       Title: `${doc.number} ${key}`, DocumentId: doc.id, PeriodKey: key, Version: 1, NotNeeded: true, NotNeededReason: reason.trim(), Uploader: me.name, UploadedAt: new Date().toISOString(),
     });
     await this.log('Marked not needed', doc.number, `${key}: ${reason.trim()}`, doc.id);
+  }
+
+  /* ---------- uncontrolled documents ---------- */
+  /* A new version of an uncontrolled document. No check, no approval. The owner, or anyone who can edit any document, uploads. */
+  async uploadWorking(doc: DocumentRow, revs: RevisionRow[], input: { file: File | null; summary: string }): Promise<void> {
+    const me = await this.whoAmI();
+    const denied = R.canUploadSeries(doc.owner, me.name, P.can(me, 'edit_any', doc.project, doc.folder));
+    if (denied) throw new RuleError(denied);
+    const errors = { ...R.fileErrors(input.file ? { name: input.file.name, size: input.file.size } : null), ...R.summaryErrors(input.summary) };
+    if (Object.keys(errors).length) throw new RuleError('Please fix the highlighted fields.', errors);
+    const n = nextVersion(revs.map(r => r.n));
+    const up = await this.upload(`${doc.number}_v${n}_${input.file!.name}`, input.file!);
+    await this.sp.web.lists.getByTitle(LISTS.revisions).items.add({
+      Title: `${doc.number} v${n}`, DocumentId: doc.id, RevNumber: n, Status: 'Working', Summary: input.summary.trim(), Uploader: me.name,
+      FileName: input.file!.name, FileUrl: up.url, Checksum: up.checksum,
+    });
+    await this.log('Uploaded new version', doc.number, `v${n} · no check or approval`, doc.id);
+  }
+
+  /* ---------- transmittals ---------- */
+  async transmittals(project: string): Promise<TR.TransmittalRow[]> {
+    const rows = await this.sp.web.lists.getByTitle(LISTS.transmittals).items
+      .select('Id', 'Title', 'ProjectCode', 'ToName', 'Purpose', 'Notes', 'LinesJson', 'FileUrl', 'Checksum', 'IssuedDate', 'IssuedBy')
+      .filter(`ProjectCode eq ${odataString(project)}`).orderBy('Id', false).top(500)();
+    return rows.map((r: any) => ({ id: r.Id, number: r.Title, project: r.ProjectCode, to: r.ToName || '', date: r.IssuedDate || '', purpose: r.Purpose || '',
+      notes: r.Notes || '', lines: JSON.parse(r.LinesJson || '[]'), fileUrl: r.FileUrl || '', checksum: r.Checksum || '', issuedBy: r.IssuedBy || '' }));
+  }
+  /* Records the transmittal, files its list in the library, and logs it. The list is kept as it was issued. */
+  async issueTransmittal(input: { project: string; to: string; purpose: string; notes: string; lines: TR.TransmittalLine[] }): Promise<string> {
+    const me = await this.whoAmI();
+    if (!input.to.trim()) throw new RuleError('Say who it is for.', { to: 'Say who it is for.' });
+    if (!input.purpose.trim()) throw new RuleError('Say why it is sent.', { purpose: 'Say why it is sent.' });
+    if (!input.lines.length) throw new RuleError('Choose at least one document.');
+    const existing = (await this.transmittals(input.project)).map(t => t.number);
+    const number = TR.nextTransmittalNumber(input.project, existing);
+    const date = R.isoDay();
+    const csv = TR.transmittalCsv({ to: input.to.trim(), date, purpose: input.purpose.trim(), notes: input.notes.trim(), lines: input.lines });
+    const file = new File(['\uFEFF' + csv], `${number}.csv`, { type: 'text/csv' });
+    const up = await this.upload(`${number}.csv`, file);
+    await this.sp.web.lists.getByTitle(LISTS.transmittals).items.add({
+      Title: number, ProjectCode: input.project, ToName: input.to.trim(), Purpose: input.purpose.trim(), Notes: input.notes.trim(),
+      LinesJson: JSON.stringify(input.lines), FileUrl: up.url, Checksum: up.checksum, IssuedDate: date, IssuedBy: me.name,
+    });
+    await this.log('Issued transmittal', number, `${input.to.trim()} · ${input.purpose.trim()} · ${input.lines.length} document(s)`);
+    return number;
   }
 
   /* ---------- working drafts ---------- */
@@ -475,7 +527,7 @@ function toRevision(r: any): RevisionRow {
 }
 function toPeriod(r: any): PeriodRow {
   return { id: r.Id, documentId: r.DocumentId, periodKey: r.PeriodKey, version: r.Version || 1, notNeeded: !!r.NotNeeded, notNeededReason: r.NotNeededReason || '',
-    summary: r.Summary || '', uploader: r.Uploader || '', uploadedAt: r.UploadedAt || null, fileUrl: r.FileUrl || '', replaceReason: r.ReplaceReason || '', checksum: r.Checksum || '' };
+    summary: r.Summary || '', uploader: r.Uploader || '', uploadedAt: r.UploadedAt || null, fileUrl: r.FileUrl || '', replaceReason: r.ReplaceReason || '', checksum: r.Checksum || '', fileName: r.FileName || '' };
 }
 function toCert(r: any): CertRow {
   return { id: r.Id, documentId: r.DocumentId, n: r.VersionNo, summary: r.Summary || '', expiresOn: r.ExpiresOn, uploader: r.Uploader || '',

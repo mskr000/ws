@@ -49,6 +49,7 @@ export interface PeriodRow {
   fileUrl: string;
   replaceReason: string;
   checksum: string;
+  fileName: string;
 }
 export interface CertRow {
   id: number;

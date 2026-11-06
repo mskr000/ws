@@ -4,14 +4,20 @@ import * as R from '../domain/rules';
 import type { DraftRow } from '../domain/drafts';
 import * as DR from '../domain/drafts';
 import { Register, RuleError, Me } from '../services/register';
+import { downloadFiles } from '../services/download';
 import * as P from '../domain/permissions';
 import { Btn, Pill, Field, Notice, Select, input, row, card, C, MONO, hint } from './ui';
 
-const KIND: Record<string, string> = { controlled: 'Controlled', periodic: 'Recurring', record: 'Certificate' };
+const KIND: Record<string, string> = { controlled: 'Controlled', periodic: 'Recurring', record: 'Certificate', working: 'Uncontrolled' };
 const REV_TONE: Record<string, 'ok' | 'wait' | 'bad' | 'check' | 'none'> = { Submitted: 'wait', Checked: 'check', Approved: 'ok', Returned: 'bad' };
 const REV_LABEL: Record<string, string> = { Submitted: 'Waiting for check', Checked: 'Waiting for approval', Approved: 'Approved', Returned: 'Sent back' };
 const PERIOD_LABEL: Record<string, [string, 'ok' | 'wait' | 'bad' | 'check' | 'old' | 'none']> = {
   on_time: ['On time', 'ok'], late: ['Late', 'wait'], missing: ['Missing', 'bad'], open: ['Open', 'check'], not_needed: ['Not needed', 'old'], upcoming: ['', 'none'] };
+
+/* A plain download link for one stored file. */
+function DownloadLink(props: { url: string; name: string }) {
+  return <a href={props.url} download={props.name} style={{ color: C.accent, fontSize: 13, textDecoration: 'none', whiteSpace: 'nowrap' }}>Download</a>;
+}
 
 interface Loaded { doc: DocumentRow; revs: RevisionRow[]; periods: PeriodRow[]; certs: CertRow[]; audit: AuditRow[]; drafts: DraftRow[] }
 
@@ -30,13 +36,17 @@ export function DocumentPage(props: { reg: Register; id: number; me: Me; members
   const [remove, setRemove] = React.useState({ reason: '', text: '' });
   const [draft, setDraft] = React.useState({ file: null as File | null, note: '' });
   const [draftOpen, setDraftOpen] = React.useState(false);
+  const [picked, setPicked] = React.useState<string[]>([]);
+  const [wv, setWv] = React.useState({ file: null as File | null, summary: '' });
+  const [wvOpen, setWvOpen] = React.useState(false);
+  const [zipping, setZipping] = React.useState(false);
 
   const load = React.useCallback(async () => {
     const docs = await props.reg.documents();
     const doc = docs.find(d => d.id === props.id);
     if (!doc) { setMsg({ tone: 'bad', text: 'This document was not found.' }); return; }
     const [revs, periods, certs, audit] = await Promise.all([
-      doc.kind === 'controlled' ? props.reg.revisions(doc.id) : Promise.resolve([] as RevisionRow[]),
+      doc.kind === 'controlled' || doc.kind === 'working' ? props.reg.revisions(doc.id) : Promise.resolve([] as RevisionRow[]),
       doc.kind === 'periodic' ? props.reg.periods(doc.id) : Promise.resolve([] as PeriodRow[]),
       doc.kind === 'record' ? props.reg.certificates(doc.id) : Promise.resolve([] as CertRow[]),
       props.reg.audit(doc.id, 30),
@@ -58,6 +68,21 @@ export function DocumentPage(props: { reg: Register; id: number; me: Me; members
 
   if (!data) return <div>{msg ? <Notice tone={msg.tone}>{msg.text}</Notice> : 'Loading…'}</div>;
   const { doc, revs, periods, certs, audit, drafts } = data;
+  /* Every stored file of this document, for the Files list and bulk download. */
+  const fileItems: Array<{ key: string; name: string; label: string; date: string; url: string }> = [
+    ...revs.filter(r => r.fileUrl).map(r => ({ key: `rev${r.id}`, name: r.fileName || `${doc.number}_r${r.n}`, label: doc.kind === 'working' ? `Version ${r.n}` : `Rev ${r.n} · ${REV_LABEL[r.status] || r.status}`, date: r.createdAt, url: r.fileUrl })),
+    ...periods.filter(p => p.fileUrl).map(p => ({ key: `per${p.id}`, name: p.fileName || `${doc.number}_${p.periodKey}_v${p.version}`, label: `${p.periodKey} · version ${p.version}`, date: p.uploadedAt || '', url: p.fileUrl })),
+    ...certs.filter(c => c.fileUrl).map(c => ({ key: `cert${c.id}`, name: c.fileName || `${doc.number}_v${c.n}`, label: `Certificate version ${c.n}`, date: c.uploadedAt, url: c.fileUrl })),
+    ...drafts.filter(d => d.fileUrl).map(d => ({ key: `drf${d.id}`, name: d.fileName, label: `Draft by ${d.owner}`, date: d.createdAt, url: d.fileUrl })),
+  ];
+  const chosen = fileItems.filter(f => picked.includes(f.key));
+  const toggleAll = () => setPicked(picked.length === fileItems.length ? [] : fileItems.map(f => f.key));
+  const bulk = async () => {
+    setZipping(true); setMsg(null);
+    try { await downloadFiles(chosen.map(f => ({ url: f.url, name: f.name })), `${doc.number}_files.zip`); }
+    catch (e) { setMsg({ tone: 'bad', text: String((e as Error).message || e) }); }
+    finally { setZipping(false); }
+  };
   const cur = revs.filter(r => r.status === 'Approved').slice(-1)[0];
   const last = revs.length ? revs[revs.length - 1] : undefined;
   const isOwner = props.me.name === doc.owner;
@@ -75,7 +100,7 @@ export function DocumentPage(props: { reg: Register; id: number; me: Me; members
         <div style={{ fontSize: 13, color: C.soft }}>{r.createdAt.slice(0, 10)} · added by {r.uploader} · {r.reason} · checker {r.checker} · approver {r.approver}</div>
         <div style={{ margin: '6px 0', background: C.bg, border: `1px solid ${C.line}`, borderRadius: 9, padding: '9px 11px' }}>{r.summary}</div>
         {r.returnNote ? <Notice tone="warn">Sent back: {r.returnNote}</Notice> : null}
-        {r.fileUrl ? <div style={{ fontSize: 13 }}><a href={r.fileUrl} target="_blank" rel="noopener noreferrer">Open {r.fileName}</a></div> : null}
+        {r.fileUrl ? <div style={{ fontSize: 13, ...row }}><span>{r.fileName}</span><DownloadLink url={r.fileUrl} name={r.fileName || `${doc.number}_r${r.n}`} /></div> : null}
         <div style={{ fontSize: 12, color: C.soft, fontFamily: MONO, wordBreak: 'break-all' }}>SHA-256 {r.checksum || 'not recorded'}</div>
         <div style={{ ...row, marginTop: 8 }}>
           {canCheckIt ? <Btn kind="ok" onClick={() => run(() => props.reg.check(r, doc), 'Checked. Waiting for the approver.')}>Check</Btn> : null}
@@ -147,7 +172,7 @@ export function DocumentPage(props: { reg: Register; id: number; me: Me; members
                       <td style={{ padding: 10 }}>{R.dueDate(key, doc.dueDay || 1)}</td>
                       <td style={{ padding: 10 }}>{label ? <Pill tone={tone}>{label}</Pill> : null}</td>
                       <td style={{ padding: 10 }}>{latest ? latest.uploader : '—'}</td>
-                      <td style={{ padding: 10, fontSize: 13 }}>{latest ? (latest.notNeeded ? `Not needed: ${latest.notNeededReason}` : latest.summary) : ''}</td>
+                      <td style={{ padding: 10, fontSize: 13 }}>{latest ? (latest.notNeeded ? `Not needed: ${latest.notNeededReason}` : latest.summary) : ''}{latest && latest.fileUrl ? <div style={{ marginTop: 4 }}><DownloadLink url={latest.fileUrl} name={latest.fileName || `${doc.number}_${latest.periodKey}`} /></div> : null}</td>
                       <td style={{ padding: 10 }}>
                         {st !== 'upcoming' && canUpload && !doc.removed ? <>
                           <Btn onClick={() => setPeriod({ key, mode: 'upload' })}>{latest && !latest.notNeeded ? 'Replace' : 'Upload'}</Btn>{' '}
@@ -188,7 +213,7 @@ export function DocumentPage(props: { reg: Register; id: number; me: Me; members
             {certs.length ? (() => { const v = certs[certs.length - 1]; const s = R.recordState(v.expiresOn);
               return <><Pill tone={s.state === 'valid' ? 'ok' : s.state === 'expiring' ? 'wait' : 'bad'}>{s.state === 'valid' ? 'Valid' : s.state === 'expiring' ? 'Expiring soon' : 'Expired'}</Pill>
                 <div style={{ marginTop: 8 }}><b>Expires</b> {v.expiresOn} · {s.days < 0 ? 'expired' : `${s.days} days left`}</div>
-                <div style={{ fontSize: 13, color: C.soft }}>{v.fileName} · uploaded {v.uploadedAt.slice(0, 10)} by {v.uploader}</div>
+                <div style={{ fontSize: 13, color: C.soft, ...row }}><span>{v.fileName} · uploaded {v.uploadedAt.slice(0, 10)} by {v.uploader}</span>{v.fileUrl ? <DownloadLink url={v.fileUrl} name={v.fileName || doc.number} /> : null}</div>
                 <div>{v.summary}</div></>; })() : <span style={{ color: C.soft }}>No certificate yet.</span>}
           </div>
           {!doc.removed && canUpload ? (renewOpen ? (
@@ -252,6 +277,47 @@ export function DocumentPage(props: { reg: Register; id: number; me: Me; members
               </div>
             </section>
           ) : <Btn onClick={() => setDraftOpen(true)}>Add a draft</Btn>}
+        </>
+      ) : null}
+
+      {fileItems.length ? (
+        <>
+          <h2>Files</h2>
+          <div style={{ ...row, marginBottom: 10 }}>
+            <Btn onClick={toggleAll}>{picked.length === fileItems.length ? 'Clear selection' : 'Select all'}</Btn>
+            <Btn kind="primary" disabled={!chosen.length || zipping} onClick={bulk}>{zipping ? 'Preparing…' : chosen.length === 0 ? 'Download selected' : chosen.length === 1 ? 'Download' : `Download ${chosen.length} as ZIP`}</Btn>
+          </div>
+          <div style={{ ...card, padding: 0, overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 520 }}>
+              <tbody>
+                {fileItems.map(f => (
+                  <tr key={f.key} style={{ borderBottom: `1px solid ${C.line}` }}>
+                    <td style={{ padding: 10, width: 36 }}><input type="checkbox" aria-label={`Select ${f.name}`} checked={picked.includes(f.key)} onChange={() => setPicked(p => p.includes(f.key) ? p.filter(x => x !== f.key) : [...p, f.key])} /></td>
+                    <td style={{ padding: 10 }}><div style={{ fontWeight: 500 }}>{f.name}</div><div style={{ fontSize: 13, color: C.soft }}>{f.label}{f.date ? ` · ${f.date.slice(0, 10)}` : ''}</div></td>
+                    <td style={{ padding: 10, textAlign: 'right' }}><DownloadLink url={f.url} name={f.name} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ ...hint, marginTop: 6 }}>Pick several and download them together as one ZIP.</div>
+        </>
+      ) : null}
+
+      {doc.kind === 'working' && !doc.removed ? (
+        <>
+          <h2>New version</h2>
+          <div style={{ ...hint, marginBottom: 10 }}>An uncontrolled document. No check and no approval. The new version becomes the latest. Earlier versions stay in Files.</div>
+          {wvOpen ? (
+            <section style={card}>
+              <Field label="File" error={fieldErr.file}><input type="file" aria-label="Version file" onChange={e => setWv({ ...wv, file: e.target.files?.[0] || null })} /></Field>
+              <Field label="What changed?" error={fieldErr.summary}><input aria-label="Version summary" value={wv.summary} onChange={e => setWv({ ...wv, summary: e.target.value })} style={input} /></Field>
+              <div style={row}>
+                <Btn kind="primary" onClick={() => run(async () => { await props.reg.uploadWorking(doc, revs, wv); setWv({ file: null, summary: '' }); setWvOpen(false); }, 'New version uploaded.')}>Upload version</Btn>
+                <Btn onClick={() => setWvOpen(false)}>Cancel</Btn>
+              </div>
+            </section>
+          ) : canUpload ? <Btn onClick={() => setWvOpen(true)}>Upload new version</Btn> : null}
         </>
       ) : null}
 

@@ -1,9 +1,9 @@
 import * as React from 'react';
 import type { ProjectInfo } from '../domain/types';
 import * as R from '../domain/rules';
-import { transmittalCsv, transmittalText, TransmittalLine } from '../domain/transmittal';
-import { Register } from '../services/register';
-import { Btn, Field, Notice, Select, Title, Table, th, td, card, input, row, C, MONO, hint } from './ui';
+import { transmittalCsv, transmittalText, TransmittalLine, TransmittalRow, nextTransmittalNumber, emailDraft } from '../domain/transmittal';
+import { Register, Me } from '../services/register';
+import { Btn, Field, Notice, Select, Title, Section, Table, th, td, card, input, row, C, MONO, FONT, hint } from './ui';
 
 /* Where a document stands, in words, for the cover list. */
 async function standingOf(reg: Register, d: { id: number; kind: string }): Promise<string> {
@@ -22,7 +22,7 @@ async function standingOf(reg: Register, d: { id: number; kind: string }): Promi
   return certs[0] ? `Certificate expires ${certs[0].expiresOn}` : 'No certificate on file';
 }
 
-export function TransmittalPage(props: { reg: Register; projects: ProjectInfo[] }) {
+export function TransmittalPage(props: { reg: Register; me: Me; projects: ProjectInfo[] }) {
   const [project, setProject] = React.useState(props.projects[0]?.code || '');
   const [rows, setRows] = React.useState<Array<TransmittalLine & { id: number }> | null>(null);
   const [picked, setPicked] = React.useState<number[]>([]);
@@ -31,7 +31,13 @@ export function TransmittalPage(props: { reg: Register; projects: ProjectInfo[] 
   const [notes, setNotes] = React.useState('');
   const [err, setErr] = React.useState('');
   const [msg, setMsg] = React.useState('');
+  const [issued, setIssued] = React.useState<TransmittalRow[]>([]);
+  const [busy, setBusy] = React.useState(false);
   const today = R.isoDay();
+  const reloadIssued = React.useCallback(() => {
+    if (project) props.reg.transmittals(project).then(setIssued).catch(e => setErr(String((e as Error).message || e)));
+  }, [project, props.reg]);
+  React.useEffect(() => { reloadIssued(); }, [reloadIssued]);
 
   React.useEffect(() => {
     if (!project) return;
@@ -61,6 +67,24 @@ export function TransmittalPage(props: { reg: Register; projects: ProjectInfo[] 
   const copy = async () => {
     try { await navigator.clipboard.writeText(text); setMsg('Copied. Paste it into an email.'); }
     catch { setMsg('Could not copy here. Select the text below and copy it.'); }
+  };
+  const issue = async () => {
+    setBusy(true); setErr(''); setMsg('');
+    try {
+      const number = await props.reg.issueTransmittal({ project, to, purpose, notes, lines: chosen.map(({ number, title, standing }) => ({ number, title, standing })) });
+      setMsg(`Issued ${number}. It is recorded and the list is saved in the register.`);
+      setPicked([]);
+      reloadIssued();
+    } catch (e) {
+      setErr(String((e as Error).message || e));
+    } finally { setBusy(false); }
+  };
+  const nextNo = nextTransmittalNumber(project, issued.map(t => t.number));
+  const projectName = props.projects.find(p => p.code === project)?.name || project;
+  const mail = emailDraft({ number: nextNo, projectName, to, date: today, purpose, from: props.me.name, lines: input_.lines });
+  const copyMail = async () => {
+    try { await navigator.clipboard.writeText(`Subject: ${mail.subject}\n\n${mail.body}`); setMsg('Email copied. Paste it into Outlook and attach the list.'); }
+    catch { setMsg('Could not copy here. Select the email text and copy it.'); }
   };
   const toggle = (id: number) => setPicked(p => (p.includes(id) ? p.filter(x => x !== id) : [...p, id]));
 
@@ -105,9 +129,39 @@ export function TransmittalPage(props: { reg: Register; projects: ProjectInfo[] 
         <div style={{ ...row, marginTop: 12 }}>
           <Btn kind="primary" disabled={chosen.length === 0} onClick={download}>Save as CSV</Btn>
           <Btn disabled={chosen.length === 0} onClick={copy}>Copy text</Btn>
+          <Btn kind="primary" disabled={chosen.length === 0 || busy} onClick={issue}>{busy ? 'Issuing…' : `Issue as ${nextNo}`}</Btn>
         </div>
         {msg ? <div style={{ ...hint, marginTop: 10 }}>{msg}</div> : null}
+        {err ? <Notice tone="bad">{err}</Notice> : null}
       </div>
+
+      <Section title="Email text">
+        <div style={card}>
+          <div style={{ ...hint, marginBottom: 8 }}>Copied, not sent. Attach the saved list. Sending from the register needs a mail connection. See TRANSMITTAL_DESIGN.md.</div>
+          <pre aria-label="Email text" style={{ margin: 0, background: C.bg, borderRadius: 10, padding: 14, fontFamily: FONT, fontSize: 14, whiteSpace: 'pre-wrap' }}>{`Subject: ${mail.subject}\n\n${mail.body}`}</pre>
+          <div style={{ ...row, marginTop: 12 }}><Btn disabled={chosen.length === 0} onClick={copyMail}>Copy email</Btn></div>
+        </div>
+      </Section>
+
+      <Section title="Issued transmittals">
+        <Table minWidth={620}>
+          <thead><tr><th style={th}>Number</th><th style={th}>Date</th><th style={th}>To</th><th style={th}>Purpose</th><th style={th}>Documents</th><th style={th}>Issued by</th><th style={th} /></tr></thead>
+          <tbody>
+            {issued.length === 0 ? <tr><td style={{ ...td, color: C.soft }} colSpan={7}>None issued for this project yet.</td></tr> : null}
+            {issued.map(t => (
+              <tr key={t.id} className="dr-row">
+                <td style={{ ...td, fontFamily: MONO, fontSize: 13 }}>{t.number}</td>
+                <td style={td}>{t.date}</td>
+                <td style={td}>{t.to}</td>
+                <td style={td}>{t.purpose}</td>
+                <td style={td}>{t.lines.length}</td>
+                <td style={td}>{t.issuedBy}</td>
+                <td style={{ ...td, textAlign: 'right' }}>{t.fileUrl ? <a href={t.fileUrl} download={`${t.number}.csv`} style={{ color: C.accent, fontSize: 14 }}>Download list</a> : null}</td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      </Section>
     </div>
   );
 }

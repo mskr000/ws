@@ -22,3 +22,12 @@
 - Provisioning adds a Drafts list.
 - Known limit: SharePoint itself does not hide one member's draft from another member. The app hides it. Item-level permissions would close this.
 - Tests: 33 + 12 automated checks in the SharePoint package.
+
+## 0.7.0 (2026-11-06)
+- Download on every file: revisions, monthly uploads, certificates, drafts.
+- Files list on each document: select some, or all, and download. One file downloads directly; several come as one ZIP.
+- Uncontrolled documents: a new type. Upload and version freely. No check or approval.
+- Transmittals are recorded: numbered per project (TX-U100-0001), saved as a list file with a checksum, logged in the audit trail. Issued records cannot be edited.
+- Email text built from the transmittal. Copy it; sending is not built yet. See TRANSMITTAL_DESIGN.md.
+- Provisioning adds a Transmittals list.
+- Tests: 38 + 12 automated checks.

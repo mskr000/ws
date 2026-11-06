@@ -1,10 +1,11 @@
 /* Business rules for the Document Register. Pure functions: no SharePoint, no browser.
    Ported from app/src/rules.js. Changing a rule here means changing its test too. */
 
-export type DocKind = 'controlled' | 'periodic' | 'record';
-export type RevStatus = 'Submitted' | 'Checked' | 'Approved' | 'Returned';
+export type DocKind = 'controlled' | 'periodic' | 'record' | 'working';
+/* 'Working' is an uncontrolled upload: no check, no approval. */
+export type RevStatus = 'Submitted' | 'Checked' | 'Approved' | 'Returned' | 'Working';
 
-export const KINDS: DocKind[] = ['controlled', 'periodic', 'record'];
+export const KINDS: DocKind[] = ['controlled', 'periodic', 'record', 'working'];
 export const REASONS = ['Design change', 'Client comment', 'Vendor data', 'Error fix', 'Scope change', 'As-built'];
 export const ALLOWED_EXT = ['pdf', 'docx', 'xlsx', 'xlsm', 'dwg', 'zip'];
 export const MAX_BYTES = 50 * 1024 * 1024;

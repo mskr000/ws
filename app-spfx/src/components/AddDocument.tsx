@@ -55,8 +55,8 @@ export function AddDocument(props: { reg: Register; me: Me; projects: ProjectInf
           <Select label="Document type" value={typeCode} onChange={setTypeCode} placeholder="Choose…" options={types.map(t => [t.code, `${t.code} · ${t.label}`])} />
         </Field>
       </div>
-      {type ? <Notice tone="info"><b>{type.kind === 'controlled' ? 'Controlled' : type.kind === 'periodic' ? 'Recurring' : 'Certificate'}.</b>{' '}
-        {type.kind === 'controlled' ? 'Upload, check and approve. Revisions.' : type.kind === 'periodic' ? 'Set up a monthly series. Each month is uploaded. No approval.' : 'Upload with an expiry date. Renew before expiry.'}
+      {type ? <Notice tone="info"><b>{type.kind === 'controlled' ? 'Controlled' : type.kind === 'periodic' ? 'Recurring' : type.kind === 'working' ? 'Uncontrolled' : 'Certificate'}.</b>{' '}
+        {type.kind === 'controlled' ? 'Upload, check and approve. Revisions.' : type.kind === 'periodic' ? 'Set up a monthly series. Each month is uploaded. No approval.' : type.kind === 'working' ? 'Your working file. No check, no approval. Anyone in the register can download it. Upload new versions as you go.' : 'Upload with an expiry date. Renew before expiry.'}
         <br />Number: <b style={{ fontFamily: MONO }}>{preview}</b> (filled in automatically) · Folder: {type.folder.split('/').join(' › ')}</Notice> : null}
       <Field label="Title" error={errors.title}><input aria-label="Title" value={f.title} onChange={e => setF({ ...f, title: e.target.value })} style={input} /></Field>
       <Field label="Owner" error={errors.owner}>{people(f.owner, v => setF({ ...f, owner: v }), 'Owner')}</Field>
@@ -70,7 +70,7 @@ export function AddDocument(props: { reg: Register; me: Me; projects: ProjectInf
         <>
           <Field label="File" error={errors.file} help="PDF, Word, Excel, DWG or ZIP. Up to 50 MB."><input type="file" aria-label="File" onChange={e => setF({ ...f, file: e.target.files?.[0] || null })} /></Field>
           <Field label="One-line summary" error={errors.summary} help="What changed, and why."><input aria-label="Summary" value={f.summary} onChange={e => setF({ ...f, summary: e.target.value })} style={input} /></Field>
-          {type.kind === 'record' ? (
+          {type.kind === 'working' ? null : type.kind === 'record' ? (
             <Field label="Expiry date" error={errors.expiresOn}><input aria-label="Expiry date" type="date" value={f.expiresOn} onChange={e => setF({ ...f, expiresOn: e.target.value })} style={{ ...input, maxWidth: 220 }} /></Field>
           ) : (
             <>

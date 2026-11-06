@@ -33,6 +33,7 @@ export const DOC_TYPES: DocTypeDef[] = [
   { code: 'ITP', label: 'Inspection and test plan', kind: 'controlled', folder: 'EPC/04 Construction/04.2 Inspection & Test Plans' },
   { code: 'ABD', label: 'As-built drawing', kind: 'controlled', folder: 'EPC/06 Handover/06.1 As-Built' },
   { code: 'OM', label: 'O&M manual', kind: 'controlled', folder: 'EPC/06 Handover/06.2 O&M Manuals' },
+  { code: 'WRK', label: 'Working document (uncontrolled)', kind: 'working', folder: 'Working documents' },
   { code: 'MAN', label: 'Operations manual', kind: 'controlled', folder: 'Operations/01 Manuals' },
   { code: 'SOP', label: 'Standard operating procedure', kind: 'controlled', folder: 'Operations/02 SOPs' },
   { code: 'MNT', label: 'Monthly maintenance check', kind: 'periodic', folder: 'Operations/03 Maintenance' },
